@@ -631,6 +631,8 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 #pwa-dismiss-btn{padding:6px 10px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);
   border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;}
 
+.sw-mobile-sel{display:none;}
+
 /* ══ 휴대폰 화면 (폭 760px 이하): 데스크톱의 가로 배치를 세로 한 줄로 바꾸고 페이지를 스크롤시킨다 (2026-11)
    기능·자바스크립트는 그대로. display:contents 로 사이드바·패널 묶음을 풀고 order 로 순서만 다시 매긴다. ══ */
 @media (max-width:760px){
@@ -677,6 +679,12 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
   .dg-stat-panel{order:6;border-left:none;}
   /* 저장 탭 · 시간표 편집 탭 */
   .sw-dg-col,.sw-left,.sw-preview,.sw-saved,.sw-main,.sw-stat{flex:none;border-right:none;border-bottom:2px solid var(--border);}
+  /* 저장 탭: 선택한 칸만 보임 */
+  .sw-mobile-sel{display:flex;gap:4px;padding:6px 8px;background:var(--white);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5;}
+  .sw-mobile-sel button{flex:1;padding:7px 0;font-size:13px;font-weight:700;border:1.5px solid var(--border2);border-radius:6px;background:var(--s1);color:var(--text2);font-family:inherit;}
+  .sw-mobile-sel button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  #swApp:not(.m-dg) .sw-dg-col,#swApp:not(.m-sw) .sw-left,#swApp:not(.m-pv) .sw-preview{display:none;}
+  #swApp .sw2-list,#swApp .rec-tbl-wrap,#swApp .sw-preview-scroll{max-height:none;}   /* 한 칸만 보이므로 페이지 스크롤로 전부 보여줌 */
   .tt-edit-sidebar{width:100%;border-right:none;}
   .dg-rec-tbl,.dg-hist-tbl{min-width:0;}
   .rec-tbl td,.rec-tbl th{white-space:nowrap;}         /* 교체 내역은 가로 스크롤(이름이 세로로 쪼개지지 않게) */
@@ -1123,7 +1131,14 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 
 <!-- ══ 교체 기록 탭 ══ -->
 <div class="tab-pane" id="tab-swaphist">
-<div class="sw-app">
+<div class="sw-app m-dg" id="swApp">
+
+  <!-- 휴대폰: 세 칸(대강·교체·미리보기) 중 하나만 골라서 봄. 데스크톱에서는 숨김(CSS) -->
+  <div class="sw-mobile-sel" id="swMobileSel">
+    <button class="on" onclick="swMobileShow('dg',this)">대강 내역</button>
+    <button onclick="swMobileShow('sw',this)">교체 내역</button>
+    <button onclick="swMobileShow('pv',this)">출력 미리보기</button>
+  </div>
 
   <!-- ① 왼쪽: 대강 내역 -->
   <div class="sw-dg-col">
@@ -5485,6 +5500,13 @@ function ttDoChangePw(){
   if(btn){ const o=btn.textContent; btn.textContent='✅ 변경됨'; setTimeout(()=>btn.textContent=o,1800); }
 }
 
+/* 휴대폰 저장 탭: 대강·교체·미리보기 중 하나만 표시 */
+function swMobileShow(which, btn){
+  const app=document.getElementById('swApp'); if(!app) return;
+  app.classList.remove('m-dg','m-sw','m-pv'); app.classList.add('m-'+which);
+  document.querySelectorAll('#swMobileSel button').forEach(b=>b.classList.toggle('on', b===btn));
+  window.scrollTo(0,0);
+}
 function switchTab(tab){
   // 시간표 편집 탭은 잠금 해제 확인 후 진입
   if(tab==='timetable' && !TTE.unlocked){
