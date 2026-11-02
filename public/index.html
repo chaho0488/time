@@ -636,9 +636,9 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 /* ══ 휴대폰 화면 (폭 760px 이하): 데스크톱의 가로 배치를 세로 한 줄로 바꾸고 페이지를 스크롤시킨다 (2026-11)
    기능·자바스크립트는 그대로. display:contents 로 사이드바·패널 묶음을 풀고 order 로 순서만 다시 매긴다. ══ */
 @media (max-width:760px){
-  html,body{height:auto;overflow:auto;}
-  body{display:block;}
-  .hdr{height:auto;flex-wrap:wrap;padding:6px 8px;gap:6px;position:sticky;top:0;}
+  html,body{height:auto!important;overflow:visible!important;}   /* 화면 전체를 브라우저 기본 방식으로 스크롤 (휴대폰 브라우저에서 html·body에 overflow:auto를 주면 스크롤이 막히는 경우가 있어 visible로 둠) */
+  body{display:block;min-height:100%;overscroll-behavior:auto;}
+  .hdr{height:auto;flex-wrap:wrap;padding:6px 8px;gap:6px;}
   .hdr-title{display:none;}
   .hdr-tabs{margin-left:0;order:1;width:100%;display:flex;}
   .hdr-tabs .hdr-tab{flex:1;padding:6px 4px;font-size:12px;}
