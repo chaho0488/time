@@ -631,64 +631,59 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 #pwa-dismiss-btn{padding:6px 10px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);
   border-radius:6px;font-size:12px;cursor:pointer;font-family:inherit;}
 
-.sw-mobile-sel{display:none;}
-
-/* ══ 휴대폰 화면 (폭 760px 이하): 데스크톱의 가로 배치를 세로 한 줄로 바꾸고 페이지를 스크롤시킨다 (2026-11)
-   기능·자바스크립트는 그대로. display:contents 로 사이드바·패널 묶음을 풀고 order 로 순서만 다시 매긴다. ══ */
+/* ══ 휴대폰 간단 모드 (폭 760px 이하, 2026-11) ══
+   데스크톱 화면(.hdr 와 그 다음 div)은 숨기고 #mApp 만 보인다. 탐색·저장 로직은 데스크톱 함수를 그대로 부른다. */
+#mApp{display:none;}
 @media (max-width:760px){
-  html,body{height:auto!important;overflow:visible!important;}   /* 화면 전체를 브라우저 기본 방식으로 스크롤 (휴대폰 브라우저에서 html·body에 overflow:auto를 주면 스크롤이 막히는 경우가 있어 visible로 둠) */
+  html,body{height:auto!important;overflow:visible!important;}
   body{display:block;min-height:100%;overscroll-behavior:auto;}
-  .hdr{height:auto;flex-wrap:wrap;padding:6px 8px;gap:6px;}
-  .hdr-title{display:none;}
-  .hdr-tabs{margin-left:0;order:1;width:100%;display:flex;}
-  .hdr-tabs .hdr-tab{flex:1;padding:6px 4px;font-size:12px;}
-  .hdr>div[style*="margin-left:auto"]{margin-left:0!important;flex-wrap:wrap;}
-  .hdr + div{overflow:visible!important;display:block!important;}
-  .tab-pane.active{display:block;overflow:visible;}
-  .app,.dg-app,.sw-app,.tt-edit-app{display:flex;flex-direction:column;overflow:visible;}
-  /* 교체 탐색 탭: 묶음을 풀고 순서 지정 */
-  .sidebar,.content,.tt-area,.bot-area{display:contents;}
-  .sb-sec{border-bottom:1px solid var(--border);background:var(--white);}
-  .sidebar>.sb-sec:nth-of-type(1){order:1;}            /* 결강 교사 */
-  .sidebar>.sb-sec:nth-of-type(2){order:2;}            /* 결강 일자 */
-  .sidebar>.sb-sec:nth-of-type(3){order:3;}            /* 교체 일자 */
-  .sidebar>.sb-sec:nth-of-type(4){order:10;}           /* 연강 필수 */
-  #rangeSection{order:11;}
-  #wantSwapSec{order:12;background:var(--white);}
-  .tt-area>.tt-panel:first-child{order:4;}             /* 결강 교사 시간표 */
-  #swapListWrap{order:5;background:var(--white);border-bottom:1px solid var(--border);}
-  .swap-list{max-height:40vh;}
-  #panelB1{order:6;}
-  .bot-area>.bot-panel:nth-child(1){order:7;}          /* 결강 교사 교체 후 */
-  .bot-area>.bot-panel:nth-child(2){order:8;}          /* 교체 교사 교체 후 */
-  .bot-area>.bot-panel:nth-child(4){order:9;}          /* 교체 내역 */
-  #panelB2{order:13;} #panelC{order:14;} #panelC2{order:15;} #panelAfterC{order:16;}
-  #roomPanel{display:none!important;}                  /* 실습실 표는 충돌 배지로 대신 */
-  .tt-panel,.bot-panel,.dg-panel{border-right:none;border-bottom:2px solid var(--border);overflow:visible;}
-  .tt-scroll,.bot-scroll,.dg-scroll{overflow:visible;}
-  .tt-head,.bot-head,.dg-head,.sw-panel-head{flex-wrap:wrap;position:static;}
-  /* 시간표 칸은 손가락에 맞게 조금 크게 */
-  .tc{width:42px;height:40px;}
-  .tt-tbl th{width:42px;}
-  .cs,.cc,.cr{max-width:40px;}
-  .rec-tbl-wrap,.swap-list,.dg-stat-scroll,.dg-date-scroll,.sw2-list,.sw-preview-scroll,.tt-edit-list{max-height:50vh;overflow:auto;}
-  /* 대강 탭 */
-  .dg-sidebar,.dg-content,.dg-top,.dg-bot{display:contents;}
-  .dg-sidebar>.sb-sec:nth-of-type(1){order:1;} .dg-sidebar>.sb-sec:nth-of-type(2){order:2;}
-  .dg-top>.dg-panel:nth-child(1){order:3;} .dg-top>.dg-panel:nth-child(2){order:4;} .dg-bot>.dg-panel{order:5;}
-  .dg-stat-panel{order:6;border-left:none;}
-  /* 저장 탭 · 시간표 편집 탭 */
-  .sw-dg-col,.sw-left,.sw-preview,.sw-saved,.sw-main,.sw-stat{flex:none;border-right:none;border-bottom:2px solid var(--border);}
-  /* 저장 탭: 선택한 칸만 보임 */
-  .sw-mobile-sel{display:flex;gap:4px;padding:6px 8px;background:var(--white);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5;}
-  .sw-mobile-sel button{flex:1;padding:7px 0;font-size:13px;font-weight:700;border:1.5px solid var(--border2);border-radius:6px;background:var(--s1);color:var(--text2);font-family:inherit;}
-  .sw-mobile-sel button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
-  #swApp:not(.m-dg) .sw-dg-col,#swApp:not(.m-sw) .sw-left,#swApp:not(.m-pv) .sw-preview{display:none;}
-  #swApp .sw2-list,#swApp .rec-tbl-wrap,#swApp .sw-preview-scroll{max-height:none;}   /* 한 칸만 보이므로 페이지 스크롤로 전부 보여줌 */
-  .tt-edit-sidebar{width:100%;border-right:none;}
-  .dg-rec-tbl,.dg-hist-tbl{min-width:0;}
-  .rec-tbl td,.rec-tbl th{white-space:nowrap;}         /* 교체 내역은 가로 스크롤(이름이 세로로 쪼개지지 않게) */
-  .si{font-size:16px;}                                 /* 입력 칸 확대 방지용 최소 글자 크기 */
+  .hdr,.hdr + div{display:none!important;}
+  #mApp{display:block;padding-bottom:64px;font-size:14px;}
+  .m-top{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--white);border-bottom:2px solid var(--border);}
+  .m-top .m-title{font-weight:800;font-size:15px;flex:1;}
+  .m-cloud{padding:4px 10px;font-size:12px;font-weight:700;border:1.5px solid #cbd5e1;border-radius:6px;background:#f1f5f9;color:#475569;font-family:inherit;}
+  .m-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--white);border-top:2px solid var(--border);padding-bottom:env(safe-area-inset-bottom,0px);z-index:50;}
+  .m-tabs button{flex:1;padding:12px 0;font-size:14px;font-weight:800;border:none;background:none;color:var(--muted);font-family:inherit;}
+  .m-tabs button.on{color:var(--accent);box-shadow:inset 0 3px 0 var(--accent);}
+  .m-sec{padding:10px 12px;}
+  .m-h{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .m-h .m-back{padding:6px 10px;border:1.5px solid var(--border2);border-radius:8px;background:var(--white);font-weight:800;font-family:inherit;font-size:13px;}
+  .m-h .m-ttl{font-size:15px;font-weight:800;flex:1;min-width:0;}
+  .m-sub{font-size:12px;color:var(--muted);margin:2px 0 8px;}
+  .m-lbl{font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 4px;}
+  .m-inp{width:100%;padding:11px 12px;border:1.5px solid var(--border2);border-radius:10px;background:var(--white);font-size:16px;font-family:inherit;color:var(--text);}
+  .m-next{display:block;width:100%;margin-top:14px;padding:13px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:800;font-family:inherit;}
+  .m-next:disabled{background:var(--s2);color:var(--muted);}
+  .m-list{display:flex;flex-direction:column;gap:6px;}
+  .m-item{display:block;width:100%;text-align:left;padding:10px 12px;border:1.5px solid var(--border2);border-radius:10px;background:var(--white);font-family:inherit;color:var(--text);}
+  .m-item:disabled{opacity:.45;}
+  .m-item.sel{border-color:var(--accent);background:var(--abg);}
+  .m-item .m-l1{font-size:15px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .m-item .m-l2{font-size:13px;color:var(--text2);margin-top:2px;}
+  .m-item .m-l3{font-size:12px;color:var(--muted);margin-top:2px;}
+  .m-p{display:inline-block;min-width:34px;padding:2px 6px;border-radius:6px;background:var(--abg);color:var(--accent);font-weight:900;text-align:center;}
+  .m-wk{display:flex;gap:4px;margin:6px 0 10px;}
+  .m-wk button{flex:1;padding:7px 0;font-size:12px;font-weight:700;border:1.5px solid var(--border2);border-radius:8px;background:var(--white);color:var(--text2);font-family:inherit;}
+  .m-wk button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .m-tt{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:6px;margin:6px 0;overflow-x:auto;}
+  .m-tt .m-tt-h{font-size:12px;font-weight:800;color:var(--text2);margin:0 0 4px 4px;}
+  .m-tt .tt-tbl{pointer-events:none;}
+  .m-tt .tc{width:42px;height:38px;} .m-tt .tt-tbl th{width:42px;} .m-tt .cs,.m-tt .cc{max-width:40px;}
+  .m-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.6;}
+  .m-card b{font-weight:800;}
+  .m-note{font-size:12px;padding:6px 10px;border-radius:8px;margin:6px 0;}
+  .m-note.ok{background:var(--gbg);color:var(--green);} .m-note.warn{background:var(--obg);color:var(--orange);} .m-note.lock{background:var(--rbg);color:var(--red);font-weight:700;}
+  .m-rec{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--white);border:1.5px solid var(--border);border-radius:8px;margin-bottom:5px;font-size:13px;}
+  .m-rec .m-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;font-family:inherit;padding:0 4px;}
+  .m-btns{display:flex;gap:6px;margin-top:10px;}
+  .m-btns button{flex:1;padding:12px 0;border:none;border-radius:10px;font-size:14px;font-weight:800;font-family:inherit;}
+  .m-add{background:var(--accent);color:#fff;} .m-save{background:#059669;color:#fff;} .m-ghost{background:var(--s2);color:var(--text2);}
+  .m-btns button:disabled{opacity:.4;}
+  .m-filter{display:flex;gap:4px;margin-bottom:8px;}
+  .m-filter button{flex:1;padding:7px 0;font-size:12px;font-weight:700;border:1.5px solid var(--border2);border-radius:8px;background:var(--white);color:var(--text2);font-family:inherit;}
+  .m-filter button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .m-day{font-size:13px;font-weight:800;color:var(--accent);margin:10px 0 4px;}
+  .m-toast{position:fixed;left:12px;right:12px;bottom:70px;z-index:60;background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
 }
 </style>
 </head>
@@ -1131,14 +1126,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 
 <!-- ══ 교체 기록 탭 ══ -->
 <div class="tab-pane" id="tab-swaphist">
-<div class="sw-app m-dg" id="swApp">
-
-  <!-- 휴대폰: 세 칸(대강·교체·미리보기) 중 하나만 골라서 봄. 데스크톱에서는 숨김(CSS) -->
-  <div class="sw-mobile-sel" id="swMobileSel">
-    <button class="on" onclick="swMobileShow('dg',this)">대강 내역</button>
-    <button onclick="swMobileShow('sw',this)">교체 내역</button>
-    <button onclick="swMobileShow('pv',this)">출력 미리보기</button>
-  </div>
+<div class="sw-app">
 
   <!-- ① 왼쪽: 대강 내역 -->
   <div class="sw-dg-col">
@@ -4601,10 +4589,10 @@ const CLOUD={ pw:(function(){ try{ return localStorage.getItem('tt_cloud_pw')||'
               timer:null, busy:false, pending:false, pollTimer:null, askedAt:0, state:'' };
 function cloudStatus(state, msg){
   CLOUD.state=state;
-  const b=document.getElementById('cloudBtn'); if(!b) return;
+  document.querySelectorAll('#cloudBtn,.m-cloud').forEach(b=>{
   const m={ok:['☁ 클라우드 ✓','#dcfce7','#166534','#86efac'], saving:['☁ 저장 중…','#e0f2fe','#075985','#bae6fd'],
             nopw:['☁ 비밀번호 입력','#fef9c3','#92400e','#fde68a'], error:['⚠ 클라우드 연결 안 됨','#fef2f2','#b91c1c','#fecaca']}[state]||['☁ 클라우드','#f1f5f9','#475569','#cbd5e1'];
-  b.textContent=m[0]; b.style.background=m[1]; b.style.color=m[2]; b.style.borderColor=m[3]; b.title=msg||'클릭: 비밀번호 다시 입력';
+  b.textContent=m[0]; b.style.background=m[1]; b.style.color=m[2]; b.style.borderColor=m[3]; b.title=msg||'클릭: 비밀번호 다시 입력'; });
 }
 function cloudAskPw(wrong){
   cloudStatus('nopw','비밀번호를 입력해야 다른 기기와 기록을 맞출 수 있습니다');
@@ -4637,6 +4625,7 @@ async function cloudPull(){
     else changed=fsMerge(data);
     if(typeof renderAll==='function') try{ renderAll(); }catch(e){}
     if(typeof renderDgAll==='function') try{ renderDgAll(); }catch(e){}
+    if(changed && typeof mRender==='function') try{ mRender(); }catch(e){}
     cloudStatus('ok');
     CLOUD.busy=false;
     if(changed){ cloudSchedulePush(); if(FS.connected && !FS.loading && FS.fileHandle){ clearTimeout(FS.saveTimer); FS.saveTimer=setTimeout(fsWriteNow,250); } }
@@ -5500,13 +5489,6 @@ function ttDoChangePw(){
   if(btn){ const o=btn.textContent; btn.textContent='✅ 변경됨'; setTimeout(()=>btn.textContent=o,1800); }
 }
 
-/* 휴대폰 저장 탭: 대강·교체·미리보기 중 하나만 표시 */
-function swMobileShow(which, btn){
-  const app=document.getElementById('swApp'); if(!app) return;
-  app.classList.remove('m-dg','m-sw','m-pv'); app.classList.add('m-'+which);
-  document.querySelectorAll('#swMobileSel button').forEach(b=>b.classList.toggle('on', b===btn));
-  window.scrollTo(0,0);
-}
 function switchTab(tab){
   // 시간표 편집 탭은 잠금 해제 확인 후 진입
   if(tab==='timetable' && !TTE.unlocked){
@@ -7607,8 +7589,185 @@ function executeDgImport(){
   if(btn){btn.textContent=`✅ ${allRecs.length}건 추가됨`;setTimeout(()=>btn.textContent=orig,2000);}
 }
 
+/* ══ 휴대폰 간단 모드 (2026-11) ══
+   한 화면에 한 단계: 교체 = ①교사·날짜 → ②결강 교시 → ③교체 가능 교사 → ④확인·추가·저장,
+   대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
+   탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
+   2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
+const M={tab:'swap', step:1, dgStep:1, recRange:'week'};
+const mWD=['일','월','화','수','목','금','토'];
+function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
+function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
+function mIsMobile(){ return window.matchMedia('(max-width:760px)').matches; }
+function mToast(msg){ let el=document.getElementById('mToast'); if(!el){ el=document.createElement('div'); el.id='mToast'; el.className='m-toast'; document.body.appendChild(el); } el.textContent=msg; el.style.display=''; clearTimeout(el._t); el._t=setTimeout(()=>{ el.style.display='none'; },1800); }
+function mTab(t){ M.tab=t; ['swap','dg','rec'].forEach(k=>{ const b=document.getElementById('mTab-'+k); if(b) b.classList.toggle('on',k===t); }); window.scrollTo(0,0); mRender(); }
+function mGo(step){ M.step=step; window.scrollTo(0,0); mRender(); }
+function mDgGo(step){ M.dgStep=step; window.scrollTo(0,0); mRender(); }
+function mSel(){ return ALL.slice().sort((a,b)=>a.localeCompare(b,'ko')); }
+function mPeriods(teacher, iso, sideFn){   // 그 날짜 요일의 수업(교체 반영) 목록
+  const wd=mWdOf(iso); if(!DP[wd]) return null;
+  const sc=sideFn(teacher)||{}; const out=[];
+  for(let p=1;p<=DP[wd];p++){ const k=wd+p; out.push({key:k, p, sl:sc[k]||null, mark: swapMarkFor(teacher,k,iso)}); }
+  return out;
+}
+function mTT(title, html){ return `<div class="m-tt"><div class="m-tt-h">${title}</div>${html}</div>`; }
+function mRender(){
+  if(!mIsMobile()) return;
+  const el=document.getElementById('mBody'); if(!el) return;
+  try{ el.innerHTML = M.tab==='swap' ? mSwapHTML() : M.tab==='dg' ? mDgHTML() : mRecHTML(); }
+  catch(e){ el.innerHTML=`<div class="m-sec"><div class="m-note warn">화면을 그리지 못했습니다: ${_esc(e.message||e)}</div></div>`; }
+}
+
+/* ── 교체 ── */
+function mSwapHTML(){
+  const dateISO=document.getElementById('dateInput').value||'';
+  if(M.step===1 || !S.teacher || !dateISO){
+    const opts=mSel().map(t=>`<option value="${t}"${t===S.teacher?' selected':''}>${t}</option>`).join('');
+    return `<div class="m-sec"><div class="m-h"><div class="m-ttl">교체 탐색</div></div>
+      <div class="m-lbl">결강 교사</div><select class="m-inp" id="mTeacher" onchange="mSwapStart()"><option value="">— 선택 —</option>${opts}</select>
+      <div class="m-lbl">결강 일자</div><input class="m-inp" type="date" id="mDate" value="${dateISO}" onchange="mSwapStart()">
+      <button class="m-next" id="mNext1" onclick="mSwapStart(true)" ${S.teacher&&dateISO?'':'disabled'}>다음 → 결강 교시 고르기</button></div>`;
+  }
+  if(M.step===2 || !S.keyA){
+    const ps=mPeriods(S.teacher, dateISO, TTA);
+    let list='';
+    if(!ps) list=`<div class="m-note warn">${mLab(dateISO)}은 수업일이 아닙니다. 날짜를 다시 고르세요.</div>`;
+    else list=ps.map(x=>{
+      const lock=clubLock(dateISO,x.key);
+      if(lock) return `<button class="m-item" disabled><span class="m-l1"><span class="m-p">${x.p}</span>🔒 ${lock}</span></button>`;
+      if(!x.sl){ const out=x.mark&&(x.mark.kind==='out'||x.mark.kind==='dgout'); return `<button class="m-item" disabled><span class="m-l1"><span class="m-p">${x.p}</span><span style="color:var(--muted);font-weight:600">${out?`${x.mark.subject||''} ${x.mark.class||''} · ${x.mark.other} ${x.mark.kind==='dgout'?'대강':'교체'}로 빠짐`:'수업 없음'}</span></span></button>`; }
+      const blk=BLK.has(x.sl.subject.trim()) && !(isHRCAKey(x.key,x.sl)&&getHRCAPartner(S.teacher,x.key,x.sl));
+      const dg=dgAssignedFor(S.teacher,x.key,dateISO);
+      return `<button class="m-item${S.keyA===x.key?' sel':''}" ${blk?'disabled':''} onclick="mPickSlot('${x.key}')"><span class="m-l1"><span class="m-p">${x.p}</span>${x.sl.subject} <span style="color:var(--text2)">${x.sl.class}</span>${x.sl.room?` <span style="color:var(--purple);font-size:12px">${x.sl.room}</span>`:''}${x.sl.swapIn?` <span class="m-note ok" style="margin:0;padding:1px 6px">${x.sl.via} 교체로 들어온 수업</span>`:''}${dg?` <span class="m-note ok" style="margin:0;padding:1px 6px">대강: ${dg.tSub}</span>`:''}</span>${blk?'<span class="m-l3">교체 대상 아님</span>':''}</button>`;
+    }).join('');
+    return `<div class="m-sec"><div class="m-h"><button class="m-back" onclick="mGo(1)">◀</button><div class="m-ttl">${S.teacher} · ${mLab(dateISO)}</div></div>
+      <div class="m-sub">교체할 결강 수업을 누르세요</div><div class="m-list">${list}</div>
+      ${mTT(`${S.teacher} 시간표 (${mLab(dateISO)} 주)`, buildTT(S.teacher, S.keyA?new Set([S.keyA]):new Set(), null, null, 'A', {}))}</div>`;
+  }
+  const slA=TTA(S.teacher)[S.keyA]; const pA=S.keyA.slice(-1);
+  const head=`<div class="m-card"><b>결강</b> ${S.teacher} · ${mLab(dateISO)} <span class="m-p">${pA}</span> ${slA?slA.subject+' '+slA.class:''}</div>`;
+  if(M.step===3 || !S.selTeacher){
+    const off=swapWeekOffset(), has=!!document.getElementById('swapDateInput').value;
+    const wk=`<div class="m-wk"><button class="${has&&off<0?'on':''}" onclick="setSwapWeek(-1);mRender()">◀ 이전 주</button><button class="${!has||off===0?'on':''}" onclick="setSwapWeek(0);mRender()">같은 주</button><button class="${has&&off>0?'on':''}" onclick="setSwapWeek(1);mRender()">다음 주 ▶</button></div>`;
+    const bB=swBaseDateFor('B');
+    let list='';
+    if(S.lockMsg && !S.swaps.length) list=`<div class="m-note lock">🔒 ${S.lockMsg}<br>동아리활동 시간은 수업 교체 불가</div>`;
+    else if(!S.swaps.length) list=`<div class="m-note warn">교환 가능한 교사 없음 (다른 주를 눌러 보세요)</div>`;
+    else list=S.swaps.flatMap(g=>g.slots.map(s=>{
+      const iso=bB?dateISOForWeekday(bB,s.key.slice(0,-1)):'';
+      const dayB=(mPeriods(g.teacher, iso, TTB)||[]).filter(x=>x.sl).map(x=>x.p);          // 교체일에 이 교사가 이미 가진 수업
+      const dayA=(mPeriods(g.teacher, dateISO, TTA)||[]).filter(x=>x.sl).map(x=>x.p);      // 결강일 수업 (결강 교시가 더해짐)
+      const conf=hasRoomConflict(S.teacher,S.keyA,g.teacher,s.key);
+      return `<button class="m-item" onclick="mPickSwap('${g.teacher}','${s.key}')">
+        <span class="m-l1">${g.teacher} ${deptBadge(g.teacher,true)}${conf?'<span class="conflict-badge">실습실충돌</span>':''}</span>
+        <span class="m-l2">${mLab(iso)} <span class="m-p">${s.key.slice(-1)}</span> ${s.subject} ${s.class}${s.room?' · '+s.room:''} 을(를) 내어 줌</span>
+        <span class="m-l3">${mLab(iso)} 수업 ${dayB.length?dayB.join('·')+'교시':'없음'} · ${mLab(dateISO)} 수업 ${dayA.length?dayA.join('·')+'교시':'없음'} + <b>${pA}교시</b></span></button>`;
+    })).join('');
+    return `<div class="m-sec"><div class="m-h"><button class="m-back" onclick="mGo(2)">◀</button><div class="m-ttl">교체 가능 교사 ${S.swaps.length?S.swaps.reduce((n,g)=>n+g.slots.length,0)+'건':''}</div></div>
+      ${head}<div class="m-lbl">교체 일자 (주)</div>${wk}<div class="m-list">${list}</div></div>`;
+  }
+  // 4단계: 확인
+  const slB=TTB(S.selTeacher)[S.selKey]||{}; const bB=swBaseDateFor('B'); const isoB=bB?dateISOForWeekday(bB,S.selKey.slice(0,-1)):'';
+  const conf=hasRoomConflict(S.teacher,S.keyA,S.selTeacher,S.selKey);
+  const recs=S.records.map(r=>`<div class="m-rec"><b>${r.cA}</b> ${r.date} ${r.pA.replace('교시','')} ${r.sA} ${r.tA} ↔ ${r.dateB} ${r.pB.replace('교시','')} ${r.sB} ${r.tB}<button class="m-x" onclick="delRec(${r.id});mRender()">✕</button></div>`).join('');
+  const added=S.records.some(r=>r.tA===S.teacher&&r.kA===S.keyA&&r.tB===S.selTeacher&&r.kB===S.selKey);
+  return `<div class="m-sec"><div class="m-h"><button class="m-back" onclick="mGo(3)">◀</button><div class="m-ttl">교체 확인</div></div>
+    <div class="m-card"><b>${S.teacher}</b> ${mLab(dateISO)} <span class="m-p">${pA}</span> ${slA.subject} ${slA.class} → <b>${mLab(isoB)} ${S.selKey.slice(-1)}교시</b>에 수업<br>
+      <b>${S.selTeacher}</b> ${mLab(isoB)} <span class="m-p">${S.selKey.slice(-1)}</span> ${slB.subject||''} ${slB.class||''} → <b>${mLab(dateISO)} ${pA}교시</b>에 수업</div>
+    <div class="m-note ${conf?'warn':'ok'}">${conf?'⚠ 실습실 충돌 — 데스크톱에서 실습실 표를 확인하세요':'✅ 실습실 충돌 없음'}</div>
+    ${mTT(`${S.teacher} 교체 후 (${mLab(bB)} 주)`, buildAfterTT(S.teacher, getAfterSlotColors(S.teacher)))}
+    ${mTT(`${S.selTeacher} 교체 후 (${mLab(bB)} 주)`, buildAfterTT(S.selTeacher, getAfterSlotColors(S.selTeacher)))}
+    <div class="m-btns"><button class="m-add" onclick="mAddRec()" ${added?'disabled':''}>${added?'✓ 추가됨':'＋ 교체 추가'}</button><button class="m-save" onclick="mSaveRecs()" ${S.records.length?'':'disabled'}>💾 저장 (${S.records.length}건)</button></div>
+    ${S.records.length?`<div class="m-lbl">추가한 교체 (저장 전)</div>${recs}`:''}
+    <div class="m-btns"><button class="m-ghost" onclick="mGo(2)">다른 교시 고르기</button></div></div>`;
+}
+function mSwapStart(go){
+  const t=document.getElementById('mTeacher')?.value||'', d=document.getElementById('mDate')?.value||'';
+  if(t!==S.teacher){ document.getElementById('teacherSel').value=t; onTeacher(t); }
+  if(d){ document.getElementById('dateInput').value=d; onDate(); }
+  const nb=document.getElementById('mNext1'); if(nb) nb.disabled=!(t&&d);
+  if(go && t && d) mGo(2);
+}
+function mPickSlot(key){ if(S.keyA!==key) clickSlot(key); if(S.keyA) mGo(3); else mRender(); }
+function mPickSwap(t,key){ selectSwap(t,key); mGo(4); }
+function mAddRec(){ addRecord(); mToast(S.records.length?'교체 내역에 추가했습니다. 저장을 눌러야 기록됩니다.':'추가하지 못했습니다'); mRender(); }
+function mSaveRecs(){ const n=S.records.length; saveSelToSwHist(); if(!S.records.some(r=>!swHistLoad().find(h=>h.id===r.id))){ S.records=[]; renderRec(); } mToast(`교체 ${n}건 저장했습니다`); resetSel(); mGo(2); }
+
+/* ── 대강 ── */
+function mDgHTML(){
+  const dateISO=document.getElementById('dgDateInput').value||'';
+  if(M.dgStep===1 || !DG.teacher || !dateISO){
+    const opts=mSel().map(t=>`<option value="${t}"${t===DG.teacher?' selected':''}>${t}</option>`).join('');
+    return `<div class="m-sec"><div class="m-h"><div class="m-ttl">대강 지정</div></div>
+      <div class="m-lbl">결강 교사</div><select class="m-inp" id="mDgTeacher" onchange="mDgStart()"><option value="">— 선택 —</option>${opts}</select>
+      <div class="m-lbl">결강 일자</div><input class="m-inp" type="date" id="mDgDate" value="${dateISO}" onchange="mDgStart()">
+      <button class="m-next" id="mDgNext1" onclick="mDgStart(true)" ${DG.teacher&&dateISO?'':'disabled'}>다음 → 결강 교시 고르기</button></div>`;
+  }
+  const recs=DG.records.map(r=>`<div class="m-rec"><b>${r.cA}</b> ${r.date} ${r.pA.replace('교시','')} ${r.sA} ${r.tA} → <b>${r.tSub}</b><button class="m-x" onclick="delDgRec(${r.id});mRender()">✕</button></div>`).join('');
+  const saveBar=`<div class="m-btns"><button class="m-save" onclick="mDgSave()" ${DG.records.length?'':'disabled'}>💾 저장 (${DG.records.length}건)</button></div>${DG.records.length?`<div class="m-lbl">추가한 대강 (저장 전)</div>${recs}`:''}`;
+  if(M.dgStep===2 || !DG.selKey){
+    const wd=mWdOf(dateISO); let list='';
+    if(!DP[wd]) list=`<div class="m-note warn">${mLab(dateISO)}은 수업일이 아닙니다.</div>`;
+    else { const rows=[]; for(let p=1;p<=DP[wd];p++){ const k=wd+p; const sl=effectiveSlot(DG.teacher,k,dateISO);
+        if(!sl){ const hm=swapMarkFor(DG.teacher,k,dateISO); const out=hm&&(hm.kind==='out'||hm.kind==='dgout');   // 교체로 빠진 수업은 대강 대상 아님
+          rows.push(`<button class="m-item" disabled><span class="m-l1"><span class="m-p">${p}</span><span style="color:var(--muted);font-weight:600">${out?`${hm.subject||''} ${hm.class||''} · ${hm.other} ${hm.kind==='dgout'?'대강':'교체'}로 빠짐`:'수업 없음'}</span></span></button>`); continue; }
+        const a=getDgAssigned(k); const draft=DG.records.find(r=>r.kA===k&&r.tA===DG.teacher);
+        rows.push(`<button class="m-item${draft?' sel':''}" onclick="mDgPickSlot('${k}')"><span class="m-l1"><span class="m-p">${p}</span>${sl.subject} <span style="color:var(--text2)">${sl.class}</span>${a?` <span class="m-note ok" style="margin:0;padding:1px 6px">대강: ${a.tSub}${a.fromHistory?' (저장됨)':''}</span>`:''}</span></button>`); }
+      list=rows.join(''); }
+    return `<div class="m-sec"><div class="m-h"><button class="m-back" onclick="mDgGo(1)">◀</button><div class="m-ttl">${DG.teacher} · ${mLab(dateISO)}</div></div>
+      <div class="m-sub">대강을 넣을 교시를 누르세요</div><div class="m-list">${list}</div>${saveBar}</div>`;
+  }
+  const sl=effectiveSlot(DG.teacher,DG.selKey,dateISO)||{}; const p=DG.selKey.slice(-1);
+  const hist=dgLoadHistory(); const cnt=t=>hist.filter(r=>r.tSub===t && !dgIsStatExcluded(r)).length;
+  const avail=getDgAvailTeachers(DG.selKey,false).sort((a,b)=>cnt(a.teacher)-cnt(b.teacher)||a.load-b.load);   // 대강 횟수 적은 순, 같으면 주 시수 적은 순
+  const list=avail.map(a=>`<button class="m-item" onclick="mDgPickTeacher('${a.teacher}')"><span class="m-l1">${a.teacher} ${deptBadge(a.teacher,true)}<span style="margin-left:auto;font-size:12px;color:var(--muted);font-weight:600">대강 ${cnt(a.teacher)}회 · 주${a.load}h</span></span></button>`).join('');
+  return `<div class="m-sec"><div class="m-h"><button class="m-back" onclick="mDgGo(2)">◀</button><div class="m-ttl">대강 가능 교사 ${avail.length}명</div></div>
+    <div class="m-card"><b>${DG.teacher}</b> ${mLab(dateISO)} <span class="m-p">${p}</span> ${sl.subject||''} ${sl.class||''}</div>
+    <div class="m-sub">누르면 바로 추가됩니다 (대강 횟수 적은 순)</div><div class="m-list">${list||'<div class="m-note warn">빈 교사가 없습니다</div>'}</div></div>`;
+}
+function mDgStart(go){
+  const t=document.getElementById('mDgTeacher')?.value||'', d=document.getElementById('mDgDate')?.value||'';
+  if(t!==DG.teacher){ document.getElementById('dgTeacherSel').value=t; onDgTeacher(t); }
+  if(d){ document.getElementById('dgDateInput').value=d; onDgDate(); }
+  const nb=document.getElementById('mDgNext1'); if(nb) nb.disabled=!(t&&d);
+  if(go && t && d) mDgGo(2);
+}
+function mDgPickSlot(key){ if(!effectiveSlot(DG.teacher,key,document.getElementById('dgDateInput').value||null)) return; selectDgSlot(key); DG.selSubTeacher=null; mDgGo(3); }   // 그 날짜에 실제 수업이 있는 교시만
+function mDgPickTeacher(t){ DG.selSubTeacher=t; DG.selSubjectOverride=null; addDgRecord(); mToast(`${t} 대강으로 추가. 저장을 눌러야 기록됩니다.`); mDgGo(2); }
+function mDgSave(){ const n=DG.records.length; saveDgRecords(); mToast(`대강 ${n}건 저장했습니다`); mDgGo(2); }
+
+/* ── 기록 ── */
+function mRecHTML(){
+  const today=kstToday(); const mon=twISO(_mondayOfISO(today));
+  const rng={ today:[today,today], week:[mon,_addDaysISO(mon,4)], next:[_addDaysISO(mon,7),_addDaysISO(mon,11)] }[M.recRange];
+  const inR=iso=>iso&&iso>=rng[0]&&iso<=rng[1];
+  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)).map(r=>({iso:r.dateISO,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} ${r.tA} → <b>${r.tSub}</b> <span style="font-size:11px;color:var(--green)">대강</span>`}));
+  const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; if(inR(r.dateISO_sw)) o.push({iso:r.dateISO_sw,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(inR(r.dateBISO)) o.push({iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
+  const all=[...dg,...sw].sort((a,b)=>a.iso.localeCompare(b.iso)||a.p-b.p);
+  let body=''; let last='';
+  all.forEach(x=>{ if(x.iso!==last){ last=x.iso; body+=`<div class="m-day">${mLab(x.iso)}${x.iso===today?' · 오늘':''}</div>`; } body+=`<div class="m-rec">${x.html}</div>`; });
+  const f=k=>`<button class="${M.recRange===k?'on':''}" onclick="M.recRange='${k}';mRender()">`;
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div><span style="font-size:12px;color:var(--muted)">${mLab(rng[0])} ~ ${mLab(rng[1])}</span></div>
+    <div class="m-filter">${f('today')}오늘</button>${f('week')}이번 주</button>${f('next')}다음 주</button></div>
+    ${body||'<div class="m-note ok">이 기간에는 교체·대강 기록이 없습니다</div>'}
+    <div class="m-sub" style="margin-top:12px">삭제·출력은 데스크톱에서. 다른 기기의 변경은 15초 안에 반영됩니다.</div></div>`;
+}
+window.addEventListener('resize', ()=>{ if(mIsMobile()) mRender(); });
+
 init();
+document.addEventListener('DOMContentLoaded', mRender);   // #mApp 은 이 스크립트 뒤에 있어 파싱이 끝난 뒤 그림
 </script>
+
+<!-- ══ 휴대폰 간단 모드 (폭 760px 이하에서만 표시) ══ -->
+<div id="mApp">
+  <div class="m-top"><span class="logo">맞교환</span><span class="m-title">교체 탐색기</span><button class="m-cloud" onclick="CLOUD.askedAt=0;cloudAskPw()">☁ 클라우드</button></div>
+  <div id="mBody"></div>
+  <div class="m-tabs">
+    <button class="on" id="mTab-swap" onclick="mTab('swap')">교체</button>
+    <button id="mTab-dg" onclick="mTab('dg')">대강</button>
+    <button id="mTab-rec" onclick="mTab('rec')">기록</button>
+  </div>
+</div>
 
 <!-- ══ 대강 일괄 가져오기 모달 ══ -->
 <div id="dgImportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;">
