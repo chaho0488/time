@@ -7594,13 +7594,13 @@ function executeDgImport(){
    대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
    탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
    2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
-const M={tab:'swap', step:1, dgStep:1, recRange:'week'};
+const M={tab:'swap', step:1, dgStep:1, recRange:'week', ttKind:'cls', ttCls:'', ttTeacher:'', ttDate:''};
 const mWD=['일','월','화','수','목','금','토'];
 function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
 function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
 function mIsMobile(){ return window.matchMedia('(max-width:760px)').matches; }
 function mToast(msg){ let el=document.getElementById('mToast'); if(!el){ el=document.createElement('div'); el.id='mToast'; el.className='m-toast'; document.body.appendChild(el); } el.textContent=msg; el.style.display=''; clearTimeout(el._t); el._t=setTimeout(()=>{ el.style.display='none'; },1800); }
-function mTab(t){ M.tab=t; ['swap','dg','rec'].forEach(k=>{ const b=document.getElementById('mTab-'+k); if(b) b.classList.toggle('on',k===t); }); window.scrollTo(0,0); mRender(); }
+function mTab(t){ M.tab=t; ['swap','dg','rec','tt'].forEach(k=>{ const b=document.getElementById('mTab-'+k); if(b) b.classList.toggle('on',k===t); }); window.scrollTo(0,0); mRender(); }
 function mGo(step){ M.step=step; window.scrollTo(0,0); mRender(); }
 function mDgGo(step){ M.dgStep=step; window.scrollTo(0,0); mRender(); }
 function mSel(){ return ALL.slice().sort((a,b)=>a.localeCompare(b,'ko')); }
@@ -7614,7 +7614,7 @@ function mTT(title, html){ return `<div class="m-tt"><div class="m-tt-h">${title
 function mRender(){
   if(!mIsMobile()) return;
   const el=document.getElementById('mBody'); if(!el) return;
-  try{ el.innerHTML = M.tab==='swap' ? mSwapHTML() : M.tab==='dg' ? mDgHTML() : mRecHTML(); }
+  try{ el.innerHTML = M.tab==='swap' ? mSwapHTML() : M.tab==='dg' ? mDgHTML() : M.tab==='tt' ? mTtHTML() : mRecHTML(); }
   catch(e){ el.innerHTML=`<div class="m-sec"><div class="m-note warn">화면을 그리지 못했습니다: ${_esc(e.message||e)}</div></div>`; }
 }
 
@@ -7664,7 +7664,8 @@ function mSwapHTML(){
         <span class="m-l3">${mLab(iso)} 수업 ${dayB.length?dayB.join('·')+'교시':'없음'} · ${mLab(dateISO)} 수업 ${dayA.length?dayA.join('·')+'교시':'없음'} + <b>${pA}교시</b></span></button>`;
     })).join('');
     return `<div class="m-sec"><div class="m-h"><button class="m-back" onclick="mGo(2)">◀</button><div class="m-ttl">교체 가능 교사 ${S.swaps.length?S.swaps.reduce((n,g)=>n+g.slots.length,0)+'건':''}</div></div>
-      ${head}<div class="m-lbl">교체 일자 (주)</div>${wk}<div class="m-list">${list}</div></div>`;
+      ${head}<div class="m-lbl">교체 일자 (주)</div>${wk}<div class="m-list">${list}</div>
+      ${slA?mTT(`${slA.class} 학급 시간표 (${mLab(dateISO)} 주)`, buildClassTT(slA.class, S.keyA, {[S.keyA]:'a'})):''}</div>`;
   }
   // 4단계: 확인
   const slB=TTB(S.selTeacher)[S.selKey]||{}; const bB=swBaseDateFor('B'); const isoB=bB?dateISOForWeekday(bB,S.selKey.slice(0,-1)):'';
@@ -7736,6 +7737,29 @@ function mDgPickSlot(key){ if(!effectiveSlot(DG.teacher,key,document.getElementB
 function mDgPickTeacher(t){ DG.selSubTeacher=t; DG.selSubjectOverride=null; addDgRecord(); mToast(`${t} 대강으로 추가. 저장을 눌러야 기록됩니다.`); mDgGo(2); }
 function mDgSave(){ const n=DG.records.length; saveDgRecords(); mToast(`대강 ${n}건 저장했습니다`); mDgGo(2); }
 
+/* ── 시간표 (학급·교사 주간표, 교체·대강 반영) ── */
+function mWithDate(iso, fn){   // 데스크톱 표 그리기 함수는 결강 일자 칸(dateInput)을 기준 주로 쓰므로 잠시 바꿔 그린다
+  const a=document.getElementById('dateInput'), b=document.getElementById('swapDateInput'); const oa=a.value, ob=b.value;
+  a.value=iso; b.value=''; effClearCache();
+  try{ return fn(); } finally{ a.value=oa; b.value=ob; effClearCache(); }
+}
+function mTtHTML(){
+  if(!M.ttDate) M.ttDate=kstToday();
+  const mon=twISO(_mondayOfISO(M.ttDate));
+  const cls=cwClasses(); if(!M.ttCls) M.ttCls=cls[0]||'';
+  const kindBtn=k=>`<button class="${M.ttKind===k?'on':''}" onclick="M.ttKind='${k}';mRender()">`;
+  const sel = M.ttKind==='cls'
+    ? `<select class="m-inp" onchange="M.ttCls=this.value;mRender()">${cls.map(c=>`<option value="${c}"${c===M.ttCls?' selected':''}>${c}</option>`).join('')}</select>`
+    : `<select class="m-inp" onchange="M.ttTeacher=this.value;mRender()"><option value="">— 교사 선택 —</option>${mSel().map(t=>`<option value="${t}"${t===M.ttTeacher?' selected':''}>${t}</option>`).join('')}</select>`;
+  let table='';
+  if(M.ttKind==='cls' && M.ttCls) table=mTT(`${M.ttCls} · ${mLab(mon)} 주`, mWithDate(M.ttDate, ()=>buildClassTT(M.ttCls, null, {})));
+  else if(M.ttKind==='t' && M.ttTeacher) table=mTT(`${M.ttTeacher} · ${mLab(mon)} 주`, mWithDate(M.ttDate, ()=>buildTT(M.ttTeacher, new Set(), null, null, 'A', {})));
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표</div></div>
+    <div class="m-filter">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${sel}
+    <div class="m-wk"><button onclick="M.ttDate=_addDaysISO(M.ttDate,-7);mRender()">◀ 이전 주</button><button class="${mon===twISO(_mondayOfISO(kstToday()))?'on':''}" onclick="M.ttDate=kstToday();mRender()">이번 주</button><button onclick="M.ttDate=_addDaysISO(M.ttDate,7);mRender()">다음 주 ▶</button></div>
+    ${table}<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업</div></div>`;
+}
+
 /* ── 기록 ── */
 function mRecHTML(){
   const today=kstToday(); const mon=twISO(_mondayOfISO(today));
@@ -7766,6 +7790,7 @@ document.addEventListener('DOMContentLoaded', mRender);   // #mApp 은 이 스�
     <button class="on" id="mTab-swap" onclick="mTab('swap')">교체</button>
     <button id="mTab-dg" onclick="mTab('dg')">대강</button>
     <button id="mTab-rec" onclick="mTab('rec')">기록</button>
+    <button id="mTab-tt" onclick="mTab('tt')">시간표</button>
   </div>
 </div>
 
