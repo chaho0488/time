@@ -1,0 +1,15 @@
+# 교체 탐색기 (휴대폰·컴퓨터 공용) — Cloudflare Worker 설정
+# name 은 Cloudflare 대시보드의 Worker 이름과 같아야 배포가 된다.
+name = "time"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+# public/ 폴더를 정적 파일로 서비스 (index.html = 앱)
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+# 교체·대강 기록 저장소 (KV). 비밀번호(APP_PW)는 대시보드 Variables and Secrets 에서 Secret 으로 넣는다.
+[[kv_namespaces]]
+binding = "DATA"
+id = "9fc5ec395fdd4272ac590051af301128"
