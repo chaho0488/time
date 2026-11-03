@@ -249,10 +249,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .tc.click:hover{transform:scale(1.05);z-index:2;}
 /* sel/hl: 배경 없이 테두리만 */
 .tc.sel{box-shadow:inset 0 0 0 2px var(--accent)!important;transform:scale(1.06);z-index:3;}
-.tc.hl1{cursor:pointer;}
+.tc.hl1{cursor:pointer;box-shadow:inset 0 0 0 2px #86efac;}   /* 교체 후보 칸: 누를 수 있음(선택되면 hl1s 초록 실선) */
 .tc.hl1:hover{transform:scale(1.05);cursor:pointer;}
 .tc.hl1s{box-shadow:inset 0 0 0 2px var(--green)!important;transform:scale(1.06);z-index:3;}
-.tc.hl2{cursor:pointer;}
+.tc.hl2{cursor:pointer;box-shadow:inset 0 0 0 2px #fde68a;}
 .tc.hl2:hover{transform:scale(1.05);cursor:pointer;}
 .tc.hl2s{box-shadow:inset 0 0 0 2px var(--yellow)!important;transform:scale(1.06);z-index:3;}
 .tc.blk{opacity:.25;cursor:not-allowed;}
@@ -2920,7 +2920,8 @@ function buildTT(teacher,selKeyOrKeys,hlKeys,conflictKey,side,slotColors){
       if(p>max){h+=`<td class="tc oor"></td>`;return;}
       const k=`${d}${p}`;
       let sl=sc[k];
-      if(!sl && _scB && hlKeys?.has(k) && _scB[k]) sl=_scB[k];
+      const otherWkB = !!_scB && swapWeekOffset()!==0;
+      if(_scB && hlKeys?.has(k) && _scB[k] && (!sl || otherWkB)) sl=_scB[k];   // 후보 칸: 교체 주 수업으로 표시
       const colISO0 = swViewDateVal ? dateISOForWeekday(swViewDateVal, d) : null;
       const hm = colISO0 ? swapMarkFor(teacher, k, colISO0) : null;
       const hmIn  = !!(sl && sl.swapIn);
@@ -2983,9 +2984,10 @@ function buildTT(teacher,selKeyOrKeys,hlKeys,conflictKey,side,slotColors){
       }
       // 저장된 교체/대강으로 들어온 수업: 초록 배경 + 배지 (클릭해서 다시 교체 가능)
       const hmTitle = hmIn ? ` · ${sl.via} ${hm&&hm.kind==='dgin'?'대강':'교체'}로 들어온 수업` : '';
+      const candTitle = (isHL && otherWkB) ? ` · ${getDateForKey(k)} 교체 후보` : '';   // 교체 주가 다르면 어느 날짜 수업인지 표시
       const pvOut = pm && pm.kind==='out';
       if(pvOut) cls+=' diff-out'; else if(hmIn) cls+=' diff-in';
-      h+=`<td class="${cls}" ${oc} title="${sl.subject}·${sl.class}${sl.room?'·'+sl.room:''}${dgNote?' · 대강 지정됨':''}${hmTitle}${pvOut?' · '+pm.other+' 교체로 빠지는 수업':''}">
+      h+=`<td class="${cls}" ${oc} title="${sl.subject}·${sl.class}${sl.room?'·'+sl.room:''}${dgNote?' · 대강 지정됨':''}${hmTitle}${candTitle}${pvOut?' · '+pm.other+' 교체로 빠지는 수업':''}">
         <div class="cs">${sl.subject}</div>
         <div class="cc">${sl.class}</div>
       </td>`;
@@ -3403,9 +3405,8 @@ function renderTTb1(){
     const swapBlk=curSelKey?getSwapBlock(t,curSelKey):null;
     if(swapBlk){ selKeyArg=new Set(swapBlk); swapBlk.forEach(k=>{ scB1[k]='a'; }); }
   }
-  // 교체 주가 결강 주와 다르면 위 표(결강 주)에는 교체 교시를 표시하지 않음 → 아래 '교체 후' 표에서 고름
-  const otherWk=swapWeekOffset()!==0;
-  el.innerHTML=otherWk?buildTT(t,null,null,conflictKeysB1,'B1',{}):buildTT(t,selKeyArg,hlKeys,conflictKeysB1,'B1',scB1);
+  // 교체 주가 결강 주와 달라도 후보 교시는 위 표에서 바로 누를 수 있게(후보 칸은 교체 주 수업으로 표시) — 아래 '교체 후' 표에서도 똑같이 고를 수 있음
+  el.innerHTML=buildTT(t,selKeyArg,hlKeys,conflictKeysB1,'B1',scB1);
 }
 function renderTTb2(){
   const nm=document.getElementById('nmB2'),el=document.getElementById('ttB2');
@@ -3466,7 +3467,7 @@ function renderTTb2(){
     const swapBlk2=curSelKey2?getSwapBlock(t,curSelKey2):null;
     if(swapBlk2){ selKeyArg2=new Set(swapBlk2); swapBlk2.forEach(k=>{ scB2[k]='a'; }); }
   }
-  el.innerHTML=swapWeekOffset()!==0?buildTT(t,null,null,conflictKeysB2,'B2',{}):buildTT(t,selKeyArg2,hlKeys,conflictKeysB2,'B2',scB2);
+  el.innerHTML=buildTT(t,selKeyArg2,hlKeys,conflictKeysB2,'B2',scB2);
 }
 function renderTTc(){
   const nm=document.getElementById('nmC'),el=document.getElementById('ttC');
