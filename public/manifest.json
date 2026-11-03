@@ -1,0 +1,16 @@
+{
+  "name": "교체 탐색기",
+  "short_name": "교체탐색기",
+  "description": "수업 교체·대강 관리 앱 (오프라인 사용 가능)",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f0f2f8",
+  "theme_color": "#3b6ee8",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

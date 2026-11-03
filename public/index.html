@@ -4592,12 +4592,13 @@ window.addEventListener('beforeunload', ()=>{
    합치는 규칙은 파일과 같음(fsMerge: id·내용 중복 제거, 삭제 표시 유지). 비밀번호는 이 브라우저에만 저장. */
 const CLOUD_URL='https://time.uehs.workers.dev/api/data';
 const CLOUD={ pw:(function(){ try{ return localStorage.getItem('tt_cloud_pw')||''; }catch(e){ return ''; } })(),
-              timer:null, busy:false, pending:false, pollTimer:null, askedAt:0, state:'' };
+              timer:null, busy:false, pending:false, pollTimer:null, askedAt:0, state:'', dirty:false };   // dirty: 오프라인 등으로 아직 못 올린 변경이 있음
 function cloudStatus(state, msg){
   CLOUD.state=state;
   document.querySelectorAll('#cloudBtn,.m-cloud').forEach(b=>{
   const m={ok:['☁ 클라우드 ✓','#dcfce7','#166534','#86efac'], saving:['☁ 저장 중…','#e0f2fe','#075985','#bae6fd'],
-            nopw:['☁ 비밀번호 입력','#fef9c3','#92400e','#fde68a'], error:['⚠ 클라우드 연결 안 됨','#fef2f2','#b91c1c','#fecaca']}[state]||['☁ 클라우드','#f1f5f9','#475569','#cbd5e1'];
+            nopw:['☁ 비밀번호 입력','#fef9c3','#92400e','#fde68a'], error:['⚠ 클라우드 연결 안 됨','#fef2f2','#b91c1c','#fecaca'],
+            offline:['📴 오프라인 · 연결되면 올림','#f1f5f9','#475569','#cbd5e1']}[state]||['☁ 클라우드','#f1f5f9','#475569','#cbd5e1'];
   b.textContent=m[0]; b.style.background=m[1]; b.style.color=m[2]; b.style.borderColor=m[3]; b.title=msg||'클릭: 비밀번호 다시 입력'; });
 }
 function cloudAskPw(wrong){
@@ -4611,6 +4612,7 @@ function cloudAskPw(wrong){
              {label:'연결',kind:'primary',keepOpen:true,onClick:()=>{ const v=(document.getElementById('cloudPwInput')||{}).value||''; syncPopupClose(); if(v.trim()){ CLOUD.pw=v.trim(); try{ localStorage.setItem('tt_cloud_pw',CLOUD.pw); }catch(e){} cloudPull(); } }}]});   // keepOpen: 닫기 전에 입력값을 읽어야 함
   setTimeout(()=>{ const i=document.getElementById('cloudPwInput'); if(i) i.focus(); }, 50);
 }
+function _cloudNetErr(e){ return !navigator.onLine || /Failed to fetch|NetworkError|Load failed/i.test(String(e&&e.message||e)); }   // 인터넷이 없어서 난 오류인지
 async function cloudFetch(method, body){
   if(!CLOUD.pw){ cloudStatus('nopw'); cloudAskPw(); throw new Error('no pw'); }
   const r=await fetch(CLOUD_URL,{method, headers:{'X-Pw':CLOUD.pw, ...(body?{'Content-Type':'application/json'}:{})}, body, cache:'no-store'});
@@ -4635,7 +4637,7 @@ async function cloudPull(){
     cloudStatus('ok');
     CLOUD.busy=false;
     if(changed){ cloudSchedulePush(); if(FS.connected && !FS.loading && FS.fileHandle){ clearTimeout(FS.saveTimer); FS.saveTimer=setTimeout(fsWriteNow,250); } }
-  }catch(e){ CLOUD.busy=false; if(!/no pw|401/.test(String(e.message))) cloudStatus('error', String(e.message||e)); }
+  }catch(e){ CLOUD.busy=false; if(_cloudNetErr(e)) cloudStatus('offline'); else if(!/no pw|401/.test(String(e.message))) cloudStatus('error', String(e.message||e)); }
   if(CLOUD.pending){ CLOUD.pending=false; cloudPull(); }
 }
 /* 이 기기 → 클라우드: 먼저 받아서 합친 뒤 전체를 올린다(파일 저장과 같은 순서) */
@@ -4647,16 +4649,24 @@ async function cloudPush(){
     cloudStatus('saving');
     try{ const data=await (await cloudFetch('GET')).json(); if(data) fsMerge(data); }catch(e){ if(/no pw|401/.test(String(e.message))) throw e; }
     await cloudFetch('PUT', JSON.stringify(fsCollect()));
+    CLOUD.dirty=false; try{ localStorage.removeItem('tt_cloud_dirty'); }catch(e){}
     cloudStatus('ok');
-  }catch(e){ if(!/no pw|401/.test(String(e.message))) cloudStatus('error', String(e.message||e)); }
+  }catch(e){
+    if(_cloudNetErr(e)){ CLOUD.dirty=true; try{ localStorage.setItem('tt_cloud_dirty','1'); }catch(e2){} cloudStatus('offline'); }   // 앱을 닫았다 열어도 기억
+    else if(!/no pw|401/.test(String(e.message))) cloudStatus('error', String(e.message||e));
+  }
   CLOUD.busy=false;
   if(CLOUD.pending){ CLOUD.pending=false; cloudPush(); }
 }
 function cloudSchedulePush(){ clearTimeout(CLOUD.timer); CLOUD.timer=setTimeout(cloudPush, 600); }
+function cloudSyncTick(){ if(!navigator.onLine){ cloudStatus('offline'); return; } if(CLOUD.dirty) cloudPush(); else cloudPull(); }
 function cloudStart(){
-  setTimeout(cloudPull, 500);
-  clearInterval(CLOUD.pollTimer); CLOUD.pollTimer=setInterval(()=>{ if(!document.hidden && !CLOUD.timer) cloudPull(); }, 15000);
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) cloudPull(); });   // 휴대폰에서 앱으로 돌아올 때 바로 맞춤
+  try{ if(localStorage.getItem('tt_cloud_dirty')==='1') CLOUD.dirty=true; }catch(e){}   // 지난번 오프라인에서 저장한 변경이 남아 있으면
+  setTimeout(cloudSyncTick, 500);
+  clearInterval(CLOUD.pollTimer); CLOUD.pollTimer=setInterval(()=>{ if(!document.hidden && !CLOUD.timer) cloudSyncTick(); }, 15000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) cloudSyncTick(); });   // 휴대폰에서 앱으로 돌아올 때 바로 맞춤
+  window.addEventListener('online', ()=>{ cloudSchedulePush(); });                                  // 인터넷이 다시 연결되면 바로 올림
+  window.addEventListener('offline', ()=>{ cloudStatus('offline'); });
 }
 
 /* 📁 버튼: 폴더 선택 → 파일 연결 */
