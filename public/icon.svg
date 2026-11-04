@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+<!-- 앱 아이콘 원본. PNG 재생성: rsvg-convert -w 512 -h 512 public/icon.svg -o public/icon-512.png -->
+<rect x="0" y="0" width="160" height="160" rx="36" fill="#5B3FA8"/>
+<rect x="22" y="28" width="86" height="98" rx="10" fill="#FFFFFF"/>
+<rect x="22" y="28" width="86" height="22" rx="10" fill="#C9B8F0"/>
+<rect x="22" y="40" width="86" height="10" fill="#C9B8F0"/>
+<rect x="38" y="22" width="6" height="14" rx="3" fill="#3B2A73"/>
+<rect x="86" y="22" width="6" height="14" rx="3" fill="#3B2A73"/>
+<g fill="#D9D2EE">
+<rect x="32" y="60" width="18" height="14" rx="3"/><rect x="54" y="60" width="18" height="14" rx="3"/><rect x="76" y="60" width="18" height="14" rx="3"/>
+<rect x="32" y="78" width="18" height="14" rx="3"/><rect x="76" y="78" width="18" height="14" rx="3"/>
+<rect x="32" y="96" width="18" height="14" rx="3"/>
+</g>
+<rect x="54" y="78" width="18" height="14" rx="3" fill="#8E6BE0"/>
+<g transform="translate(70 68)">
+<ellipse cx="38" cy="78" rx="42" ry="6" fill="#452C8C"/>
+<rect x="37" y="2" width="3" height="20" rx="1.5" fill="#3B2A73"/>
+<path d="M40 2h16l-5 5 5 5H40z" fill="#FF7A9E" stroke="#3B2A73" stroke-width="2" stroke-linejoin="round"/>
+<path d="M2 40L38 14L74 40z" fill="#F49BB3" stroke="#3B2A73" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="10" y="38" width="56" height="40" rx="7" fill="#FFF3C4" stroke="#3B2A73" stroke-width="2.5"/>
+<rect x="16" y="46" width="12" height="12" rx="4" fill="#9FD8F5" stroke="#3B2A73" stroke-width="2"/>
+<rect x="48" y="46" width="12" height="12" rx="4" fill="#9FD8F5" stroke="#3B2A73" stroke-width="2"/>
+<path d="M30 78V62a8 8 0 0 1 16 0v16z" fill="#8E6BE0" stroke="#3B2A73" stroke-width="2.5" stroke-linejoin="round"/>
+<circle cx="22" cy="68" r="2" fill="#F49BB3"/><circle cx="54" cy="68" r="2" fill="#F49BB3"/>
+</g>
+</svg>
