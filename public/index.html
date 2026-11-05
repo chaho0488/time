@@ -6064,6 +6064,8 @@ function dgHistOnChk(){
 }
 
 function renderSavedDgCol(){
+  // 자동 동기화(15초마다)로 목록을 다시 그려도 고른 체크가 풀리지 않게 기억해 둠
+  const keepChk=new Set([...document.querySelectorAll('.dg-hist-chk:checked')].map(c=>c.dataset.id));
   const body=document.getElementById('dgHistBody');
   const cntEl=document.getElementById('dgHistCnt');
   if(!body) return;
@@ -6089,7 +6091,7 @@ function renderSavedDgCol(){
     const rowStyle=isDup?'background:#fef2f2;border-left:3px solid #dc2626;':'background:#f0fdf4;border-left:3px solid #16a34a;';
     const pNum=(r.pA||'').replace('교시','');
     return `<tr style="${rowStyle}">
-      <td style="text-align:center;padding:3px;"><input type="checkbox" class="dg-hist-chk" data-id="${r.id}" onchange="dgHistOnChk()" style="cursor:pointer;accent-color:var(--accent);width:13px;height:13px;"></td>
+      <td style="text-align:center;padding:3px;"><input type="checkbox" class="dg-hist-chk" data-id="${r.id}" ${keepChk.has(String(r.id))?'checked':''} onchange="dgHistOnChk()" style="cursor:pointer;accent-color:var(--accent);width:13px;height:13px;"></td>
       <td style="font-size:11px;color:var(--text2);">${r.date||'—'}</td>
       <td style="font-weight:700;color:var(--accent);text-align:center;">${pNum}교시</td>
       <td style="font-size:11px;color:var(--muted);">${r.cA||''}</td>
@@ -6236,6 +6238,8 @@ function savedTabPrintSel(){
 }
 
 function renderSw2Left(){
+  // 자동 동기화(15초마다)로 목록을 다시 그려도 고른 체크가 풀리지 않게 기억해 둠
+  const keepChk=new Set([...document.querySelectorAll('.sw2-chk:checked')].map(c=>c.dataset.id));
   const body=document.getElementById('sw2Body');
   const cnt=document.getElementById('sw2Cnt');
   if(!body) return;
@@ -6271,7 +6275,7 @@ function renderSw2Left(){
     const dupMark=isDup?'<span style="font-size:9px;font-weight:700;color:var(--red);margin-right:2px;">⚠중복</span>':'';
     const tc=isDup?'color:var(--red)':'';
     return `<tr style="${rowBg};${rowBorder}">
-      <td style="text-align:center;padding:3px;"><input type="checkbox" class="sw2-chk" data-id="${r.id}" onchange="sw2OnChk()" style="cursor:pointer;accent-color:var(--accent);width:13px;height:13px;"></td>
+      <td style="text-align:center;padding:3px;"><input type="checkbox" class="sw2-chk" data-id="${r.id}" ${keepChk.has(String(r.id))?'checked':''} onchange="sw2OnChk()" style="cursor:pointer;accent-color:var(--accent);width:13px;height:13px;"></td>
       <td style="font-weight:700;${isDup?'color:var(--red)':'color:var(--accent)'}">${dupMark}${r.cA}${subLabel}</td>
       <td style="font-weight:600;${tc||'color:var(--text2)'}">${dA.ymd}</td>
       <td style="${tc||'color:var(--text2)'}">${dA.dow}</td>
