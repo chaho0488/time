@@ -3852,8 +3852,9 @@ const FS_FILE_NAME = 'timetable_data.json';
 let FS = { fileHandle:null, connected:false, loading:false, saveTimer:null, writing:false, pending:false, lastMtime:0, pollTimer:null,
            mirrorDir:null, mirrorName:'', inboxTimer:null, dirHandle:null, devices:{}, needPerm:null };   // 동기화(복사) 폴더: 데이터 폴더 저장 후 같은 내용을 여기에도 씀 (읽기는 안 함)
 const FS_TOMB_KEY='timetable_deleted_ids_v1';   // 삭제된 기록 id (합칠 때 되살아나지 않게)
-function fsTombLoad(){ try{ const t=JSON.parse(localStorage.getItem(FS_TOMB_KEY)||'{}'); return {sw:Array.isArray(t.sw)?t.sw:[], dg:Array.isArray(t.dg)?t.dg:[]}; }catch(e){ return {sw:[],dg:[]}; } }
-function fsTombSave(t){ try{ localStorage.setItem(FS_TOMB_KEY, JSON.stringify({sw:(t.sw||[]).slice(-3000), dg:(t.dg||[]).slice(-3000)})); }catch(e){} }
+function fsTombLoad(){ try{ const t=JSON.parse(localStorage.getItem(FS_TOMB_KEY)||'{}'); return {sw:Array.isArray(t.sw)?t.sw:[], dg:Array.isArray(t.dg)?t.dg:[], keys:Array.isArray(t.keys)?t.keys:[]}; }catch(e){ return {sw:[],dg:[],keys:[]}; } }
+// keys: 엑셀에서 다시 가져오지 않을 '지운 기록' 키({k,t}). 파일·KV의 deleted 에 같이 실려 다른 기기(창)에도 전해진다 — 이 브라우저에만 두면 다른 창이 옛 엑셀 사본으로 행을 되살림
+function fsTombSave(t){ try{ const keys=Array.isArray(t.keys)?t.keys:fsTombLoad().keys; localStorage.setItem(FS_TOMB_KEY, JSON.stringify({sw:(t.sw||[]).slice(-3000), dg:(t.dg||[]).slice(-3000), keys:keys.slice(-800)})); }catch(e){} }
 /* 저장 직전 이전 배열과 비교해 사라진 id를 삭제 표시로 기록 */
 function fsTrackDeleted(store, prevArr, nextArr){
   if(FS.loading) return;
@@ -3881,9 +3882,10 @@ function fsMergeCore(fileData){
   const tomb=fsTombLoad(), ftomb=(fileData&&fileData.deleted)||{};
   const delSw=new Set([...tomb.sw, ...(Array.isArray(ftomb.sw)?ftomb.sw:[])]);
   const delDg=new Set([...tomb.dg, ...(Array.isArray(ftomb.dg)?ftomb.dg:[])]);
+  const keyT={}; [...tomb.keys, ...(Array.isArray(ftomb.keys)?ftomb.keys:[])].forEach(x=>{ if(x&&x.k&&!(keyT[x.k]>=x.t)) keyT[x.k]=x.t; });
   const sw=fsUnion(fileSw, localSw, delSw, r=>`${r.isDG?'DG':'SW'}|${r.tA}|${r.cA}|${r.pA}|${r.date}|${r.tB}|${r.pB}|${r.dateB}`);
   const dg=fsUnion(fileDg, localDg, delDg, r=>`${r.tA}|${r.cA}|${r.pA}|${r.date}`);
-  fsTombSave({sw:[...delSw], dg:[...delDg]});
+  fsTombSave({sw:[...delSw], dg:[...delDg], keys:Object.entries(keyT).map(([k,t])=>({k,t}))});
   if(Array.isArray(fileData?.applied)) fsAppliedSave([...new Set([...fsAppliedLoad(), ...fileData.applied])]);
   fsApply({swHist:sw, dgHist:dg});
   const same = sw.length===fileSw.length && dg.length===fileDg.length && fileSw.every((r,i)=>r.id===sw[i].id) && fileDg.every((r,i)=>r.id===dg[i].id);
@@ -4290,9 +4292,8 @@ async function xlSyncNow(){
 /* ══ 엑셀 → 앱: 엑셀에 손으로 적은(또는 고친) 행을 앱 기록으로 가져오기 ══
    - 같은 기록(대강: 날짜·교시·결강교사 / 교체: 결강일·교시·학급)이 앱에 없으면 추가, 내용이 다르면 앱 기록을 엑셀대로 고침.
    - 삭제는 가져오지 않음(앱에서 지워야 함). 앱에서 최근 7일 안에 지운 기록은 엑셀에 남아 있어도 다시 가져오지 않음. */
-const XL_DELKEY='tt_xl_deleted_keys_v1';
-function xlDelKeysLoad(){ try{ const a=JSON.parse(localStorage.getItem(XL_DELKEY)||'[]'); const cut=Date.now()-7*86400000; return a.filter(x=>x&&x.t>cut); }catch(e){ return []; } }
-function xlDelKeysAdd(keys){ if(!keys||!keys.length) return; const a=xlDelKeysLoad(); const now=Date.now(); keys.forEach(k=>a.push({k,t:now})); try{ localStorage.setItem(XL_DELKEY, JSON.stringify(a.slice(-800))); }catch(e){} }
+function xlDelKeysLoad(){ const cut=Date.now()-7*86400000; return fsTombLoad().keys.filter(x=>x&&x.t>cut); }
+function xlDelKeysAdd(keys){ if(!keys||!keys.length) return; const a=xlDelKeysLoad(); const now=Date.now(); keys.forEach(k=>a.push({k,t:now})); const t=fsTombLoad(); t.keys=a; fsTombSave(t); }
 function xlDgKeyOf(r){ return `D|${r.dateISO||''}|${xlPnum(r.pA)}|${String(r.tA||'').replace(/T$/,'')}`; }
 function xlSwKeyOf(r){ return `S|${r.dateISO_sw||''}|${xlPnum(r.pA)}|${r.cA||''}`; }
 function xlDateOf(v){
@@ -4323,7 +4324,7 @@ function xlProcessRows(rowsBySheet){
         const noteRaw=str(cells.J), note=xlStripMark(noteRaw), markDel=noteRaw.includes('앱에서 지운 기록');
         const d=xlDateOf(cells.C), tA=str(cells.G).replace(/T$/,''), tB=str(cells.I).replace(/T$/,''), ps=xlExpand(str(cells.E)).filter(p=>p>=1&&p<=7);
         const miss=[]; if(!d) miss.push('날짜'); if(!ps.length) miss.push('교시'); if(!tA) miss.push('결강교사'); if(!tB) miss.push('보강교사');
-        if(markDel){ um.L.push({cells, note, reason:'앱에서 지운 기록 (다시 넣으려면 앱에서 입력, 필요 없으면 이 행 삭제)'}); }
+        if(markDel){ if(note) um.L.push({cells, note, reason:'앱에서 지운 기록 (다시 넣으려면 앱에서 입력, 필요 없으면 이 행 삭제)'}); }   // 메모 없는 행은 버림(= 엑셀에서 사라짐)
         else if(miss.length){ um.L.push({cells, note, reason:`앱 미반영: ${miss.join('·')} 확인`}); }
         else {
           const cls=xlCls(cells.B), sA=str(cells.F); const bm=note.match(/보강 ([^,]+)/); const sB=bm?(bm[1].includes('/')?null:bm[1].trim()):sA;
@@ -4333,7 +4334,7 @@ function xlProcessRows(rowsBySheet){
             if(del.has(key)){ blocked='앱에서 지운 기록 (다시 넣으려면 앱에서 입력, 필요 없으면 이 행 삭제)'; skipped.push(`대강 ${md(d)} ${p}교시 ${tA}→${tB} — 앱에서 지운 기록`); return; }
             const rec={id:++nid, date:swFormatISODateLabel(d), tA, kA:xlWd(d)+p, pA:`${p}교시`, sA, cA:cls, tSub:tB, subjectSub:(sB!=null?sB:sA), dateISO:d, savedAt:now};
             dg.push(rec); dgIdx.set(key,rec); sw.push(dgToSwHistRecord(rec)); added.push(`대강 ${md(d)} ${p}교시 ${cls} ${tA}→${tB}`); });
-          if(blocked) um.L.push({cells, note, reason:blocked});
+          if(blocked && note) um.L.push({cells, note, reason:blocked});
         }
       }
       // ── 오른쪽(교체) ──
@@ -4341,7 +4342,7 @@ function xlProcessRows(rowsBySheet){
         const noteRaw=str(cells.X), note=xlStripMark(noteRaw), markDel=noteRaw.includes('앱에서 지운 기록');
         const dA=xlDateOf(cells.M), dB=xlDateOf(cells.S), qA=str(cells.Q).replace(/T$/,''), qB=str(cells.W).replace(/T$/,''), pAs=xlExpand(str(cells.O)).filter(p=>p>=1&&p<=7), pBs=xlExpand(str(cells.U)).filter(p=>p>=1&&p<=7);
         const miss=[]; if(!dA) miss.push('결강일자'); if(!pAs.length) miss.push('결강교시'); if(!qA) miss.push('결강교사'); if(!dB) miss.push('교체일자'); if(!pBs.length) miss.push('교체교시'); if(!qB) miss.push('교체교사');
-        if(markDel){ um.R.push({cells, note, reason:'앱에서 지운 기록 (다시 넣으려면 앱에서 입력, 필요 없으면 이 행 삭제)'}); }
+        if(markDel){ if(note) um.R.push({cells, note, reason:'앱에서 지운 기록 (다시 넣으려면 앱에서 입력, 필요 없으면 이 행 삭제)'}); }   // 메모 없는 행은 버림(= 엑셀에서 사라짐)
         else if(miss.length){ um.R.push({cells, note, reason:`앱 미반영: ${miss.join('·')} 확인`}); }
         else {
           const cls=xlCls(cells.L), sA=str(cells.P), sB=str(cells.V); let blocked=null;
@@ -4350,7 +4351,7 @@ function xlProcessRows(rowsBySheet){
             if(del.has(key)){ blocked='앱에서 지운 기록 (다시 넣으려면 앱에서 입력, 필요 없으면 이 행 삭제)'; skipped.push(`교체 ${md(dA)} ${p}교시 ${cls} — 앱에서 지운 기록`); return; }
             const rec={id:++nid, date:swFormatISODateLabel(dA), tA:qA, kA:xlWd(dA)+p, pA:`${p}교시`, sA, cA:cls, rA:'', tB:qB, kB:xlWd(dB)+pb, pB:`${pb}교시`, dateB:swFormatISODateLabel(dB), sB, cB:cls, rB:'', conf:'✅ 없음', dateBISO:dB, dateISO_sw:dA, savedAt:now};
             sw.push(rec); swUsed.add(rec); (swIdx.get(key)||swIdx.set(key,[]).get(key)).push(rec); added.push(`교체 ${md(dA)} ${p}교시 ${cls} ${qA}↔${md(dB)} ${pb}교시 ${qB}`); });
-          if(blocked) um.R.push({cells, note, reason:blocked});
+          if(blocked && note) um.R.push({cells, note, reason:blocked});
         }
       }
     });
