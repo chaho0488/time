@@ -3797,11 +3797,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:#1e2340;background:#fff;
 <body>${cards}</body>
 </html>`;
 
-  const w=window.open('','_blank','width=680,height=800');
-  if(!w){alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해 주세요.');return;}
-  w.document.write(html);
-  w.document.close();
-  w.addEventListener('load',()=>{w.focus();w.print();});
+  printDocInFrame(html, 'swPrintFrame');   // 새 창은 load 이벤트가 붙기 전에 끝나 인쇄창이 안 뜸 → 숨김 iframe으로
 }
 
 function renderRec(){
@@ -4385,9 +4381,10 @@ let _xlStatusTimer=null;
 function xlStatus(state, done, missing){
   const b=document.getElementById('fsConnectBtn'); if(!b||!FS.connected) return;
   clearTimeout(_xlStatusTimer);
-  if(state==='ok'){ b.textContent='📗 엑셀 반영됨'+(missing&&missing.length?` (시트 없음: ${missing.join(',')})`:''); b.style.background='#dcfce7'; b.style.color='#166534'; b.style.borderColor='#86efac';
-    b.title=`26 결보강일지.xlsx ${done.join('·')} 시트를 최신 기록으로 채웠습니다.`; _xlStatusTimer=setTimeout(fsUpdateBtn, 2500); }
-  else if(state==='locked'){ b.textContent='📗 엑셀 열려 있음 · 닫으면 반영'; b.style.background='#fff7ed'; b.style.color='#c2410c'; b.style.borderColor='#fdba74'; b.title='26 결보강일지.xlsx가 엑셀에서 열려 있어 쓸 수 없습니다. 닫으면 1분 안에 자동 반영됩니다.'; }
+  XL.locked = state==='locked';   // 열려 있는 동안은 드라이브 저장 표시가 이 안내를 덮지 않게 기억
+  if(state==='ok'){ fsUpdateBtn();   // 자동 반영마다 글자가 바뀌면 깜빡여 보이므로 툴팁에만 남김
+    b.title+=`\n엑셀: ${done.join('·')} 시트 반영 ${new Date().toLocaleTimeString('ko-KR')}`+(missing&&missing.length?` (시트 없음: ${missing.join(',')})`:''); }
+  else if(state==='locked') fsUpdateBtn();
   else if(state==='nofile'){ b.textContent='📗 엑셀 파일 없음'; b.style.background='#fef2f2'; b.style.color='#b91c1c'; b.style.borderColor='#fecaca'; b.title='데이터 폴더에 26 결보강일지.xlsx 가 없습니다.'; _xlStatusTimer=setTimeout(fsUpdateBtn, 4000); }
   else { b.textContent='📗 엑셀 반영 실패'; b.style.background='#fef2f2'; b.style.color='#b91c1c'; b.style.borderColor='#fecaca'; b.title='엑셀 반영 오류: '+XL.lastErr; _xlStatusTimer=setTimeout(fsUpdateBtn, 4000); }
 }
@@ -4402,7 +4399,10 @@ function fsSupported(){ return typeof window!=='undefined' && 'showDirectoryPick
 function fsUpdateBtn(){
   const b=document.getElementById('fsConnectBtn');
   if(!b) return;
-  if(FS.connected){
+  if(FS.connected && typeof XL!=='undefined' && XL.locked){
+    b.textContent='📗 엑셀 열려 있음 · 닫으면 반영'; b.style.background='#fff7ed'; b.style.color='#c2410c'; b.style.borderColor='#fdba74';
+    b.title='26 결보강일지.xlsx가 엑셀에서 열려 있어 쓸 수 없습니다. 드라이브 저장은 계속되고, 엑셀을 닫으면 1분 안에 자동 반영됩니다.';
+  } else if(FS.connected){
     b.textContent='☁️ 드라이브 연결됨 ✓'+(devName()?' · '+devName():'');
     b.style.background='#dcfce7'; b.style.color='#166534'; b.style.borderColor='#86efac';
     b.title='데이터가 구글 드라이브 폴더('+(FS.dirName||'결보강 프로그램')+')에 자동 저장되고 있습니다. 클릭하면 연결 정보·기기 이름을 볼 수 있습니다.';
@@ -4418,20 +4418,10 @@ function fsSaveStatus(state){
   const b=document.getElementById('fsConnectBtn');
   if(!b || !FS.connected) return;
   clearTimeout(_fsStatusTimer);
-  if(state==='saving'){
-    b.textContent='☁️ 저장 중…';
-    b.style.background='#e0f2fe'; b.style.color='#075985'; b.style.borderColor='#bae6fd';
-  } else if(state==='saved'){
-    b.textContent='☁️ 저장됨';
-    b.style.background='#dcfce7'; b.style.color='#166534'; b.style.borderColor='#86efac';
-    b.title='편집 내용이 폴더에 저장되었습니다 (구글 드라이브로 자동 동기화).';
-    _fsStatusTimer=setTimeout(fsUpdateBtn, 1500);   // 잠시 후 '폴더 연결됨 ✓'로 복귀
-  } else if(state==='synced'){
-    b.style.animation='';
-    b.textContent='🔄 동기화됨';
-    b.style.background='#dcfce7'; b.style.color='#166534'; b.style.borderColor='#86efac';
-    b.title='다른 곳에서 바뀐 기록을 읽어 합쳤습니다.';
-    _fsStatusTimer=setTimeout(fsUpdateBtn, 1500);
+  // 저장·동기화는 몇 초마다 자동으로 일어나므로 버튼 글자는 바꾸지 않고(깜빡임 방지) 마지막 시각만 툴팁에 남긴다
+  if(state==='saved' || state==='synced'){
+    fsUpdateBtn();
+    b.title+='\n마지막 '+(state==='saved'?'저장':'동기화')+': '+new Date().toLocaleTimeString('ko-KR');
   } else if(state==='error'){
     b.textContent='⚠️ 저장 실패 · 다시 동기화';
     b.style.background='#fef2f2'; b.style.color='#b91c1c'; b.style.borderColor='#fecaca';
@@ -4597,6 +4587,9 @@ const CLOUD_URL='https://time.uehs.workers.dev/api/data';
 const CLOUD={ pw:(function(){ try{ return localStorage.getItem('tt_cloud_pw')||''; }catch(e){ return ''; } })(),
               timer:null, busy:false, pending:false, pollTimer:null, askedAt:0, state:'', dirty:false };   // dirty: 오프라인 등으로 아직 못 올린 변경이 있음
 function cloudStatus(state, msg){
+  // 이미 ✓ 인 상태에서 자동 저장할 때는 글자를 바꾸지 않음(15초마다 깜빡임 방지)
+  if(state==='saving' && CLOUD.state==='ok') return;
+  if(state==='ok' && !msg) msg='모든 기기 공용 저장소와 맞춰져 있습니다. 마지막 확인: '+new Date().toLocaleTimeString('ko-KR')+'\n클릭: 비밀번호 다시 입력';
   CLOUD.state=state;
   document.querySelectorAll('#cloudBtn,.m-cloud').forEach(b=>{
   const m={ok:['☁ 클라우드 ✓','#dcfce7','#166534','#86efac'], saving:['☁ 저장 중…','#e0f2fe','#075985','#bae6fd'],
@@ -5375,11 +5368,13 @@ function printDocInFrame(docHTML, frameId){
   if(ifr) ifr.remove();
   ifr=document.createElement('iframe');
   ifr.id=frameId;
-  ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+  ifr.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
   document.body.appendChild(ifr);
   const idoc=ifr.contentWindow.document;
   idoc.open(); idoc.write(docHTML); idoc.close();
-  setTimeout(()=>{ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){ alert('인쇄를 시작할 수 없습니다.'); } }, 300);
+  const go=()=>{ try{ ifr.contentWindow.focus(); ifr.contentWindow.print(); }catch(e){ alert('인쇄를 시작할 수 없습니다.'); } };
+  // 구글 글꼴을 받을 때까지 최대 2초 기다림 (못 받으면 기본 글꼴로 인쇄)
+  setTimeout(()=>{ Promise.race([idoc.fonts?idoc.fonts.ready:null, new Promise(r=>setTimeout(r,1700))]).then(go, go); }, 300);
 }
 
 /* ══ 공용 클립보드 복사 (file:// 등 비보안 컨텍스트 폴백 + 항상 피드백) ══ */
@@ -6176,8 +6171,7 @@ function doPrintDg(dgRecs){
       <div class="change"><span class="arr">→</span><span class="to">${e.tSub} 선생님</span></div>`).join('');
     cards+=`<div class="card"><div class="cls-name">${cls}</div><div class="subtitle">다음과 같이 대강 수업이 진행됩니다.</div>${items}</div>`;
   });
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>대강 안내</title>
+  printDocInFrame(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>대강 안내</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Noto Sans KR',sans-serif;color:#1e2340;
   columns:2;column-gap:0;}
@@ -6191,8 +6185,7 @@ function doPrintDg(dgRecs){
 .to{font-size:16px;font-weight:800;color:#16a34a;}
 .gap{height:10px;}
 @media print{@page{size:A4 portrait;margin:10mm 12mm;}body{margin:0;}.card{page-break-inside:avoid;}}
-</style></head><body>${cards}<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
-  w.document.close();
+</style></head><body>${cards}</body></html>`, 'dgPrintFrame');
 }
 
 function savedTabPrintSel(){
@@ -6227,8 +6220,7 @@ function savedTabPrintSel(){
       <div class="change"><span class="chg">${e.label}</span></div>`).join('');
     cards+=`<div class="card"><div class="cls-name">${cls}</div><div class="subtitle">다음과 같이 수업이 변경됩니다.</div>${items}</div>`;
   });
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>수업 변경 안내</title>
+  printDocInFrame(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>수업 변경 안내</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Noto Sans KR',sans-serif;color:#1e2340;
   columns:2;column-gap:0;}
@@ -6240,8 +6232,7 @@ function savedTabPrintSel(){
 .change{margin-bottom:6px;}.chg{font-size:16px;font-weight:800;color:#3b6ee8;}
 .gap{height:10px;}
 @media print{@page{size:A4 portrait;margin:10mm 12mm;}body{margin:0;}.card{page-break-inside:avoid;}}
-</style></head><body>${cards}<script>window.onload=()=>{window.print();window.close();}<\/script></body></html>`);
-  w.document.close();
+</style></head><body>${cards}</body></html>`, 'savedPrintFrame');
 }
 
 function renderSw2Left(){
