@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
-<!-- 앱 아이콘 원본. PNG 재생성: rsvg-convert -w 512 -h 512 public/icon.svg -o public/icon-512.png -->
+<!-- 앱 아이콘 원본. PNG 재생성: rsvg-convert -w 512 -h 512 public/icon.svg -o public/icon-v2-512.png -->
 <rect x="0" y="0" width="160" height="160" rx="36" fill="#5B3FA8"/>
 <rect x="22" y="28" width="86" height="98" rx="10" fill="#FFFFFF"/>
 <rect x="22" y="28" width="86" height="22" rx="10" fill="#C9B8F0"/>

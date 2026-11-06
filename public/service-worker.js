@@ -3,9 +3,9 @@
    - 앱 화면은 "네트워크 먼저, 안 되면 캐시": 온라인이면 항상 최신 배포본을 쓰고, 오프라인이면 마지막으로 받아 둔 것을 쓴다.
    - 외부 라이브러리는 "캐시 먼저": 버전이 주소에 박혀 있어 바뀌지 않는다.
    - /api/ 는 절대 캐시하지 않는다(기록 저장소는 항상 서버와 직접 주고받음). */
-const VERSION = 'v1';                       // 캐시 구조를 바꿀 때만 올린다 (앱 수정은 네트워크 먼저라 올릴 필요 없음)
+const VERSION = 'v2';                       // 캐시 구조를 바꿀 때만 올린다 (앱 수정은 네트워크 먼저라 올릴 필요 없음)
 const CACHE = 'timetable-' + VERSION;
-const APP_SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const APP_SHELL = ['./', './index.html', './manifest.json', './icon-v2-192.png', './icon-v2-512.png'];
 const LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
 
 self.addEventListener('install', e => {
