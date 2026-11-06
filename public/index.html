@@ -3868,8 +3868,12 @@ function fsTrackDeleted(store, prevArr, nextArr){
 }
 /* 파일 데이터 ∪ 브라우저 데이터 (id·내용 중복 제거, 삭제 표시 반영) → 브라우저에 적용. 반환: 파일과 달라졌는지 */
 function fsUnion(primary, secondary, delSet, keyFn){
+  // 같은 기록(id)이 양쪽에 있으면 나중에 고친 쪽(savedAt)을 쓴다. 예전엔 파일·클라우드 쪽이 늘 이겨서 엑셀에서 고친 내용이 되돌아갔음
+  const ok=r=>r&&typeof r==='object'&&!(r.id!=null&&delSet.has(r.id));
+  const best=new Map();
+  [...(primary||[]), ...(secondary||[])].forEach(r=>{ if(!ok(r)||r.id==null) return; const b=best.get(r.id); if(!b || _recStamp(r)>_recStamp(b)) best.set(r.id, r); });
   const out=[], ids=new Set(), keys=new Set();
-  const push=r=>{ if(!r||typeof r!=='object') return; if(r.id!=null && delSet.has(r.id)) return; const k=keyFn(r); if((r.id!=null && ids.has(r.id)) || keys.has(k)) return; if(r.id!=null) ids.add(r.id); keys.add(k); out.push(r); };
+  const push=r=>{ if(!ok(r)) return; const v=r.id!=null?best.get(r.id):r; if(v.id!=null && ids.has(v.id)) return; const k=keyFn(v); if(keys.has(k)) return; if(v.id!=null) ids.add(v.id); keys.add(k); out.push(v); };
   (primary||[]).forEach(push); (secondary||[]).forEach(push);
   return out;
 }
@@ -3887,7 +3891,7 @@ function fsMergeCore(fileData){
   fsTombSave({sw:[...delSw], dg:[...delDg], keys:Object.entries(keyT).map(([k,t])=>({k,t}))});
   if(Array.isArray(fileData?.applied)) fsAppliedSave([...new Set([...fsAppliedLoad(), ...fileData.applied])]);
   fsApply({swHist:sw, dgHist:dg});
-  const same = sw.length===fileSw.length && dg.length===fileDg.length && fileSw.every((r,i)=>r.id===sw[i].id) && fileDg.every((r,i)=>r.id===dg[i].id);
+  const same = sw.length===fileSw.length && dg.length===fileDg.length && fileSw.every((r,i)=>r===sw[i]) && fileDg.every((r,i)=>r===dg[i]);
   return !same;
 }
 
