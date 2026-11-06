@@ -1142,7 +1142,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
     </div>
     <div class="sw-filter" style="flex-wrap:nowrap;overflow-x:auto;gap:3px;background:var(--white);">
       <button class="sw-qbtn active" id="dgHistBtnAll" onclick="dgHistClearFilter()">전체</button>
-      <button class="sw-qbtn" onclick="swDayStep(-1)" title="이전 수업일">◀</button><button class="sw-qbtn" id="dgHistBtnToday" onclick="dgHistSetToday()" title="오늘로 돌아가기">오늘</button><button class="sw-qbtn" onclick="swDayStep(1)" title="다음 수업일">▶</button>
+      <button class="sw-qbtn" onclick="swDayStep('dgHist',-1)" title="이전 수업일">◀</button><span style="position:relative;flex-shrink:0;"><button class="sw-qbtn" id="dgHistBtnToday" onclick="swDayPick('dgHist')" title="달력에서 날짜 고르기">오늘</button><input type="date" id="dgHistDayPick" onchange="if(this.value) swDayShow('dgHist',this.value)" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;"></span><button class="sw-qbtn" onclick="swDayStep('dgHist',1)" title="다음 수업일">▶</button>
       <button class="sw-qbtn" id="dgHistBtnWeek" onclick="dgHistSetThisWeek()">이번주</button>
       <button class="sw-qbtn" id="dgHistBtnNextWeek" onclick="dgHistSetNextWeek()">다음주</button>
       <select class="si si-sel" id="dgHistTeacher" onchange="renderSavedDgCol()" title="교사별 보기" style="font-size:11px;padding:3px 18px 3px 5px;width:78px;flex-shrink:0;">
@@ -1193,7 +1193,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
     </div>
     <div class="sw-filter" style="flex-wrap:nowrap;overflow-x:auto;gap:3px;background:var(--white);">
       <button class="sw-qbtn active" id="sw2BtnAll" onclick="sw2ClearFilter()">전체</button>
-      <button class="sw-qbtn" onclick="swDayStep(-1)" title="이전 수업일">◀</button><button class="sw-qbtn" id="sw2BtnToday" onclick="sw2SetToday()" title="오늘로 돌아가기">오늘</button><button class="sw-qbtn" onclick="swDayStep(1)" title="다음 수업일">▶</button>
+      <button class="sw-qbtn" onclick="swDayStep('sw2',-1)" title="이전 수업일">◀</button><span style="position:relative;flex-shrink:0;"><button class="sw-qbtn" id="sw2BtnToday" onclick="swDayPick('sw2')" title="달력에서 날짜 고르기">오늘</button><input type="date" id="sw2DayPick" onchange="if(this.value) swDayShow('sw2',this.value)" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;"></span><button class="sw-qbtn" onclick="swDayStep('sw2',1)" title="다음 수업일">▶</button>
       <button class="sw-qbtn" id="sw2BtnWeek" onclick="sw2SetThisWeek()">이번주</button>
       <button class="sw-qbtn" id="sw2BtnNextWeek" onclick="sw2SetNextWeek()">다음주</button>
       <select class="si si-sel" id="sw2Teacher" onchange="renderSw2Left()" title="교사별 보기" style="font-size:11px;padding:3px 18px 3px 5px;width:78px;flex-shrink:0;">
@@ -5721,7 +5721,6 @@ function sw2ClearFilter(){
   sw2SetActiveBtn('sw2BtnAll');
   renderSw2Left();
 }
-function sw2SetToday(){ swDayShow(kstToday()); }
 function sw2SetThisWeek(){
   const t=getKST(), dow=t.getDay();
   const mon=new Date(t); mon.setDate(t.getDate()-(dow===0?6:dow-1));
@@ -5770,32 +5769,34 @@ function sw2GetFiltered(){
   });
 }
 
-/* ── 저장 탭 하루 단위 이동: 대강·교체 두 칸이 늘 같은 날을 보도록 날짜를 한 곳에 둠 ── */
-let swDayISO='';
+/* ── 저장 탭 하루 단위 이동: 대강(dgHist)·교체(sw2) 칸이 각자 자기 날짜를 따로 가짐 ── */
+const swDay={dgHist:'', sw2:''};
 function swDayLabel(iso){ const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`; }
-function swDaySetLabel(iso){
-  ['dgHistBtnToday','sw2BtnToday'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=swDayLabel(iso); });
-}
-function swDayShow(iso){
-  swDayISO=iso;
-  ['dgHistFrom','dgHistTo','sw2From','sw2To'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=iso; });
-  ['dgHistMonthSel','sw2MonthSel'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  swDaySetLabel(iso);
-  dgHistSetActiveBtnOnly('dgHistBtnToday');
-  sw2SetActiveBtn('sw2BtnToday');
-  renderSavedDgCol();
-  renderSw2Left();
+function swDaySetLabel(col, iso){ const el=document.getElementById(col+'BtnToday'); if(el) el.textContent=swDayLabel(iso); }
+function swDayShow(col, iso){
+  swDay[col]=iso;
+  [col+'From', col+'To'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=iso; });
+  const ms=document.getElementById(col+'MonthSel'); if(ms) ms.value='';
+  swDaySetLabel(col, iso);
+  if(col==='dgHist'){ dgHistSetActiveBtnOnly('dgHistBtnToday'); renderSavedDgCol(); }
+  else { sw2SetActiveBtn('sw2BtnToday'); renderSw2Left(); }
   renderSwPreview();
 }
-function swDayStep(n){
-  const d=new Date((swDayISO||kstToday())+'T00:00:00');
+function swDayStep(col, n){
+  const d=new Date((swDay[col]||kstToday())+'T00:00:00');
   do d.setDate(d.getDate()+n); while(d.getDay()===0||d.getDay()===6);   // 토·일은 수업이 없으니 건너뜀
-  swDayShow(swYMD(d));
+  swDayShow(col, swYMD(d));
+}
+/* 날짜 칸을 누르면 그 칸이 보고 있는 날짜로 달력을 엶 */
+function swDayPick(col){
+  const inp=document.getElementById(col+'DayPick'); if(!inp) return;
+  inp.value=swDay[col]||kstToday();
+  try{ inp.showPicker(); }catch(e){ inp.focus(); inp.click(); }   // showPicker가 없는 옛 브라우저 대비
 }
 
 /* ── 교체 기록 탭: 좌측(S.records) + 중앙(미리보기) ── */
 function renderSw2(){
-  if(!swDayISO) swDaySetLabel(kstToday());   // 아직 이동 전이면 버튼에 오늘 날짜를 표시
+  ['dgHist','sw2'].forEach(c=>{ if(!swDay[c]) swDaySetLabel(c, kstToday()); });   // 아직 이동 전이면 버튼에 오늘 날짜를 표시
   renderSavedDgCol();
   renderSw2Left();
   renderSwPreview();
@@ -5934,7 +5935,6 @@ function dgHistSetMonthSel(){
   dgHistSetActiveBtnOnly('');
   renderSavedDgCol();
 }
-function dgHistSetToday(){ swDayShow(kstToday()); }
 function dgHistSetThisWeek(){
   const d=getKST(), dow=d.getDay(), mon=new Date(d);
   mon.setDate(d.getDate()-(dow===0?6:dow-1));
