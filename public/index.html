@@ -7529,7 +7529,7 @@ function executeDgImport(){
    대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
    탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
    2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
-const M={tab:'swap', step:1, dgStep:1, recRange:'week', ttKind:'cls', ttCls:'', ttTeacher:'', ttDate:'', recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
+const M={tab:'swap', step:1, dgStep:1, recRange:'week', recDay:'', recFrom:'', recTo:'', recKind:'', recWho:'', ttKind:'cls', ttCls:'', ttTeacher:'', ttDate:'', recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
 const mWD=['일','월','화','수','목','금','토'];
 function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
 function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
@@ -7696,34 +7696,56 @@ function mTtHTML(){
 }
 
 /* ── 기록 ── */
-function mRecHTML(){
+/* 조회 기간 [시작, 끝]: 오늘·이번 주·다음 주·날짜 하나·기간(시작~끝) */
+function mRecRng(){
   const today=kstToday(); const mon=twISO(_mondayOfISO(today));
-  const rng={ today:[today,today], week:[mon,_addDaysISO(mon,4)], next:[_addDaysISO(mon,7),_addDaysISO(mon,11)] }[M.recRange];
-  const inR=iso=>iso&&iso>=rng[0]&&iso<=rng[1];
-  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)).map(r=>({key:'dg:'+r.id,iso:r.dateISO,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} ${r.tA} → <b>${r.tSub}</b> <span style="font-size:11px;color:var(--green)">대강</span>`}));
-  const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; if(inR(r.dateISO_sw)) o.push({key:'sw:'+r.id,iso:r.dateISO_sw,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(inR(r.dateBISO)) o.push({iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
-  const all=[...dg,...sw].sort((a,b)=>a.iso.localeCompare(b.iso)||a.p-b.p);
+  if(M.recRange==='day'){ M.recDay=M.recDay||today; return [M.recDay,M.recDay]; }
+  if(M.recRange==='span'){ M.recFrom=M.recFrom||mon; M.recTo=M.recTo||_addDaysISO(mon,4);
+    return M.recFrom<=M.recTo ? [M.recFrom,M.recTo] : [M.recTo,M.recFrom]; }   // 시작·끝을 거꾸로 골라도 그 사이를 조회
+  return { today:[today,today], week:[mon,_addDaysISO(mon,4)], next:[_addDaysISO(mon,7),_addDaysISO(mon,11)] }[M.recRange];
+}
+/* 교사·학반 조건. 교사는 결강 교사뿐 아니라 대강(보강)·교체 상대 교사로 들어간 기록도 포함 */
+function mRecWho(cls, ...teachers){
+  if(!M.recKind || !M.recWho) return true;
+  if(M.recKind==='cls') return String(cls||'').trim()===M.recWho;
+  return teachers.some(t=>String(t||'').trim().replace(/T$/,'')===M.recWho);   // 기록에 'OOT'로 적힌 경우도 같은 교사
+}
+/* 화면과 복사가 같은 목록을 쓰도록 한 곳에서 거른다. 교체는 결강일·교체일 두 줄로 나뉘고, 두 줄 모두 같은 key(같은 기록) */
+function mRecItems(){
+  const rng=mRecRng(); const inR=iso=>iso&&iso>=rng[0]&&iso<=rng[1];
+  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)&&mRecWho(r.cA,r.tA,r.tSub)).map(r=>({rec:r,kind:'dg',key:'dg:'+r.id,iso:r.dateISO,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} ${r.tA} → <b>${r.tSub}</b> <span style="font-size:11px;color:var(--green)">대강</span>`}));
+  const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; if(inR(r.dateISO_sw)&&mRecWho(r.cA,r.tA,r.tB)) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateISO_sw,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(inR(r.dateBISO)&&mRecWho(r.cB||r.cA,r.tA,r.tB)) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
+  return { rng, all:[...dg,...sw].sort((a,b)=>a.iso.localeCompare(b.iso)||a.p-b.p) };
+}
+function mRecHTML(){
+  const today=kstToday();
+  const {rng, all}=mRecItems();
   let body=''; let last='';
   const shown=new Set(all.map(x=>x.key)); [...M.recSel].forEach(k=>{ if(!shown.has(k)) M.recSel.delete(k); });   // 기간을 바꿔 안 보이는 기록은 선택에서 뺌
   all.forEach(x=>{ if(x.iso!==last){ last=x.iso; body+=`<div class="m-day">${mLab(x.iso)}${x.iso===today?' · 오늘':''}</div>`; }
     body+=`<div class="m-rec m-pick${M.recSel.has(x.key)?' sel':''}" onclick="mRecToggle('${x.key}')">${x.html}</div>`; });
   const f=k=>`<button class="${M.recRange===k?'on':''}" onclick="M.recRange='${k}';mRender()">`;
+  const g=k=>`<button class="${M.recKind===k?'on':''}" onclick="M.recKind='${k}';M.recWho='';mRender()">`;
+  const dIn=(v,set)=>`<input type="date" class="m-inp" style="flex:1;min-width:0" value="${v}" onchange="if(this.value){${set}=this.value;mRender()}">`;
+  const dates = M.recRange==='day' ? `<div style="display:flex;margin-bottom:8px">${dIn(rng[0],'M.recDay')}</div>`
+    : M.recRange==='span' ? `<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">${dIn(M.recFrom,'M.recFrom')}<span style="color:var(--muted)">~</span>${dIn(M.recTo,'M.recTo')}</div>` : '';
+  const whoList = M.recKind==='cls' ? cwClasses() : M.recKind==='t' ? mSel() : [];
+  const whoSel = M.recKind ? `<select class="m-inp" style="margin-bottom:8px" onchange="M.recWho=this.value;mRender()"><option value="">— ${M.recKind==='cls'?'학반':'교사'} 선택 —</option>${whoList.map(w=>`<option value="${w}"${w===M.recWho?' selected':''}>${w}</option>`).join('')}</select>` : '';
   const n=M.recSel.size;
   const btns=all.length?`<div class="m-btns"><button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
-  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div><span style="font-size:12px;color:var(--muted)">${mLab(rng[0])} ~ ${mLab(rng[1])}</span></div>
-    <div class="m-filter">${f('today')}오늘</button>${f('week')}이번 주</button>${f('next')}다음 주</button></div>
-    ${body||'<div class="m-note ok">이 기간에는 교체·대강 기록이 없습니다</div>'}
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div><span style="font-size:12px;color:var(--muted)">${mLab(rng[0])}${rng[1]!==rng[0]?' ~ '+mLab(rng[1]):''}${M.recKind&&M.recWho?' · '+M.recWho:''}</span></div>
+    <div class="m-filter">${f('today')}오늘</button>${f('week')}이번 주</button>${f('next')}다음 주</button>${f('day')}날짜</button>${f('span')}기간</button></div>${dates}
+    <div class="m-filter">${g('')}전체</button>${g('t')}교사</button>${g('cls')}학반</button></div>${whoSel}
+    ${body||'<div class="m-note ok">이 조건에는 교체·대강 기록이 없습니다</div>'}
     ${btns}<div class="m-sub" style="margin-top:12px">기록을 누르면 선택됩니다. 복사는 결보강 일지와 같은 한 줄 문장(메신저용). 삭제·출력은 데스크톱에서.</div></div>`;
 }
 function mRecToggle(key){ if(M.recSel.has(key)) M.recSel.delete(key); else M.recSel.add(key); mRender(); }
 /* 선택한 기록(없으면 보이는 기간 전체)을 데스크톱 저장 탭의 선택복사와 같은 형식으로 복사 */
 function mRecCopy(e){
-  const today=kstToday(); const mon=twISO(_mondayOfISO(today));
-  const rng={ today:[today,today], week:[mon,_addDaysISO(mon,4)], next:[_addDaysISO(mon,7),_addDaysISO(mon,11)] }[M.recRange];
-  const inR=iso=>iso&&iso>=rng[0]&&iso<=rng[1];
-  const pick=(k,r)=>!M.recSel.size || M.recSel.has(k+':'+r.id);
-  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)&&pick('dg',r));
-  const sw=swHistLoad().filter(r=>!r.isDG&&(inR(r.dateISO_sw)||inR(r.dateBISO))&&pick('sw',r));
+  const {all}=mRecItems();   // 화면에 보이는 조건(기간·교사·학반) 그대로
+  const pick=x=>!M.recSel.size || M.recSel.has(x.key);
+  const recs=k=>[...new Set(all.filter(x=>x.kind===k&&pick(x)).map(x=>x.rec))];   // 교체는 두 줄이 한 기록이므로 한 번만
+  const dg=recs('dg'), sw=recs('sw');
   const lines=[...dgCopyLines(dg), ...swCopyLines(sw)];
   if(!lines.length){ mToast('복사할 기록이 없습니다'); return; }
   copyToClipboard(lines.join('\n'), e?.target, `✅ ${dg.length+sw.length}건 복사됨`);
