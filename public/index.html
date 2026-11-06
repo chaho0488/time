@@ -1142,7 +1142,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
     </div>
     <div class="sw-filter" style="flex-wrap:nowrap;overflow-x:auto;gap:3px;background:var(--white);">
       <button class="sw-qbtn active" id="dgHistBtnAll" onclick="dgHistClearFilter()">전체</button>
-      <button class="sw-qbtn" id="dgHistBtnToday" onclick="dgHistSetToday()">오늘</button>
+      <button class="sw-qbtn" onclick="swDayStep(-1)" title="이전 수업일">◀</button><button class="sw-qbtn" id="dgHistBtnToday" onclick="dgHistSetToday()" title="오늘로 돌아가기">오늘</button><button class="sw-qbtn" onclick="swDayStep(1)" title="다음 수업일">▶</button>
       <button class="sw-qbtn" id="dgHistBtnWeek" onclick="dgHistSetThisWeek()">이번주</button>
       <button class="sw-qbtn" id="dgHistBtnNextWeek" onclick="dgHistSetNextWeek()">다음주</button>
       <select class="si si-sel" id="dgHistTeacher" onchange="renderSavedDgCol()" title="교사별 보기" style="font-size:11px;padding:3px 18px 3px 5px;width:78px;flex-shrink:0;">
@@ -1193,7 +1193,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
     </div>
     <div class="sw-filter" style="flex-wrap:nowrap;overflow-x:auto;gap:3px;background:var(--white);">
       <button class="sw-qbtn active" id="sw2BtnAll" onclick="sw2ClearFilter()">전체</button>
-      <button class="sw-qbtn" id="sw2BtnToday" onclick="sw2SetToday()">오늘</button>
+      <button class="sw-qbtn" onclick="swDayStep(-1)" title="이전 수업일">◀</button><button class="sw-qbtn" id="sw2BtnToday" onclick="sw2SetToday()" title="오늘로 돌아가기">오늘</button><button class="sw-qbtn" onclick="swDayStep(1)" title="다음 수업일">▶</button>
       <button class="sw-qbtn" id="sw2BtnWeek" onclick="sw2SetThisWeek()">이번주</button>
       <button class="sw-qbtn" id="sw2BtnNextWeek" onclick="sw2SetNextWeek()">다음주</button>
       <select class="si si-sel" id="sw2Teacher" onchange="renderSw2Left()" title="교사별 보기" style="font-size:11px;padding:3px 18px 3px 5px;width:78px;flex-shrink:0;">
@@ -5721,14 +5721,7 @@ function sw2ClearFilter(){
   sw2SetActiveBtn('sw2BtnAll');
   renderSw2Left();
 }
-function sw2SetToday(){
-  const s=kstToday();
-  document.getElementById('sw2From').value=s;
-  document.getElementById('sw2To').value=s;
-  document.getElementById('sw2MonthSel').value='';
-  sw2SetActiveBtn('sw2BtnToday');
-  renderSw2Left();
-}
+function sw2SetToday(){ swDayShow(kstToday()); }
 function sw2SetThisWeek(){
   const t=getKST(), dow=t.getDay();
   const mon=new Date(t); mon.setDate(t.getDate()-(dow===0?6:dow-1));
@@ -5777,8 +5770,32 @@ function sw2GetFiltered(){
   });
 }
 
+/* ── 저장 탭 하루 단위 이동: 대강·교체 두 칸이 늘 같은 날을 보도록 날짜를 한 곳에 둠 ── */
+let swDayISO='';
+function swDayLabel(iso){ const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`; }
+function swDaySetLabel(iso){
+  ['dgHistBtnToday','sw2BtnToday'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=swDayLabel(iso); });
+}
+function swDayShow(iso){
+  swDayISO=iso;
+  ['dgHistFrom','dgHistTo','sw2From','sw2To'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=iso; });
+  ['dgHistMonthSel','sw2MonthSel'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  swDaySetLabel(iso);
+  dgHistSetActiveBtnOnly('dgHistBtnToday');
+  sw2SetActiveBtn('sw2BtnToday');
+  renderSavedDgCol();
+  renderSw2Left();
+  renderSwPreview();
+}
+function swDayStep(n){
+  const d=new Date((swDayISO||kstToday())+'T00:00:00');
+  do d.setDate(d.getDate()+n); while(d.getDay()===0||d.getDay()===6);   // 토·일은 수업이 없으니 건너뜀
+  swDayShow(swYMD(d));
+}
+
 /* ── 교체 기록 탭: 좌측(S.records) + 중앙(미리보기) ── */
 function renderSw2(){
+  if(!swDayISO) swDaySetLabel(kstToday());   // 아직 이동 전이면 버튼에 오늘 날짜를 표시
   renderSavedDgCol();
   renderSw2Left();
   renderSwPreview();
@@ -5917,13 +5934,7 @@ function dgHistSetMonthSel(){
   dgHistSetActiveBtnOnly('');
   renderSavedDgCol();
 }
-function dgHistSetToday(){
-  const d=getKST(), s=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const f=document.getElementById('dgHistFrom'), t=document.getElementById('dgHistTo');
-  if(f) f.value=s; if(t) t.value=s;
-  dgHistSetActiveBtnOnly('dgHistBtnToday');
-  renderSavedDgCol();
-}
+function dgHistSetToday(){ swDayShow(kstToday()); }
 function dgHistSetThisWeek(){
   const d=getKST(), dow=d.getDay(), mon=new Date(d);
   mon.setDate(d.getDate()-(dow===0?6:dow-1));
