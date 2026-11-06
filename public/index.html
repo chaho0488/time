@@ -6338,7 +6338,7 @@ function renderSwPreview(){
       ${entries.map((e,i)=>`
         ${i>0?'<div class="sw-card-gap"></div>':''}
         <div class="sw-card-dt" style="color:${e.type==='dg'?'var(--green)':'var(--accent)'}">${e.dateStr||''} ${e.period||''}</div>
-        <div class="sw-card-chg">${e.type==='dg'?`대강: ${e.teacher}`:e.label}</div>
+        <div class="sw-card-chg">${e.type==='dg'?`대강: ${e.teacher}T`:e.label}</div>
       `).join('')}
     </div>`).join('');
 }
@@ -6382,7 +6382,7 @@ function swPreviewByClass(swRecs, dgRecs){
   function addE(cls, iso, dateStr, period, from, to, teacher, type){
     if(!cls) return;
     (byClass[cls]=byClass[cls]||[]).push({iso:iso||swParseISO(dateStr)||'', dateStr, period, from, to, teacher, type,
-      label:`${from} → ${to}`, line:`${dateStr||''} ${period||''} ${from} → ${to} ${teacher||''}`.trim()});
+      label:`${from} → ${to}`, line:`${dateStr||''} ${period||''} ${from} → ${to} ${teacher?teacher+'T':''}`.trim()});  // T = 선생님 약자
   }
   swRecs.forEach(r=>{
     // 결강 시간(A): 원래 A과목 → B교사가 B과목으로 들어옴
