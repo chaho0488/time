@@ -1237,13 +1237,15 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 
   <!-- ③ 오른쪽: 출력 미리보기 -->
   <div class="sw-preview">
-    <div class="sw-panel-head">
-      <span style="font-size:13px;font-weight:800;color:var(--text);">출력 미리보기</span>
-      <span id="swPreviewCnt" style="font-size:12px;color:var(--muted);"></span>
+    <!-- 칸이 좁으면 제목이 글자 단위로 끊기지 않게 nowrap, 버튼은 다음 줄로 내려가게 wrap -->
+    <div class="sw-panel-head" style="flex-wrap:wrap;row-gap:4px;">
+      <span style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;">출력 미리보기</span>
+      <span id="swPreviewCnt" style="font-size:12px;color:var(--muted);white-space:nowrap;"></span>
       <div style="margin-left:auto;display:flex;gap:4px;">
         <button class="sw-qbtn active" id="swPvModeCard" onclick="swPvSetMode('card')" title="학생 안내문 양식">안내문</button>
         <button class="sw-qbtn" id="swPvModeList" onclick="swPvSetMode('list')" title="날짜(요일) 교시 원래 과목 → 변경된 과목 교사명">목록형</button>
-        <button onclick="savedTabPrintSel()" class="tbtn" style="font-size:11px;padding:2px 10px;background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;font-weight:700;">🖨️ 출력</button>
+        <button class="sw-qbtn" onclick="swPvCopyList(event)" title="목록형 내용을 결보강 일지처럼 한 줄씩 복사">📋 복사</button>
+        <button onclick="savedTabPrintSel()" class="tbtn" style="font-size:11px;padding:2px 10px;background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;font-weight:700;white-space:nowrap;">🖨️ 출력</button>
       </div>
     </div>
     <div class="sw-preview-scroll" id="swPreviewArea">
@@ -6348,6 +6350,30 @@ function swPvSetMode(m){
   document.getElementById('swPvModeCard')?.classList.toggle('active', m==='card');
   document.getElementById('swPvModeList')?.classList.toggle('active', m==='list');
   renderSwPreview();
+}
+/* 목록형 내용을 결보강 일지 문장처럼 한 줄씩 복사: (학급) 날짜(요일) N교시 원래과목 → 바뀐과목 교사T
+   같은 학급·날짜·과목·교사의 연속 교시는 일지처럼 3,4교시로 합침 */
+function swPvCopyList(e){
+  const swIds=new Set([...document.querySelectorAll('.sw2-chk:checked')].map(c=>Number(c.dataset.id)));
+  const dgIds=new Set([...document.querySelectorAll('.dg-hist-chk:checked')].map(c=>Number(c.dataset.id)));
+  const swRecs=swIds.size ? sw2GetFiltered().filter(r=>swIds.has(r.id)) : [];
+  const dgRecs=dgIds.size ? dgHistGetFiltered().filter(r=>dgIds.has(r.id)) : [];
+  if(!swRecs.length && !dgRecs.length){ alert('복사할 항목을 선택해주세요.'); return; }
+  const lines=swPvListLines(swPreviewByClass(swRecs, dgRecs));
+  copyToClipboard(lines.join('\n'), e?.target, `✅ ${lines.length}줄 복사됨`);
+}
+function swPvListLines(byClass){
+  const out=[];
+  byClass.forEach(([cls,es])=>{
+    const groups=[];
+    es.forEach(x=>{
+      const g=groups[groups.length-1], p=parseInt(x.period,10);
+      if(g&&['dateStr','from','to','teacher'].every(k=>g.x[k]===x[k])&&g.ps[g.ps.length-1]+1===p) g.ps.push(p);
+      else groups.push({x,ps:[p]});
+    });
+    groups.forEach(({x,ps})=>out.push(`(${cls}) ${x.dateStr||''} ${xlPstr(ps)}교시 ${x.from} → ${x.to} ${x.teacher?x.teacher+'T':''}`.trim()));
+  });
+  return out;
 }
 /* 선택한 교체·대강 기록 → [학급, 항목[]] (학급 가나다순, 항목은 날짜·교시순).
    항목: 그 학급 그 시간에 원래 과목(from)이 무엇으로(to) 바뀌고 누가(teacher) 들어오는지 */
