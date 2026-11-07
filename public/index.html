@@ -674,6 +674,7 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
   .m-card b{font-weight:800;}
   .m-note{font-size:12px;padding:6px 10px;border-radius:8px;margin:6px 0;}
   .m-note.ok{background:var(--gbg);color:var(--green);} .m-note.warn{background:var(--obg);color:var(--orange);} .m-note.lock{background:var(--rbg);color:var(--red);font-weight:700;}
+  .m-rec-t{flex:1;min-width:0;word-break:keep-all;overflow-wrap:anywhere;line-height:1.55;font-size:clamp(12px,3.6vw,14px);}
   .m-rec{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--white);border:1.5px solid var(--border);border-radius:8px;margin-bottom:5px;font-size:13px;}
   .m-rec .m-x{margin-left:auto;background:none;border:none;color:var(--muted);font-size:16px;font-family:inherit;padding:0 4px;}
   .m-rec.m-pick{cursor:pointer;} .m-rec.m-pick.sel{border-color:var(--accent);background:var(--abg);box-shadow:inset 3px 0 0 var(--accent);}
@@ -7763,7 +7764,7 @@ function mRecHTML(){
   let body=''; let last='';
   const shown=new Set(all.map(x=>x.key)); [...M.recSel].forEach(k=>{ if(!shown.has(k)) M.recSel.delete(k); });   // 기간을 바꿔 안 보이는 기록은 선택에서 뺌
   all.forEach(x=>{ if(x.iso!==last){ last=x.iso; body+=`<div class="m-day">${mLab(x.iso)}${x.iso===today?' · 오늘':''}</div>`; }
-    body+=`<div class="m-rec m-pick${M.recSel.has(x.key)?' sel':''}" onclick="mRecToggle('${x.key}')">${x.html}</div>`; });
+    body+=`<div class="m-rec m-pick${M.recSel.has(x.key)?' sel':''}" onclick="mRecToggle('${x.key}')"><span class="m-rec-t">${x.html}</span></div>`; });
   const g=k=>`<button class="${M.recKind===k?'on':''}" onclick="M.recKind='${k}';M.recWho='';mRender()">`;
   const v=k=>`<button class="${M.recView===k?'on':''}" onclick="M.recView='${k}';mRender()">`;
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`, wd=iso=>mWD[new Date(iso+'T00:00:00').getDay()];
