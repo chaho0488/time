@@ -7574,7 +7574,7 @@ function executeDgImport(){
    대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
    탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
    2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
-const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', recView:'list', ttKind:'cls', ttClsSel:'all', ttTSel:'all', ttDate:'', ttWeeks:1, ttHl:'', recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
+const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', recView:'list', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
 const mWD=['일','월','화','수','목','금','토'];
 function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
 function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
@@ -7723,25 +7723,30 @@ function mWithDate(iso, fn){   // 데스크톱 표 그리기 함수는 결강 �
   a.value=iso; b.value=''; effClearCache();
   try{ return fn(); } finally{ a.value=oa; b.value=ob; effClearCache(); }
 }
-/* 시간표 탭의 대상: 학급은 전체·학년·각 반, 교사는 전체·교과군·각 교사. 값은 'all' | 'g:1' | 'c:1전1' | 'd:전기' | 't:박연옥' */
-function mTtTargets(){
-  const cls=cwClasses();
-  if(M.ttKind==='cls'){ const v=M.ttClsSel||'all'; return v==='all'?cls : v.startsWith('g:')?cls.filter(c=>c[0]===v.slice(2)) : [v.slice(2)]; }
+/* 시간표 탭의 대상: 묶음(학급은 전체·학년, 교사는 전체·교과군)을 먼저 고르고, 그 안에서 하나를 고를 수 있다. 하나를 안 고르면 묶음 전체 */
+function mTtGroupItems(){
+  if(M.ttKind==='cls'){ const cls=cwClasses(); return M.ttClsGrp==='all'?cls:cls.filter(c=>c[0]===M.ttClsGrp); }
   const depts=Object.keys(DEPT_COLOR), order=t=>{ const i=depts.indexOf(DEPT[t]); return (i<0?99:i)*1000; };
   const all=ALL.slice().sort((a,b)=>order(a)-order(b)||a.localeCompare(b,'ko'));   // 교과군 순서대로, 안에서는 가나다
-  const v=M.ttTSel||'all'; return v==='all'?all : v.startsWith('d:')?all.filter(t=>DEPT[t]===v.slice(2)) : [v.slice(2)];
+  return M.ttTGrp==='all'?all:all.filter(t=>DEPT[t]===M.ttTGrp);
+}
+function mTtTargets(){
+  const items=mTtGroupItems(), one=M.ttKind==='cls'?M.ttClsOne:M.ttTOne;
+  return one && items.includes(one) ? [one] : items;
 }
 function mTtHTML(){
   if(!M.ttDate) M.ttDate=kstToday();
   const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1, today=kstToday();
-  const cls=cwClasses(), grades=[...new Set(cls.map(c=>c[0]))];
-  // 1줄: [학급|교사] + 대상 선택(전체·묶음·개별)
+  // 1줄: [학급|교사] + 묶음 선택 + (묶음을 고른 뒤) 그 안에서 하나 선택
   const kindBtn=k=>`<button class="${M.ttKind===k?'on':''}" onclick="M.ttKind='${k}';mRender()">`;
   const o=(v,label,cur)=>`<option value="${v}"${v===cur?' selected':''}>${label}</option>`;
-  const sel = M.ttKind==='cls'
-    ? `<select class="m-inp" onchange="M.ttClsSel=this.value;mRender()">${o('all','전체 학급',M.ttClsSel||'all')}<optgroup label="학년">${grades.map(g=>o('g:'+g,g+'학년',M.ttClsSel)).join('')}</optgroup><optgroup label="학급">${cls.map(c=>o('c:'+c,c,M.ttClsSel)).join('')}</optgroup></select>`
-    : `<select class="m-inp" onchange="M.ttTSel=this.value;mRender()">${o('all','전체 교사',M.ttTSel||'all')}<optgroup label="교과군">${Object.keys(DEPT_COLOR).filter(d=>ALL.some(t=>DEPT[t]===d)).map(d=>o('d:'+d,d,M.ttTSel)).join('')}</optgroup><optgroup label="교사">${mSel().map(t=>o('t:'+t,t,M.ttTSel)).join('')}</optgroup></select>`;
-  const who=`<div class="m-row"><div class="m-seg">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${sel}</div>`;
+  const isCls=M.ttKind==='cls', grp=isCls?M.ttClsGrp:M.ttTGrp, one=isCls?M.ttClsOne:M.ttTOne, items=mTtGroupItems();
+  const grpOpts = isCls
+    ? o('all','전체 학급',grp)+[...new Set(cwClasses().map(c=>c[0]))].map(g=>o(g,g+'학년',grp)).join('')
+    : o('all','전체 교사',grp)+Object.keys(DEPT_COLOR).filter(d=>ALL.some(t=>DEPT[t]===d)).map(d=>o(d,d,grp)).join('');
+  const grpSel=`<select class="m-inp" onchange="M.${isCls?'ttClsGrp':'ttTGrp'}=this.value;M.${isCls?'ttClsOne':'ttTOne'}='';mRender()">${grpOpts}</select>`;
+  const oneSel=`<select class="m-inp" onchange="M.${isCls?'ttClsOne':'ttTOne'}=this.value;mRender()"${grp==='all'?' disabled':''}>${o('',grp==='all'?'묶음 먼저':'전체',one)}${grp==='all'?'':items.map(x=>o(x,x,one)).join('')}</select>`;
+  const who=`<div class="m-row"><div class="m-seg" style="flex:0 0 30%">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${grpSel}${oneSel}</div>`;
   // 2줄: ◀ [n주 범위] ▶ 오늘 📅 — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`;
   const opt=k=>{ const fri=_addDaysISO(mon,7*(k-1)+4); return `<option value="${k}"${k===n?' selected':''}>${k}주 ${md(mon)}~${md(fri)}</option>`; };
