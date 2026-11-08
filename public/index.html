@@ -7782,6 +7782,8 @@ function mTtCopy(e){
   const {sw,dg}=mTtRecords(); const lines=[...swCopyLines(sw), ...dgCopyLines(dg)];
   if(!lines.length){ mToast('이 조건에는 교체·대강 기록이 없습니다'); return; }
   copyToClipboard(lines.join('\n'), e?.target, `✅ ${sw.length+dg.length}건 복사됨`);
+  // 무엇이 복사됐는지 바로 보여준다 (팝업은 끌어서 옮길 수 있음)
+  syncPopup({icon:'📋', title:`${sw.length+dg.length}건 복사됨 · ${mTtGroupLabel()}`, html:lines.map(l=>`<div style="padding:4px 0;border-bottom:1px dashed #e4e7f0;word-break:keep-all;">${_esc(l)}</div>`).join('')});
 }
 function mTtXlsx(){
   const [a,b]=mTtRng();
