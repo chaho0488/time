@@ -6,7 +6,7 @@
 const VERSION = 'v2';                       // 캐시 구조를 바꿀 때만 올린다 (앱 수정은 네트워크 먼저라 올릴 필요 없음)
 const CACHE = 'timetable-' + VERSION;
 const APP_SHELL = ['./', './index.html', './manifest.json', './icon-v2-192.png', './icon-v2-512.png'];
-const LIBS = ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'];
+const LIBS = ['https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil((async () => {

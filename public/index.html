@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icon-v2-192.png">
 <title>교체 탐색기</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -634,6 +634,9 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
 /* ══ 휴대폰 간단 모드 (폭 760px 이하, 2026-11) ══
    데스크톱 화면(.hdr 와 그 다음 div)은 숨기고 #mApp 만 보인다. 탐색·저장 로직은 데스크톱 함수를 그대로 부른다. */
 #mApp{display:none;}
+/* 보기 전용(/view): 기록 탭만, 가운데 좁은 폭으로 */
+html.view .m-cloud,html.view .m-tabs,html.view #pwa-banner{display:none!important;}
+html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
 @media (max-width:760px){
   html,body{height:auto!important;overflow:visible!important;}
   body{display:block;min-height:100%;overscroll-behavior:auto;}
@@ -1317,7 +1320,8 @@ body{padding-bottom:env(safe-area-inset-bottom,0px);}
       <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="cwDay수" checked onchange="renderClassWeek()"> 수</label>
       <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="cwDay목" checked onchange="renderClassWeek()"> 목</label>
       <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="cwDay금" checked onchange="renderClassWeek()"> 금</label>
-      <button onclick="printClassWeek()" style="margin-left:auto;padding:6px 18px;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🖨️ 출력</button>
+      <button onclick="exportClassWeekXlsx()" title="보이는 학반 시간표를 그 양식대로 엑셀로 저장 (학급·주마다 시트 하나)" style="margin-left:auto;padding:6px 14px;border:1.5px solid var(--border2);border-radius:6px;background:var(--white);color:var(--text2);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">📥 엑셀</button>
+      <button onclick="printClassWeek()" style="padding:6px 18px;border:none;border-radius:6px;background:var(--accent);color:#fff;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;">🖨️ 출력</button>
     </div>
     <div id="cwClassBox" style="padding:8px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;font-size:12px;"></div>
     <div id="cwPreview" style="flex:1;overflow:auto;padding:12px 14px;background:var(--s1);"></div>
@@ -1921,15 +1925,17 @@ function init(){
   document.getElementById('dgDateInput').value=`${y}-${m}-${d}`;
   refreshDate();
   onDgDate();
-  healOrphanDgMirrors();   // 삭제된 대강의 잔여 미러 정리 → 교사 주간표 정상화
-  migrateOverrideKeys();   // 요일 변경일의 예전 키('금3'@9/22)를 달력 키('화3')로 통일
+  if(!VIEW_ONLY){   // 보기 전용 화면은 이 브라우저의 기록을 손대지 않는다
+    healOrphanDgMirrors();   // 삭제된 대강의 잔여 미러 정리 → 교사 주간표 정상화
+    migrateOverrideKeys();   // 요일 변경일의 예전 키('금3'@9/22)를 달력 키('화3')로 통일
+  }
   renderRec();
   renderDgStats();
   // 교체 원하는 교사 드롭다운 초기화
   initWantSwapDrop();
   // 연결된 데이터 폴더가 있으면 재연결 시도 (1클릭 허용)
-  if(typeof fsTryRestore==='function') setTimeout(fsTryRestore, 300);
-  if(typeof cloudStart==='function') cloudStart();   // 클라우드 저장소와 맞추기 (모든 기기)
+  if(!VIEW_ONLY && typeof fsTryRestore==='function') setTimeout(fsTryRestore, 300);
+  if(!VIEW_ONLY && typeof cloudStart==='function') cloudStart();   // 클라우드 저장소와 맞추기 (모든 기기). 보기 전용은 /api/view 만 읽음
   updateWeekBtns();
 }
 
@@ -5273,6 +5279,14 @@ function printClassWeek(){
 .cw-tbl .cw-chg{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 @media print{@page{size:A4 landscape;margin:8mm;}}</style></head><body>${sheets}</body></html>`, 'cwPrintFrame');
 }
+/* 엑셀: 출력과 같은 학급·기간·요일의 표를 양식 그대로 .xlsx 로 (학급·주마다 시트 하나). 표 아래 '노란 칸' 안내문은 엑셀에 넣지 않음 */
+function exportClassWeekXlsx(){
+  const days=cwDays();
+  if(!days.length){ alert('요일을 하나 이상 선택해주세요.'); return; }
+  const bl=cwBlocks();
+  if(!bl.length){ alert('학급을 하나 이상 고르고 기간(시작일~종료일)을 올바르게 선택해주세요.'); return; }
+  tablesToXlsx(bl.map(b=>({name:`${b.cls} ${cwWeekLabel(b.monday)}`, html:cwGridHTML(b.cls, b.monday, days)})), `학반시간표_${document.getElementById('cwFrom').value}~${document.getElementById('cwTo').value}.xlsx`);
+}
 /* 숨김 iframe에 문서를 넣고 인쇄 (교사 주간표·학급 주간표 공용) */
 function printDocInFrame(docHTML, frameId){
   let ifr=document.getElementById(frameId);
@@ -7749,15 +7763,71 @@ function mRecItems(){
   const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; const same=r.dateISO_sw===r.dateBISO; if(inR(r.dateISO_sw)&&(mRecWho(r.cA,r.tA,r.tB)||(same&&mRecWho(r.cB||r.cA,r.tA,r.tB)))) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateISO_sw,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(!same&&inR(r.dateBISO)&&mRecWho(r.cB||r.cA,r.tA,r.tB)) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
   return { rng, all:[...dg,...sw].sort((a,b)=>a.iso.localeCompare(b.iso)||a.p-b.p) };
 }
-function mRecTT(rng){
+/* 조회 기간의 주마다 [{title, html}] — 화면(mRecTT)과 엑셀(mRecXlsx)이 같은 표를 쓴다 */
+function mRecTTWeeks(rng){
   const out=[];
   for(let mon=twISO(_mondayOfISO(rng[0])); mon<=rng[1]; mon=_addDaysISO(mon,7)){
     const html=mWithDate(mon, ()=> M.recKind==='cls' ? buildClassTT(M.recWho, null, {}) : buildTT(M.recWho, new Set(), null, null, 'A', {}));
     const t=document.createElement('template'); t.innerHTML=html;
     t.content.querySelectorAll('thead th').forEach((th,i)=>{ const iso=_addDaysISO(mon,i-1); if(i>0 && iso>=rng[0] && iso<=rng[1]) th.classList.add('m-hl'); });
-    out.push(mTT(`${M.recWho} · ${mLab(mon)} 주`, t.innerHTML));
+    out.push({title:`${M.recWho} · ${mLab(mon)} 주`, html:t.innerHTML});
   }
-  return out.join('')+'<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 조회한 날짜</div>';
+  return out;
+}
+function mRecTT(rng){
+  return mRecTTWeeks(rng).map(w=>mTT(w.title, w.html)).join('')+'<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 조회한 날짜</div>';
+}
+function mRecXlsx(){
+  const rng=mRecRng();
+  tablesToXlsx(mRecTTWeeks(rng).map(w=>({name:w.title.replace(' · ',' ').replace(' 주',''), html:`<div class="m-tt">${w.html}</div>`})), `시간표_${M.recWho}_${rng[0]}~${rng[1]}.xlsx`);
+}
+
+/* ══ 화면의 표(HTML) → 엑셀(.xlsx) — 보이는 모양 그대로 ══
+   표를 숨은 자리에 실제로 그린 뒤 칸마다 계산된 스타일(배경·글자색·굵기·취소선·테두리·안쪽 테두리(box-shadow))을 읽어 셀 스타일로 옮긴다.
+   병합(rowspan·colspan)·열 너비·행 높이도 화면 비율대로. 시트 하나 = 표 하나. tables: [{name, html}] */
+function tablesToXlsx(tables, filename){
+  const host=document.createElement('div'); host.style.cssText='position:absolute;left:-9999px;top:0;background:#fff;'; document.body.appendChild(host);
+  const hex=c=>{ const m=String(c).match(/[\d.]+/g); if(!m||m.length<3||(m[3]!==undefined&&+m[3]===0)) return null; return m.slice(0,3).map(v=>(+v).toString(16).padStart(2,'0')).join('').toUpperCase(); };
+  const wb=XLSX.utils.book_new(); const used=new Set();
+  try{
+    tables.forEach(tb=>{
+      host.innerHTML=tb.html; const table=host.querySelector('table'); if(!table) return;
+      const ws={}, merges=[], occ={}, colW=[], rowH=[]; let R=0;
+      [...table.rows].forEach(tr=>{
+        if(tr.classList.contains('sep-row')) return;   // 화면용 1px 구분선 행은 셀 테두리로 대신함
+        rowH[R]=tr.getBoundingClientRect().height;
+        let C=0;
+        [...tr.cells].forEach(td=>{
+          while(occ[R+','+C]) C++;
+          const rs=td.rowSpan||1, cs=td.colSpan||1;
+          for(let i=0;i<rs;i++) for(let j=0;j<cs;j++) occ[(R+i)+','+(C+j)]=1;
+          if(rs>1||cs>1) merges.push({s:{r:R,c:C},e:{r:R+rs-1,c:C+cs-1}});
+          const st=getComputedStyle(td), tx=td.querySelector('.cs')||td, ts=getComputedStyle(tx);   // 글자 스타일은 과목 줄(.cs) 기준
+          const s={alignment:{horizontal:st.textAlign==='left'?'left':st.textAlign==='right'?'right':'center',vertical:'center',wrapText:true},
+            font:{name:st.fontFamily.split(',')[0].replace(/['"]/g,'').trim(),sz:Math.round(parseFloat(ts.fontSize)*0.75),bold:+ts.fontWeight>=700,strike:/line-through/.test(ts.textDecorationLine||ts.textDecoration),color:{rgb:hex(ts.color)||'000000'}}, border:{}};
+          const bg=hex(st.backgroundColor); if(bg) s.fill={patternType:'solid',fgColor:{rgb:bg}};
+          const shadow=st.boxShadow!=='none'&&hex(st.boxShadow);   // 초록 안쪽 테두리(교체·대강으로 들어온 칸)
+          ['Top','Right','Bottom','Left'].forEach(side=>{ const w=parseFloat(st['border'+side+'Width'])||0; const k=side.toLowerCase();
+            if(shadow) s.border[k]={style:'medium',color:{rgb:shadow}}; else if(w>0) s.border[k]={style:w>=1.5?'medium':'thin',color:{rgb:hex(st['border'+side+'Color'])||'000000'}};
+            else if(table.classList.contains('tt-tbl')) s.border[k]={style:'thin',color:{rgb:'E4E7F0'}}; });   // 화면의 칸 간격 대신 옅은 격자
+          const v=td.innerText.replace(/\n{2,}/g,'\n').trim();
+          ws[XLSX.utils.encode_cell({r:R,c:C})]={t:'s',v,s};
+          if(cs===1){ const w=td.getBoundingClientRect().width/7; colW[C]=Math.max(colW[C]||0,w); }
+          C+=cs;
+        });
+        R++;
+      });
+      const maxC=Math.max(0,...Object.keys(occ).map(k=>+k.split(',')[1]));
+      ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(0,R-1),c:maxC}});
+      ws['!merges']=merges;
+      ws['!cols']=Array.from({length:maxC+1},(_,i)=>({wch:Math.max(3,Math.round(colW[i]||6))}));
+      ws['!rows']=rowH.map(h=>({hpt:Math.max(12,Math.round(h*0.75))}));
+      let name=String(tb.name||'표').replace(/\//g,'.').replace(/[\\?*\[\]:]/g,' ').slice(0,31)||'표';   // 시트 이름에 못 쓰는 글자(/ 는 .로) let n=2; while(used.has(name)) name=name.slice(0,28)+' '+(n++); used.add(name);
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    });
+  } finally { host.remove(); }
+  if(!wb.SheetNames.length){ alert('내보낼 표가 없습니다.'); return; }
+  XLSX.writeFile(wb, filename);
 }
 function mRecHTML(){
   const today=kstToday();
@@ -7781,11 +7851,12 @@ function mRecHTML(){
   const asTT = M.recView==='tt';
   if(asTT) body = M.recKind && M.recWho ? mRecTT(rng) : `<div class="m-note ok">교사나 학급을 고르면 시간표가 나옵니다</div>`;
   const n=M.recSel.size;
-  const btns=all.length?`<div class="m-btns"><button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
-  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div><div class="m-seg">${v('list')}목록</button>${v('tt')}시간표</button></div></div>
+  const xl = asTT && M.recKind && M.recWho ? `<button class="m-ghost" onclick="mRecXlsx()">📥 엑셀</button>` : '';   // 보이는 주간표를 그 모양대로 .xlsx 로
+  const btns=all.length||xl?`<div class="m-btns">${all.length?`<button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>`:''}${xl}${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록${VIEW_ONLY?' (보기 전용)':''}</div><div class="m-seg">${v('list')}목록</button>${v('tt')}시간표</button></div></div>
     ${nav}${who}
     ${body||'<div class="m-note ok">이 조건에는 교체·대강 기록이 없습니다</div>'}
-    ${btns}<div class="m-sub" style="margin-top:12px">${asTT?'기록 선택은 목록형에서 합니다(고른 것이 없으면 보이는 기간 전체를 복사).':'기록을 누르면 선택됩니다.'} 복사는 결보강 일지와 같은 한 줄 문장(메신저용). 삭제·출력은 데스크톱에서.</div></div>`;
+    ${btns}<div class="m-sub" style="margin-top:12px">${asTT?'기록 선택은 목록형에서 합니다(고른 것이 없으면 보이는 기간 전체를 복사). 엑셀은 보이는 주간표를 그대로 내려받습니다.':'기록을 누르면 선택됩니다.'} 복사는 결보강 일지와 같은 한 줄 문장(메신저용). ${VIEW_ONLY?'':'삭제·출력은 데스크톱에서.'}</div></div>`;
 }
 function mRecToggle(key){ if(M.recSel.has(key)) M.recSel.delete(key); else M.recSel.add(key); mRender(); }
 /* 선택한 기록(없으면 보이는 기간 전체)을 데스크톱 저장 탭의 선택복사와 같은 형식으로 복사 */
@@ -7799,6 +7870,24 @@ function mRecCopy(e){
   copyToClipboard(lines.join('\n'), e?.target, `✅ ${dg.length+sw.length}건 복사됨`);
 }
 window.addEventListener('resize', ()=>{ if(mIsMobile()) mRender(); });
+
+/* ══ 보기 전용(/view): 다른 선생님이 기록 탭만 보는 화면 ══
+   - 기록은 비밀번호 없는 읽기 전용 API(/api/view)에서 받아 메모리(VIEW)에만 둔다. 이 브라우저의 localStorage(본인 앱 기록)는 읽지도 쓰지도 않는다.
+   - 화면은 휴대폰 간단 모드의 기록 탭만(다른 탭·클라우드 단추 숨김), 어느 폭에서나. 저장·동기화·시간표 편집은 모두 꺼진다. */
+const VIEW_ONLY=/^\/view\/?$/.test(location.pathname);
+const VIEW={sw:[],dg:[]};
+if(VIEW_ONLY){
+  document.documentElement.classList.add('view');
+  for(const ss of document.styleSheets){ try{ for(const r of ss.cssRules) if(r.media && /760px/.test(r.media.mediaText)) r.media.mediaText='all'; }catch(e){} }   // 휴대폰 모드 CSS를 모든 폭에 적용
+  mIsMobile=function(){ return true; };
+  swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
+  swHistSave=function(){}; dgSaveHistory=function(){};
+  M.tab='rec';
+  const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
+    .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!VIEW.sw.length&&!VIEW.dg.length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
+  document.addEventListener('DOMContentLoaded', load);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });   // 다시 열어 볼 때 최신 기록으로
+}
 
 init();
 document.addEventListener('DOMContentLoaded', mRender);   // #mApp 은 이 스크립트 뒤에 있어 파싱이 끝난 뒤 그림
@@ -7897,7 +7986,7 @@ document.addEventListener('DOMContentLoaded', mRender);   // #mApp 은 이 스�
 <script>
 (function(){
   /* Service Worker 등록 */
-  if('serviceWorker' in navigator){
+  if('serviceWorker' in navigator && !VIEW_ONLY){   // 보기 전용 화면은 설치·오프라인 캐시 대상이 아님
     window.addEventListener('load', ()=>{
       navigator.serviceWorker.register('./service-worker.js')
         .then(r=>console.log('[SW] 등록 완료', r.scope))
