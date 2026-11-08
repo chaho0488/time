@@ -7841,7 +7841,7 @@ function mTtHTML(){
     <button class="m-ib${M.ttDay?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" title="고른 날 하루를 교사(학급)별로 한 표에 비교" onclick="M.ttDay=!M.ttDay;if(M.ttDay)M.ttHl=M.ttDate;mRender()">일별</button></div>`;
   const tables=mTtTables().map(t=>mTT(t.title, t.html, t.ctx)).join('');
   const btns=`<div class="m-btns"><button class="m-add" onclick="mTtCopy(event)">📋 내역 복사</button><button class="m-ghost" onclick="mTtXlsx()">📥 엑셀</button></div>`;
-  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표${VIEW_ONLY?' (교체·대강 반영)':''}</div></div>
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표${VIEW_ONLY?' <span style="font-weight:600;color:var(--text3);font-size:12px">교체·대강 반영</span>':''}</div></div>
     ${who}${nav}${tables}${btns}<div class="m-sub" style="margin-top:10px">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 고른 날짜. 바뀐 칸을 누르면 내역이 나옵니다. 복사는 보이는 대상·기간의 교체·대강 기록을 결보강 일지 한 줄 문장으로, 엑셀은 보이는 표를 그 모양대로.</div></div>`;
 }
 
@@ -7992,6 +7992,7 @@ if(VIEW_ONLY){
   document.title='26-2 시간표 조회';   // 탭 제목·즐겨찾기·공유할 때 보이는 이름
   const mt=document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(mt) mt.content='26-2 시간표 조회';
   document.querySelector('link[rel="manifest"]')?.remove();   // 앱 설치 이름(교체 탐색기)이 조회 화면에 붙지 않게
+
   for(const ss of document.styleSheets){ try{ for(const r of ss.cssRules) if(r.media && /760px/.test(r.media.mediaText)) r.media.mediaText='all'; }catch(e){} }   // 휴대폰 모드 CSS를 모든 폭에 적용
   mIsMobile=function(){ return true; };
   swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
@@ -7999,7 +8000,7 @@ if(VIEW_ONLY){
   M.tab='tt';
   const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
     .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!VIEW.sw.length&&!VIEW.dg.length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
-  document.addEventListener('DOMContentLoaded', load);
+  document.addEventListener('DOMContentLoaded', ()=>{ document.querySelector('#mApp .m-top').innerHTML='<span class="m-title">26-2 시간표 조회</span>'; load(); });   // 화면 맨 위 이름(이 스크립트보다 아래에 있어 문서가 다 읽힌 뒤 바꿈)
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });   // 다시 열어 볼 때 최신 기록으로
 }
 
