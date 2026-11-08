@@ -7838,7 +7838,7 @@ function mTtHTML(){
   const nav=`<div class="m-row" style="margin:0 0 10px"><button class="m-ib" onclick="mTtStep(-1)" aria-label="이전">◀</button>${mid}<button class="m-ib" onclick="mTtStep(1)" aria-label="다음">▶</button>
     <button class="m-ib${(M.ttDay?M.ttDate===today:mon===twISO(_mondayOfISO(today)))?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" onclick="M.ttDate=kstToday();M.ttHl=kstToday();M.ttDayAll=false;mRender()">오늘</button>
     <span style="position:relative;display:flex"><button class="m-ib" onclick="mPickDate('mTtPick',M.ttDate)" aria-label="달력">📅</button><input type="date" id="mTtPick" onchange="if(this.value){M.ttDate=this.value;M.ttHl=this.value;mRender()}" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></span>
-    <button class="m-ib${M.ttDay?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" title="고른 날 하루를 교사(학급)별로 한 표에 비교" onclick="M.ttDay=!M.ttDay;if(M.ttDay)M.ttHl=M.ttDate;mRender()">일별</button></div>`;
+    <button class="m-ib" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" title="${M.ttDay?'대상마다 주간표로':'고른 날 하루를 교사(학급)별로 한 표에 비교'}" onclick="M.ttDay=!M.ttDay;if(M.ttDay)M.ttHl=M.ttDate;mRender()">${M.ttDay?'주별':'일별'}</button></div>`;
   const tables=mTtTables().map(t=>mTT(t.title, t.html, t.ctx)).join('');
   const btns=`<div class="m-btns"><button class="m-add" onclick="mTtCopy(event)">📋 내역 복사</button><button class="m-ghost" onclick="mTtXlsx()">📥 엑셀</button></div>`;
   return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표${VIEW_ONLY?' <span style="font-weight:600;color:var(--text3);font-size:12px">교체·대강 반영</span>':''}</div></div>
@@ -7997,7 +7997,7 @@ if(VIEW_ONLY){
   mIsMobile=function(){ return true; };
   swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
   swHistSave=function(){}; dgSaveHistory=function(){};
-  M.tab='tt';
+  M.tab='tt'; M.ttDay=true; M.ttHl=kstToday();   // 첫 화면: 전체 학급, 오늘 하루 일별 비교표
   const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
     .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!VIEW.sw.length&&!VIEW.dg.length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
   document.addEventListener('DOMContentLoaded', ()=>{ document.querySelector('#mApp .m-top').innerHTML='<span class="m-title">26-2 시간표 조회</span>'; load(); });   // 화면 맨 위 이름(이 스크립트보다 아래에 있어 문서가 다 읽힌 뒤 바꿈)
