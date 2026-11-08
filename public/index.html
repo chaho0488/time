@@ -674,6 +674,7 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
   .m-tt .tt-tbl .tc.diff-in,.m-tt .tt-tbl .tc.diff-out{pointer-events:auto;cursor:pointer;}   /* 바뀐 칸은 눌러서 내역 보기 */
   .m-tt .tt-tbl th.m-hl{background:var(--accent);color:#fff;border-radius:6px;} .m-tt .tt-tbl th.m-hl *{color:#fff !important;}
   .m-tt .tc{width:42px;height:38px;} .m-tt .tt-tbl th{width:42px;} .m-tt .cs,.m-tt .cc{max-width:40px;}
+  .m-tt .pl.m-who{width:auto;max-width:64px;text-align:left;font-family:inherit;font-size:11px;font-weight:700;color:var(--text);padding-right:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}   /* 일별 비교표의 이름 칸 */
   .m-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.6;}
   .m-card b{font-weight:800;}
   .m-note{font-size:12px;padding:6px 10px;border-radius:8px;margin:6px 0;}
@@ -7574,7 +7575,7 @@ function executeDgImport(){
    대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
    탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
    2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
-const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', recView:'list', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
+const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', ttDay:false, recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
 const mWD=['일','월','화','수','목','금','토'];
 function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
 function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
@@ -7590,7 +7591,7 @@ function mPeriods(teacher, iso, sideFn){   // 그 날짜 요일의 수업(교체
   for(let p=1;p<=DP[wd];p++){ const k=wd+p; out.push({key:k, p, sl:sc[k]||null, mark: swapMarkFor(teacher,k,iso)}); }
   return out;
 }
-function mTT(title, html, ctx){ const a=ctx?` data-mon="${ctx.mon}" data-kind="${ctx.kind}" data-who="${_esc(ctx.who)}"`:''; return `<div class="m-tt"${a}><div class="m-tt-h">${title}</div>${html}</div>`; }   // ctx: 바뀐 칸을 눌렀을 때 내역을 찾는 데 씀
+function mTT(title, html, ctx){ const a=ctx?` data-mon="${ctx.mon||''}" data-iso="${ctx.iso||''}" data-kind="${ctx.kind}" data-who="${_esc(ctx.who||'')}"`:''; return `<div class="m-tt"${a}><div class="m-tt-h">${title}</div>${html}</div>`; }   // ctx: 바뀐 칸을 눌렀을 때 내역을 찾는 데 씀
 function mRender(){
   if(!mIsMobile()) return;
   const el=document.getElementById('mBody'); if(!el) return;
@@ -7734,8 +7735,67 @@ function mTtTargets(){
   const items=mTtGroupItems(), one=M.ttKind==='cls'?M.ttClsOne:M.ttTOne;
   return one && items.includes(one) ? [one] : items;
 }
+/* 시간표 탭 조회 기간: 일별 보기면 그 날 하루, 아니면 기준 주부터 n주 (월~금) */
+function mTtRng(){
+  const mon=twISO(_mondayOfISO(M.ttDate));
+  return M.ttDay ? [M.ttDate,M.ttDate] : [mon,_addDaysISO(mon,7*((M.ttWeeks||1)-1)+4)];
+}
+/* 대상 하나의 주간표 HTML (고른 날짜 요일 머리글 강조 포함) */
+function mTtWeekHTML(w, m){
+  let html=mWithDate(m, ()=> M.ttKind==='cls' ? buildClassTT(w, null, {}) : buildTT(w, new Set(), null, null, 'A', {}));
+  if(M.ttHl){ const t=document.createElement('template'); t.innerHTML=html; t.content.querySelectorAll('thead th').forEach((th,j)=>{ if(j>0 && _addDaysISO(m,j-1)===M.ttHl) th.classList.add('m-hl'); }); html=t.innerHTML; }
+  return html;
+}
+/* 일별 비교표: 행 = 대상(교사·학급), 열 = 1~7교시. 각 대상의 주간표에서 그 요일 열만 떼어 와 붙이므로 교체·대강·요일 변경·동아리 처리가 주간표와 같다 */
+function mTtDayHTML(targets, iso){
+  const wd=mWdOf(iso), di=DAYS.indexOf(wd);
+  if(di<0) return `<div class="m-note warn">${mLab(iso)}은 수업일이 아닙니다</div>`;
+  const mon=twISO(_mondayOfISO(iso));
+  const rows=targets.map(w=>{
+    const t=document.createElement('template'); t.innerHTML=mWithDate(mon, ()=> M.ttKind==='cls' ? buildClassTT(w, null, {}) : buildTT(w, new Set(), null, null, 'A', {}));
+    const cells=[...t.content.querySelectorAll('tbody tr:not(.sep-row)')].map(tr=>tr.cells[di+1]?tr.cells[di+1].outerHTML:'<td class="tc empty"></td>').join('');
+    return `<tr data-who="${_esc(w)}"><td class="pl m-who">${_esc(w)}</td>${cells}</tr>`;
+  }).join('');
+  return `<table class="tt-tbl"><thead><tr><th class="ph"></th>${[1,2,3,4,5,6,7].map(p=>`<th>${p}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+/* 지금 화면의 표 목록 [{title, html, ctx}] — 화면·엑셀이 같은 것을 쓴다 */
+function mTtTables(){
+  const targets=mTtTargets(), out=[];
+  if(M.ttDay){ out.push({title:`${mLab(M.ttDate)} · ${mTtGroupLabel()}`, html:mTtDayHTML(targets, M.ttDate), ctx:{iso:M.ttDate, kind:M.ttKind, who:''}}); return out; }
+  const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1;
+  for(const w of targets) for(let i=0;i<n;i++){ const m=_addDaysISO(mon,7*i); out.push({title:`${w}${M.ttKind==='t'?' '+deptBadge(w,true):''} · ${mLab(m)} 주`, html:mTtWeekHTML(w,m), ctx:{mon:m, kind:M.ttKind, who:w}}); }
+  return out;
+}
+function mTtGroupLabel(){
+  const isCls=M.ttKind==='cls', grp=isCls?M.ttClsGrp:M.ttTGrp, one=isCls?M.ttClsOne:M.ttTOne;
+  return one || (grp==='all' ? (isCls?'전체 학급':'전체 교사') : isCls ? grp+'학년' : grp);
+}
+/* 화면 조건(대상·기간)의 교체·대강 기록 — 복사용 */
+function mTtRecords(){
+  const [a,b]=mTtRng(), inR=iso=>iso&&iso>=a&&iso<=b, T=new Set(mTtTargets()), isCls=M.ttKind==='cls';
+  const hit=(cls,t1,t2)=> isCls ? T.has(cls) : (T.has(t1)||T.has(t2));
+  const sw=swHistLoad().filter(r=>!r.isDG && ((inR(r.dateISO_sw)&&hit(r.cA,r.tA,r.tB))||(inR(r.dateBISO)&&hit(r.cB||r.cA,r.tA,r.tB))));
+  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)&&hit(r.cA,r.tA,r.tSub));
+  return {sw,dg};
+}
+function mTtCopy(e){
+  const {sw,dg}=mTtRecords(); const lines=[...swCopyLines(sw), ...dgCopyLines(dg)];
+  if(!lines.length){ mToast('이 조건에는 교체·대강 기록이 없습니다'); return; }
+  copyToClipboard(lines.join('\n'), e?.target, `✅ ${sw.length+dg.length}건 복사됨`);
+}
+function mTtXlsx(){
+  const [a,b]=mTtRng();
+  tablesToXlsx(mTtTables().map(t=>({name:t.title.replace(/<[^>]*>/g,'').replace(' · ',' ').replace(' 주',''), html:`<div class="m-tt">${t.html}</div>`})), `시간표_${mTtGroupLabel()}_${a}${a===b?'':'~'+b}.xlsx`);
+}
+/* 일별 보기의 ◀ ▶: 토·일을 건너뛰고 하루씩 */
+function mTtStep(n){
+  if(M.ttDay){ let d=M.ttDate; do d=_addDaysISO(d,n); while([0,6].includes(new Date(d+'T00:00:00').getDay())); M.ttDate=d; M.ttHl=d; }
+  else { M.ttDate=_addDaysISO(M.ttDate,7*n); M.ttHl=''; }
+  mRender();
+}
 function mTtHTML(){
   if(!M.ttDate) M.ttDate=kstToday();
+  if(M.ttDay && [0,6].includes(new Date(M.ttDate+'T00:00:00').getDay())) mTtStep(1);   // 일별 보기를 주말에 켜면 다음 수업일로
   const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1, today=kstToday();
   // 1줄: [학급|교사] + 묶음 선택 + (묶음을 고른 뒤) 그 안에서 하나 선택
   const kindBtn=k=>`<button class="${M.ttKind===k?'on':''}" onclick="M.ttKind='${k}';mRender()">`;
@@ -7747,24 +7807,19 @@ function mTtHTML(){
   const grpSel=`<select class="m-inp" onchange="M.${isCls?'ttClsGrp':'ttTGrp'}=this.value;M.${isCls?'ttClsOne':'ttTOne'}='';mRender()">${grpOpts}</select>`;
   const oneSel=`<select class="m-inp" onchange="M.${isCls?'ttClsOne':'ttTOne'}=this.value;mRender()"${grp==='all'?' disabled':''}>${o('',grp==='all'?'묶음 먼저':'전체',one)}${grp==='all'?'':items.map(x=>o(x,x,one)).join('')}</select>`;
   const who=`<div class="m-row"><div class="m-seg" style="flex:0 0 30%">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${grpSel}${oneSel}</div>`;
-  // 2줄: ◀ [n주 범위] ▶ 오늘 📅 — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게
+  // 2줄: ◀ [n주 범위 | 날짜] ▶ 오늘 📅 [일별] — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게. 일별 = 대상을 행, 1~7교시를 열로 한 날 비교
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`;
   const opt=k=>{ const fri=_addDaysISO(mon,7*(k-1)+4); return `<option value="${k}"${k===n?' selected':''}>${k}주 ${md(mon)}~${md(fri)}</option>`; };
-  const nav=`<div class="m-row" style="margin:0 0 10px"><button class="m-ib" onclick="M.ttDate=_addDaysISO(M.ttDate,-7);M.ttHl='';mRender()" aria-label="이전 주">◀</button>
-    <select class="m-inp" onchange="M.ttWeeks=+this.value;mRender()">${[1,2,3,4].map(opt).join('')}</select>
-    <button class="m-ib" onclick="M.ttDate=_addDaysISO(M.ttDate,7);M.ttHl='';mRender()" aria-label="다음 주">▶</button>
-    <button class="m-ib${mon===twISO(_mondayOfISO(today))?' on':''}" style="width:auto;padding:0 10px;font-size:12px;font-weight:700" onclick="M.ttDate=kstToday();M.ttHl=kstToday();mRender()">오늘</button>
-    <span style="position:relative;display:flex"><button class="m-ib" onclick="mPickDate('mTtPick',M.ttDate)" aria-label="달력">📅</button><input type="date" id="mTtPick" onchange="if(this.value){M.ttDate=this.value;M.ttHl=this.value;mRender()}" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></span></div>`;
-  // 표: 대상마다 n주씩 이어서
-  let table='';
-  for(const w of mTtTargets()) for(let i=0;i<n;i++){
-    const m=_addDaysISO(mon,7*i);
-    let html=mWithDate(m, ()=> M.ttKind==='cls' ? buildClassTT(w, null, {}) : buildTT(w, new Set(), null, null, 'A', {}));
-    if(M.ttHl){ const t=document.createElement('template'); t.innerHTML=html; t.content.querySelectorAll('thead th').forEach((th,j)=>{ if(j>0 && _addDaysISO(m,j-1)===M.ttHl) th.classList.add('m-hl'); }); html=t.innerHTML; }
-    table+=mTT(`${w}${M.ttKind==='t'?' '+deptBadge(w,true):''} · ${mLab(m)} 주`, html, {mon:m, kind:M.ttKind, who:w});
-  }
+  const mid = M.ttDay ? `<div class="m-inp" style="display:flex;align-items:center;font-weight:700">${mLab(M.ttDate)}${M.ttDate===today?' · 오늘':''}</div>`
+                      : `<select class="m-inp" onchange="M.ttWeeks=+this.value;mRender()">${[1,2,3,4].map(opt).join('')}</select>`;
+  const nav=`<div class="m-row" style="margin:0 0 10px"><button class="m-ib" onclick="mTtStep(-1)" aria-label="이전">◀</button>${mid}<button class="m-ib" onclick="mTtStep(1)" aria-label="다음">▶</button>
+    <button class="m-ib${(M.ttDay?M.ttDate===today:mon===twISO(_mondayOfISO(today)))?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" onclick="M.ttDate=kstToday();M.ttHl=kstToday();mRender()">오늘</button>
+    <span style="position:relative;display:flex"><button class="m-ib" onclick="mPickDate('mTtPick',M.ttDate)" aria-label="달력">📅</button><input type="date" id="mTtPick" onchange="if(this.value){M.ttDate=this.value;M.ttHl=this.value;mRender()}" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></span>
+    <button class="m-ib${M.ttDay?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" title="고른 날 하루를 교사(학급)별로 한 표에 비교" onclick="M.ttDay=!M.ttDay;if(M.ttDay)M.ttHl=M.ttDate;mRender()">일별</button></div>`;
+  const tables=mTtTables().map(t=>mTT(t.title, t.html, t.ctx)).join('');
+  const btns=`<div class="m-btns"><button class="m-add" onclick="mTtCopy(event)">📋 내역 복사</button><button class="m-ghost" onclick="mTtXlsx()">📥 엑셀</button></div>`;
   return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표${VIEW_ONLY?' (교체·대강 반영)':''}</div></div>
-    ${who}${nav}${table}<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 고른 날짜. 바뀐 칸을 누르면 내역이 나옵니다.</div></div>`;
+    ${who}${nav}${tables}${btns}<div class="m-sub" style="margin-top:10px">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 고른 날짜. 바뀐 칸을 누르면 내역이 나옵니다. 복사는 보이는 대상·기간의 교체·대강 기록을 결보강 일지 한 줄 문장으로, 엑셀은 보이는 표를 그 모양대로.</div></div>`;
 }
 
 /* ── 기록 ── */
@@ -7799,25 +7854,6 @@ function mRecItems(){
   const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; const same=r.dateISO_sw===r.dateBISO; if(inR(r.dateISO_sw)&&(mRecWho(r.cA,r.tA,r.tB)||(same&&mRecWho(r.cB||r.cA,r.tA,r.tB)))) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateISO_sw,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(!same&&inR(r.dateBISO)&&mRecWho(r.cB||r.cA,r.tA,r.tB)) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
   return { rng, all:[...dg,...sw].sort((a,b)=>a.iso.localeCompare(b.iso)||a.p-b.p) };
 }
-/* 조회 기간의 주마다 [{title, html}] — 화면(mRecTT)과 엑셀(mRecXlsx)이 같은 표를 쓴다 */
-function mRecTTWeeks(rng){
-  const out=[];
-  for(let mon=twISO(_mondayOfISO(rng[0])); mon<=rng[1]; mon=_addDaysISO(mon,7)){
-    const html=mWithDate(mon, ()=> M.recKind==='cls' ? buildClassTT(M.recWho, null, {}) : buildTT(M.recWho, new Set(), null, null, 'A', {}));
-    const t=document.createElement('template'); t.innerHTML=html;
-    t.content.querySelectorAll('thead th').forEach((th,i)=>{ const iso=_addDaysISO(mon,i-1); if(i>0 && iso>=rng[0] && iso<=rng[1]) th.classList.add('m-hl'); });
-    out.push({title:`${M.recWho} · ${mLab(mon)} 주`, html:t.innerHTML, mon});
-  }
-  return out;
-}
-function mRecTT(rng){
-  return mRecTTWeeks(rng).map(w=>mTT(w.title, w.html, {mon:w.mon, kind:M.recKind, who:M.recWho})).join('')+'<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 조회한 날짜</div>';
-}
-function mRecXlsx(){
-  const rng=mRecRng();
-  tablesToXlsx(mRecTTWeeks(rng).map(w=>({name:w.title.replace(' · ',' ').replace(' 주',''), html:`<div class="m-tt">${w.html}</div>`})), `시간표_${M.recWho}_${rng[0]}~${rng[1]}.xlsx`);
-}
-
 /* ══ 화면의 표(HTML) → 엑셀(.xlsx) — 보이는 모양 그대로 ══
    표를 숨은 자리에 실제로 그린 뒤 칸마다 계산된 스타일(배경·글자색·굵기·취소선·테두리·안쪽 테두리(box-shadow))을 읽어 셀 스타일로 옮긴다.
    병합(rowspan·colspan)·열 너비·행 높이도 화면 비율대로. 시트 하나 = 표 하나. tables: [{name, html}] */
@@ -7873,7 +7909,6 @@ function mRecHTML(){
   all.forEach(x=>{ if(x.iso!==last){ last=x.iso; body+=`<div class="m-day">${mLab(x.iso)}${x.iso===today?' · 오늘':''}</div>`; }
     body+=`<div class="m-rec m-pick${M.recSel.has(x.key)?' sel':''}" onclick="mRecToggle('${x.key}')"><span class="m-rec-t">${x.html}</span></div>`; });
   const g=k=>`<button class="${M.recKind===k?'on':''}" onclick="M.recKind='${k}';M.recWho='';mRender()">`;
-  const v=k=>`<button class="${M.recView===k?'on':''}" onclick="M.recView='${k}';mRender()">`;
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`, wd=iso=>mWD[new Date(iso+'T00:00:00').getDay()];
   const d=M.recDate, mon=twISO(_mondayOfISO(d)), fri=_addDaysISO(mon,4);
   const wkLab = mon.slice(5,7)===fri.slice(5,7) ? `${md(mon)}(월)~${+fri.slice(8,10)}(금)` : `${md(mon)}(월)~${md(fri)}(금)`;   // 같은 달이면 끝 날짜의 월은 생략
@@ -7884,15 +7919,12 @@ function mRecHTML(){
   const whoList = M.recKind==='cls' ? cwClasses() : M.recKind==='t' ? mSel() : [];
   const who=`<div class="m-row"><div class="m-seg">${g('')}전체</button>${g('t')}교사</button>${g('cls')}학급</button></div>
     <select class="m-inp" onchange="M.recWho=this.value;mRender()"${M.recKind?'':' disabled'}><option value="">${M.recKind?(M.recKind==='cls'?'학급':'교사')+' 선택':'—'}</option>${whoList.map(w=>`<option value="${w}"${w===M.recWho?' selected':''}>${w}</option>`).join('')}</select></div>`;
-  const asTT = M.recView==='tt';
-  if(asTT) body = M.recKind && M.recWho ? mRecTT(rng) : `<div class="m-note ok">교사나 학급을 고르면 시간표가 나옵니다</div>`;
   const n=M.recSel.size;
-  const xl = asTT && M.recKind && M.recWho ? `<button class="m-ghost" onclick="mRecXlsx()">📥 엑셀</button>` : '';   // 보이는 주간표를 그 모양대로 .xlsx 로
-  const btns=all.length||xl?`<div class="m-btns">${all.length?`<button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>`:''}${xl}${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
-  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div><div class="m-seg">${v('list')}목록</button>${v('tt')}시간표</button></div></div>
+  const btns=all.length?`<div class="m-btns"><button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div></div>
     ${nav}${who}
     ${body||'<div class="m-note ok">이 조건에는 교체·대강 기록이 없습니다</div>'}
-    ${btns}<div class="m-sub" style="margin-top:12px">${asTT?'기록 선택은 목록형에서 합니다(고른 것이 없으면 보이는 기간 전체를 복사). 엑셀은 보이는 주간표를 그대로 내려받습니다.':'기록을 누르면 선택됩니다.'} 복사는 결보강 일지와 같은 한 줄 문장(메신저용). ${VIEW_ONLY?'':'삭제·출력은 데스크톱에서.'}</div></div>`;
+    ${btns}<div class="m-sub" style="margin-top:12px">기록을 누르면 선택됩니다(고른 것이 없으면 보이는 기간 전체를 복사). 복사는 결보강 일지와 같은 한 줄 문장(메신저용). 시간표·엑셀은 시간표 탭에서. 삭제·출력은 데스크톱에서.</div></div>`;
 }
 function mRecToggle(key){ if(M.recSel.has(key)) M.recSel.delete(key); else M.recSel.add(key); mRender(); }
 /* 선택한 기록(없으면 보이는 기간 전체)을 데스크톱 저장 탭의 선택복사와 같은 형식으로 복사 */
@@ -7912,8 +7944,9 @@ window.addEventListener('resize', ()=>{ if(mIsMobile()) mRender(); });
 function mTtCellClick(e){
   const td=e.target.closest&&e.target.closest('.m-tt .tc.diff-in, .m-tt .tc.diff-out'); if(!td) return;
   e.stopPropagation(); e.preventDefault();
-  const w=td.closest('.m-tt'), mon=w.dataset.mon, kind=w.dataset.kind, who=w.dataset.who; if(!mon||!who) return;
-  const tr=td.parentElement, p=+(tr.querySelector('.pl')||{}).textContent||0, iso=_addDaysISO(mon, td.cellIndex-1), key=mWdOf(iso)+p;
+  const w=td.closest('.m-tt'), kind=w.dataset.kind, tr=td.parentElement, who=w.dataset.iso ? tr.dataset.who : w.dataset.who; if(!who) return;
+  // 주간표: 열 = 요일, 행 머리(.pl) = 교시. 일별 비교표: 열 = 교시, 날짜는 표에 고정
+  const p = w.dataset.iso ? td.cellIndex : (+(tr.querySelector('.pl')||{}).textContent||0), iso = w.dataset.iso || _addDaysISO(w.dataset.mon, td.cellIndex-1), key=mWdOf(iso)+p;
   const sw=swHistLoad().filter(r=>!r.isDG).filter(r=>{ const hit=(r.dateISO_sw===iso&&_swapKeyA(r)===key)||(r.dateBISO===iso&&_swapKeyB(r)===key);
     return hit && (kind==='cls' ? (r.cA===who||r.cB===who) : (r.tA===who||r.tB===who)); });
   const dg=dgLoadHistory().filter(r=>r.dateISO===iso && +String(r.pA).replace('교시','')===p && (kind==='cls' ? r.cA===who : (r.tA===who||r.tSub===who)));
