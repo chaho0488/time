@@ -7976,6 +7976,9 @@ const VIEW_ONLY=/^\/view\/?$/.test(location.pathname);
 const VIEW={sw:[],dg:[]};
 if(VIEW_ONLY){
   document.documentElement.classList.add('view');
+  document.title='26-2 시간표 조회';   // 탭 제목·즐겨찾기·공유할 때 보이는 이름
+  const mt=document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(mt) mt.content='26-2 시간표 조회';
+  document.querySelector('link[rel="manifest"]')?.remove();   // 앱 설치 이름(교체 탐색기)이 조회 화면에 붙지 않게
   for(const ss of document.styleSheets){ try{ for(const r of ss.cssRules) if(r.media && /760px/.test(r.media.mediaText)) r.media.mediaText='all'; }catch(e){} }   // 휴대폰 모드 CSS를 모든 폭에 적용
   mIsMobile=function(){ return true; };
   swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
