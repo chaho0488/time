@@ -7575,7 +7575,7 @@ function executeDgImport(){
    대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
    탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
    2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
-const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', ttDay:false, recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
+const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', ttDay:false, ttDayAll:false, recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
 const mWD=['일','월','화','수','목','금','토'];
 function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
 function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
@@ -7738,7 +7738,8 @@ function mTtTargets(){
 /* 시간표 탭 조회 기간: 일별 보기면 그 날 하루, 아니면 기준 주부터 n주 (월~금) */
 function mTtRng(){
   const mon=twISO(_mondayOfISO(M.ttDate));
-  return M.ttDay ? [M.ttDate,M.ttDate] : [mon,_addDaysISO(mon,7*((M.ttWeeks||1)-1)+4)];
+  if(M.ttDay && !M.ttDayAll) return [M.ttDate,M.ttDate];
+  return M.ttDay ? [mon,_addDaysISO(mon,4)] : [mon,_addDaysISO(mon,7*((M.ttWeeks||1)-1)+4)];
 }
 /* 대상 하나의 주간표 HTML (고른 날짜 요일 머리글 강조 포함) */
 function mTtWeekHTML(w, m){
@@ -7761,7 +7762,11 @@ function mTtDayHTML(targets, iso){
 /* 지금 화면의 표 목록 [{title, html, ctx}] — 화면·엑셀이 같은 것을 쓴다 */
 function mTtTables(){
   const targets=mTtTargets(), out=[];
-  if(M.ttDay){ out.push({title:`${mLab(M.ttDate)} · ${mTtGroupLabel()}`, html:mTtDayHTML(targets, M.ttDate), ctx:{iso:M.ttDate, kind:M.ttKind, who:''}}); return out; }
+  if(M.ttDay){   // 일별: 고른 날 하루, 또는 '전체'면 그 주 월~금을 하루씩 이어서
+    const days = M.ttDayAll ? DAYS.map((_,i)=>_addDaysISO(twISO(_mondayOfISO(M.ttDate)),i)) : [M.ttDate];
+    days.forEach(iso=>out.push({title:`${mLab(iso)} · ${mTtGroupLabel()}`, html:mTtDayHTML(targets, iso), ctx:{iso, kind:M.ttKind, who:''}}));
+    return out;
+  }
   const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1;
   for(const w of targets) for(let i=0;i<n;i++){ const m=_addDaysISO(mon,7*i); out.push({title:`${w}${M.ttKind==='t'?' '+deptBadge(w,true):''} · ${mLab(m)} 주`, html:mTtWeekHTML(w,m), ctx:{mon:m, kind:M.ttKind, who:w}}); }
   return out;
@@ -7791,13 +7796,14 @@ function mTtXlsx(){
 }
 /* 일별 보기의 ◀ ▶: 토·일을 건너뛰고 하루씩 */
 function mTtStep(n){
-  if(M.ttDay){ let d=M.ttDate; do d=_addDaysISO(d,n); while([0,6].includes(new Date(d+'T00:00:00').getDay())); M.ttDate=d; M.ttHl=d; }
+  if(M.ttDay && M.ttDayAll){ M.ttDate=_addDaysISO(M.ttDate,7*n); M.ttHl=''; }   // 일별 '전체'는 주 단위로
+  else if(M.ttDay){ let d=M.ttDate; do d=_addDaysISO(d,n); while([0,6].includes(new Date(d+'T00:00:00').getDay())); M.ttDate=d; M.ttHl=d; }
   else { M.ttDate=_addDaysISO(M.ttDate,7*n); M.ttHl=''; }
   mRender();
 }
 function mTtHTML(){
   if(!M.ttDate) M.ttDate=kstToday();
-  if(M.ttDay && [0,6].includes(new Date(M.ttDate+'T00:00:00').getDay())) mTtStep(1);   // 일별 보기를 주말에 켜면 다음 수업일로
+  if(M.ttDay && !M.ttDayAll && [0,6].includes(new Date(M.ttDate+'T00:00:00').getDay())) mTtStep(1);   // 일별 보기를 주말에 켜면 다음 수업일로
   const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1, today=kstToday();
   // 1줄: [학급|교사] + 묶음 선택 + (묶음을 고른 뒤) 그 안에서 하나 선택
   const kindBtn=k=>`<button class="${M.ttKind===k?'on':''}" onclick="M.ttKind='${k}';mRender()">`;
@@ -7812,10 +7818,12 @@ function mTtHTML(){
   // 2줄: ◀ [n주 범위 | 날짜] ▶ 오늘 📅 [일별] — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게. 일별 = 대상을 행, 1~7교시를 열로 한 날 비교
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`;
   const opt=k=>{ const fri=_addDaysISO(mon,7*(k-1)+4); return `<option value="${k}"${k===n?' selected':''}>${k}주 ${md(mon)}~${md(fri)}</option>`; };
-  const mid = M.ttDay ? `<div class="m-inp" style="display:flex;align-items:center;font-weight:700">${mLab(M.ttDate)}</div>`
+  // 일별의 가운데는 요일 선택: 전체(월~금 다 보기) 또는 그 주의 한 요일
+  const dayOpts=[`<option value=""${M.ttDayAll?' selected':''}>전체 ${md(mon)}~${md(_addDaysISO(mon,4))}</option>`, ...DAYS.map((d,i)=>{ const iso=_addDaysISO(mon,i); return `<option value="${iso}"${!M.ttDayAll&&iso===M.ttDate?' selected':''}>${d} ${md(iso)}</option>`; })].join('');
+  const mid = M.ttDay ? `<select class="m-inp" onchange="if(this.value){M.ttDayAll=false;M.ttDate=this.value;M.ttHl=this.value;}else{M.ttDayAll=true;M.ttHl='';}mRender()">${dayOpts}</select>`
                       : `<select class="m-inp" onchange="M.ttWeeks=+this.value;mRender()">${[1,2,3,4].map(opt).join('')}</select>`;
   const nav=`<div class="m-row" style="margin:0 0 10px"><button class="m-ib" onclick="mTtStep(-1)" aria-label="이전">◀</button>${mid}<button class="m-ib" onclick="mTtStep(1)" aria-label="다음">▶</button>
-    <button class="m-ib${(M.ttDay?M.ttDate===today:mon===twISO(_mondayOfISO(today)))?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" onclick="M.ttDate=kstToday();M.ttHl=kstToday();mRender()">오늘</button>
+    <button class="m-ib${(M.ttDay?M.ttDate===today:mon===twISO(_mondayOfISO(today)))?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" onclick="M.ttDate=kstToday();M.ttHl=kstToday();M.ttDayAll=false;mRender()">오늘</button>
     <span style="position:relative;display:flex"><button class="m-ib" onclick="mPickDate('mTtPick',M.ttDate)" aria-label="달력">📅</button><input type="date" id="mTtPick" onchange="if(this.value){M.ttDate=this.value;M.ttHl=this.value;mRender()}" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none"></span>
     <button class="m-ib${M.ttDay?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" title="고른 날 하루를 교사(학급)별로 한 표에 비교" onclick="M.ttDay=!M.ttDay;if(M.ttDay)M.ttHl=M.ttDate;mRender()">일별</button></div>`;
   const tables=mTtTables().map(t=>mTT(t.title, t.html, t.ctx)).join('');
