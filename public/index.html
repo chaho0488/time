@@ -7859,9 +7859,9 @@ function mRecWho(cls, ...teachers){
 /* 화면과 복사가 같은 목록을 쓰도록 한 곳에서 거른다. 교체는 결강일·교체일 두 줄로 나뉘고, 두 줄 모두 같은 key(같은 기록) */
 function mRecItems(){
   const rng=mRecRng(); const inR=iso=>iso&&iso>=rng[0]&&iso<=rng[1];
-  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)&&mRecWho(r.cA,r.tA,r.tSub)).map(r=>({rec:r,kind:'dg',key:'dg:'+r.id,iso:r.dateISO,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} ${r.tA} → <b>${r.tSub}</b> <span style="font-size:11px;color:var(--green)">대강</span>`}));
+  const dg=dgLoadHistory().filter(r=>inR(r.dateISO)&&mRecWho(r.cA,r.tA,r.tSub)).map(r=>({rec:r,kind:'dg',key:'dg:'+r.id,iso:r.dateISO,own:true,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} ${r.tA} → <b>${r.tSub}</b> <span style="font-size:11px;color:var(--green)">대강</span>`}));
   // 결강일과 교체일이 같은 날이면 결강 교사 쪽 한 줄만 보인다(두 번 반복 방지). 학반 조건은 두 학반 어느 쪽이든 맞으면 된다
-  const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; const same=r.dateISO_sw===r.dateBISO; if(inR(r.dateISO_sw)&&(mRecWho(r.cA,r.tA,r.tB)||(same&&mRecWho(r.cB||r.cA,r.tA,r.tB)))) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateISO_sw,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(!same&&inR(r.dateBISO)&&mRecWho(r.cB||r.cA,r.tA,r.tB)) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
+  const sw=swHistLoad().filter(r=>!r.isDG).flatMap(r=>{ const o=[]; const same=r.dateISO_sw===r.dateBISO; if(inR(r.dateISO_sw)&&(mRecWho(r.cA,r.tA,r.tB)||(same&&mRecWho(r.cB||r.cA,r.tA,r.tB)))) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateISO_sw,own:true,p:+String(r.pA).replace('교시',''),html:`<b>${r.cA}</b> ${r.pA.replace('교시','')}교시 ${r.sA} <s>${r.tA}</s> → <b>${r.tB}</b> ${r.sB} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.dateB} ${r.pB.replace('교시','')}</span>`}); if(!same&&inR(r.dateBISO)&&mRecWho(r.cB||r.cA,r.tA,r.tB)) o.push({rec:r,kind:'sw',key:'sw:'+r.id,iso:r.dateBISO,p:+String(r.pB).replace('교시',''),html:`<b>${r.cB||r.cA}</b> ${r.pB.replace('교시','')}교시 ${r.sB} <s>${r.tB}</s> → <b>${r.tA}</b> ${r.sA} <span style="font-size:11px;color:var(--accent)">교체 ← ${r.date} ${r.pA.replace('교시','')}</span>`}); return o; });
   return { rng, all:[...dg,...sw].sort((a,b)=>a.iso.localeCompare(b.iso)||a.p-b.p) };
 }
 /* ══ 화면의 표(HTML) → 엑셀(.xlsx) — 보이는 모양 그대로 ══
@@ -7930,13 +7930,15 @@ function mRecHTML(){
   const who=`<div class="m-row"><div class="m-seg">${g('')}전체</button>${g('t')}교사</button>${g('cls')}학급</button></div>
     <select class="m-inp" onchange="M.recWho=this.value;mRender()"${M.recKind?'':' disabled'}><option value="">${M.recKind?(M.recKind==='cls'?'학급':'교사')+' 선택':'—'}</option>${whoList.map(w=>`<option value="${w}"${w===M.recWho?' selected':''}>${w}</option>`).join('')}</select></div>`;
   const n=M.recSel.size;
-  const btns=all.length?`<div class="m-btns"><button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
+  // 전체 = 보이는 기록 전부 선택, 결강만 = 결강일(대강일)이 이 기간 안에 있는 기록만 선택 (교체일만 걸린 다른 날 결강 교체는 빠짐). 선택한 줄을 다시 누르면 해제
+  const btns=all.length?`<div class="m-btns"><button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button><button class="m-ghost" onclick="mRecSelect(false)">전체</button><button class="m-ghost" onclick="mRecSelect(true)">결강만</button>${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">해제</button>`:''}</div>`:'';
   return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div></div>
     ${nav}${who}
     ${body||'<div class="m-note ok">이 조건에는 교체·대강 기록이 없습니다</div>'}
-    ${btns}<div class="m-sub" style="margin-top:12px">기록을 누르면 선택됩니다(고른 것이 없으면 보이는 기간 전체를 복사). 복사는 결보강 일지와 같은 한 줄 문장(메신저용). 시간표·엑셀은 시간표 탭에서. 삭제·출력은 데스크톱에서.</div></div>`;
+    ${btns}<div class="m-sub" style="margin-top:12px">기록을 누르면 선택, 다시 누르면 해제됩니다(고른 것이 없으면 보이는 기간 전체를 복사). '결강만'은 이 기간에 결강·대강이 있는 기록만 고릅니다 — 교체일만 걸린 다른 날 결강 교체는 빠집니다. 복사는 결보강 일지와 같은 한 줄 문장(메신저용). 시간표·엑셀은 시간표 탭에서. 삭제·출력은 데스크톱에서.</div></div>`;
 }
 function mRecToggle(key){ if(M.recSel.has(key)) M.recSel.delete(key); else M.recSel.add(key); mRender(); }
+function mRecSelect(ownOnly){ const {all}=mRecItems(); M.recSel=new Set(all.filter(x=>!ownOnly||x.own).map(x=>x.key)); mRender(); }
 /* 선택한 기록(없으면 보이는 기간 전체)을 데스크톱 저장 탭의 선택복사와 같은 형식으로 복사 */
 function mRecCopy(e){
   const {all}=mRecItems();   // 화면에 보이는 조건(기간·교사·학반) 그대로
@@ -7946,6 +7948,7 @@ function mRecCopy(e){
   const lines=[...dgCopyLines(dg), ...swCopyLines(sw)];
   if(!lines.length){ mToast('복사할 기록이 없습니다'); return; }
   copyToClipboard(lines.join('\n'), e?.target, `✅ ${dg.length+sw.length}건 복사됨`);
+  syncPopup({icon:'📋', title:`${dg.length+sw.length}건 복사됨`, html:lines.map(l=>`<div style="padding:4px 0;border-bottom:1px dashed #e4e7f0;word-break:keep-all;">${_esc(l)}</div>`).join('')});
 }
 window.addEventListener('resize', ()=>{ if(mIsMobile()) mRender(); });
 
