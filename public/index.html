@@ -7810,7 +7810,7 @@ function mTtHTML(){
   // 2줄: ◀ [n주 범위 | 날짜] ▶ 오늘 📅 [일별] — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게. 일별 = 대상을 행, 1~7교시를 열로 한 날 비교
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`;
   const opt=k=>{ const fri=_addDaysISO(mon,7*(k-1)+4); return `<option value="${k}"${k===n?' selected':''}>${k}주 ${md(mon)}~${md(fri)}</option>`; };
-  const mid = M.ttDay ? `<div class="m-inp" style="display:flex;align-items:center;font-weight:700">${mLab(M.ttDate)}${M.ttDate===today?' · 오늘':''}</div>`
+  const mid = M.ttDay ? `<div class="m-inp" style="display:flex;align-items:center;font-weight:700">${mLab(M.ttDate)}</div>`
                       : `<select class="m-inp" onchange="M.ttWeeks=+this.value;mRender()">${[1,2,3,4].map(opt).join('')}</select>`;
   const nav=`<div class="m-row" style="margin:0 0 10px"><button class="m-ib" onclick="mTtStep(-1)" aria-label="이전">◀</button>${mid}<button class="m-ib" onclick="mTtStep(1)" aria-label="다음">▶</button>
     <button class="m-ib${(M.ttDay?M.ttDate===today:mon===twISO(_mondayOfISO(today)))?' on':''}" style="width:auto;padding:0 8px;font-size:12px;font-weight:700" onclick="M.ttDate=kstToday();M.ttHl=kstToday();mRender()">오늘</button>
