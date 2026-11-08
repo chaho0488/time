@@ -7732,8 +7732,12 @@ function mTtGroupItems(){
   return M.ttTGrp==='all'?all:all.filter(t=>DEPT[t]===M.ttTGrp);
 }
 function mTtTargets(){
-  const items=mTtGroupItems(), one=M.ttKind==='cls'?M.ttClsOne:M.ttTOne;
-  return one && items.includes(one) ? [one] : items;
+  const items=mTtGroupItems();
+  if(M.ttKind==='cls') return M.ttClsOne && items.includes(M.ttClsOne) ? [M.ttClsOne] : items;
+  // 교사: 이름 검색 — 정확히 맞으면 그 한 명, 아니면 글자가 들어간 교사 모두(없으면 묶음 전체)
+  const q=(M.ttTOne||'').trim(); if(!q) return items;
+  if(items.includes(q)) return [q];
+  const hit=items.filter(t=>t.includes(q)); return hit.length?hit:items;
 }
 /* 시간표 탭 조회 기간: 일별 보기면 그 날 하루, 아니면 기준 주부터 n주 (월~금) */
 function mTtRng(){
@@ -7770,6 +7774,12 @@ function mTtTables(){
   const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1;
   for(const w of targets) for(let i=0;i<n;i++){ const m=_addDaysISO(mon,7*i); out.push({title:`${w}${M.ttKind==='t'?' '+deptBadge(w,true):''} · ${mLab(m)} 주`, html:mTtWeekHTML(w,m), ctx:{mon:m, kind:M.ttKind, who:w}}); }
   return out;
+}
+/* 이름 검색 칸: 글자를 칠 때마다 조금 기다렸다 다시 그린다. 다시 그리면 입력 칸이 새로 만들어지므로, 치는 중이었으면 초점과 커서를 되돌린다 */
+function mTtSearch(inp){
+  M.ttTOne=inp.value; clearTimeout(M._ttT);
+  M._ttT=setTimeout(()=>{ const typing=document.activeElement===inp, v=inp.value; mRender();
+    if(typing){ const i=document.querySelector('#mBody input[list=mTtNames]'); if(i){ i.focus(); try{ i.setSelectionRange(v.length,v.length); }catch(e){} } } }, 300);
 }
 function mTtGroupLabel(){
   const isCls=M.ttKind==='cls', grp=isCls?M.ttClsGrp:M.ttTGrp, one=isCls?M.ttClsOne:M.ttTOne;
@@ -7813,7 +7823,10 @@ function mTtHTML(){
     ? o('all','전체 학급',grp)+[...new Set(cwClasses().map(c=>c[0]))].map(g=>o(g,g+'학년',grp)).join('')
     : o('all','전체 교사',grp)+Object.keys(DEPT_COLOR).filter(d=>ALL.some(t=>DEPT[t]===d)).map(d=>o(d,d,grp)).join('');
   const grpSel=`<select class="m-inp" onchange="M.${isCls?'ttClsGrp':'ttTGrp'}=this.value;M.${isCls?'ttClsOne':'ttTOne'}='';mRender()">${grpOpts}</select>`;
-  const oneSel=`<select class="m-inp" onchange="M.${isCls?'ttClsOne':'ttTOne'}=this.value;mRender()"${grp==='all'?' disabled':''}>${o('',grp==='all'?'묶음 먼저':'전체',one)}${grp==='all'?'':items.map(x=>o(x,x,one)).join('')}</select>`;
+  // 학급은 목록에서 바로 고르고, 교사는 이름을 쳐서 찾는다(자동완성 목록 포함). 묶음을 고르면 그 안에서만
+  const oneSel = isCls
+    ? `<select class="m-inp" onchange="M.ttClsOne=this.value;mRender()">${o('','전체',one)}${items.map(x=>o(x,x,one)).join('')}</select>`
+    : `<input class="m-inp" list="mTtNames" value="${_esc(one||'')}" placeholder="이름 검색" autocomplete="off" oninput="mTtSearch(this)"><datalist id="mTtNames">${items.map(x=>`<option value="${x}">`).join('')}</datalist>`;
   const who=`<div class="m-row"><div class="m-seg" style="flex:0 0 30%">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${grpSel}${oneSel}</div>`;
   // 2줄: ◀ [n주 범위 | 날짜] ▶ 오늘 📅 [일별] — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게. 일별 = 대상을 행, 1~7교시를 열로 한 날 비교
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`;
