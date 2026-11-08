@@ -7575,7 +7575,7 @@ function executeDgImport(){
    대강 = ①교사·날짜 → ②교시 → ③대강 교사(누르면 바로 추가) → 저장, 기록 = 오늘·이번 주·다음 주 목록.
    탐색·저장은 데스크톱 함수(clickSlot·findSwaps·selectSwap·addRecord·saveSelToSwHist·selectDgSlot·addDgRecord·saveDgRecords)를 그대로 쓴다.
    2회 교체·연강 짝·교체 원하는 교사·실습실 표·출력은 폰에서는 뺌(데스크톱에서). */
-const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', ttDay:false, ttDayAll:false, recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
+const M={tab:'swap', step:1, dgStep:1, recUnit:'week', recDate:'', recKind:'', recWho:'', ttKind:'cls', ttClsGrp:'all', ttClsOne:'', ttTGrp:'all', ttTOne:'', ttDate:'', ttWeeks:1, ttHl:'', ttDay:true, ttDayAll:false, recSel:new Set()};   // recSel: 기록 탭에서 복사하려고 고른 기록 ('dg:id' / 'sw:id')
 const mWD=['일','월','화','수','목','금','토'];
 function mLab(iso){ if(!iso) return ''; const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${mWD[d.getDay()]})`; }
 function mWdOf(iso){ return iso? mWD[new Date(iso+'T00:00:00').getDay()] : ''; }
@@ -7812,7 +7812,7 @@ function mTtStep(n){
   mRender();
 }
 function mTtHTML(){
-  if(!M.ttDate) M.ttDate=kstToday();
+  if(!M.ttDate){ M.ttDate=kstToday(); M.ttHl=M.ttDate; }   // 처음 열면 오늘 하루(전체 학급 일별 비교표)
   if(M.ttDay && !M.ttDayAll && [0,6].includes(new Date(M.ttDate+'T00:00:00').getDay())) mTtStep(1);   // 일별 보기를 주말에 켜면 다음 수업일로
   const mon=twISO(_mondayOfISO(M.ttDate)), n=M.ttWeeks||1, today=kstToday();
   // 1줄: [학급|교사] + 묶음 선택 + (묶음을 고른 뒤) 그 안에서 하나 선택
@@ -7997,7 +7997,7 @@ if(VIEW_ONLY){
   mIsMobile=function(){ return true; };
   swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
   swHistSave=function(){}; dgSaveHistory=function(){};
-  M.tab='tt'; M.ttDay=true; M.ttHl=kstToday();   // 첫 화면: 전체 학급, 오늘 하루 일별 비교표
+  M.tab='tt';   // 시간표 탭 그대로(기본값·동작은 관리자 앱과 같은 코드)
   const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
     .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!VIEW.sw.length&&!VIEW.dg.length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
   document.addEventListener('DOMContentLoaded', ()=>{ document.querySelector('#mApp .m-top').innerHTML='<span class="m-title">26-2 시간표 조회</span>'; load(); });   // 화면 맨 위 이름(이 스크립트보다 아래에 있어 문서가 다 읽힌 뒤 바꿈)
