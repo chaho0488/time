@@ -671,6 +671,7 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
   .m-tt{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:6px;margin:6px 0;overflow-x:auto;}
   .m-tt .m-tt-h{font-size:12px;font-weight:800;color:var(--text2);margin:0 0 4px 4px;}
   .m-tt .tt-tbl{pointer-events:none;}
+  .m-tt .tt-tbl .tc.diff-in,.m-tt .tt-tbl .tc.diff-out{pointer-events:auto;cursor:pointer;}   /* 바뀐 칸은 눌러서 내역 보기 */
   .m-tt .tt-tbl th.m-hl{background:var(--accent);color:#fff;border-radius:6px;} .m-tt .tt-tbl th.m-hl *{color:#fff !important;}
   .m-tt .tc{width:42px;height:38px;} .m-tt .tt-tbl th{width:42px;} .m-tt .cs,.m-tt .cc{max-width:40px;}
   .m-card{background:var(--white);border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.6;}
@@ -7583,7 +7584,7 @@ function mPeriods(teacher, iso, sideFn){   // 그 날짜 요일의 수업(교체
   for(let p=1;p<=DP[wd];p++){ const k=wd+p; out.push({key:k, p, sl:sc[k]||null, mark: swapMarkFor(teacher,k,iso)}); }
   return out;
 }
-function mTT(title, html){ return `<div class="m-tt"><div class="m-tt-h">${title}</div>${html}</div>`; }
+function mTT(title, html, ctx){ const a=ctx?` data-mon="${ctx.mon}" data-kind="${ctx.kind}" data-who="${_esc(ctx.who)}"`:''; return `<div class="m-tt"${a}><div class="m-tt-h">${title}</div>${html}</div>`; }   // ctx: 바뀐 칸을 눌렀을 때 내역을 찾는 데 씀
 function mRender(){
   if(!mIsMobile()) return;
   const el=document.getElementById('mBody'); if(!el) return;
@@ -7725,12 +7726,12 @@ function mTtHTML(){
     ? `<select class="m-inp" onchange="M.ttCls=this.value;mRender()">${cls.map(c=>`<option value="${c}"${c===M.ttCls?' selected':''}>${c}</option>`).join('')}</select>`
     : `<select class="m-inp" onchange="M.ttTeacher=this.value;mRender()"><option value="">— 교사 선택 —</option>${mSel().map(t=>`<option value="${t}"${t===M.ttTeacher?' selected':''}>${t}</option>`).join('')}</select>`;
   let table='';
-  if(M.ttKind==='cls' && M.ttCls) table=mTT(`${M.ttCls} · ${mLab(mon)} 주`, mWithDate(M.ttDate, ()=>buildClassTT(M.ttCls, null, {})));
-  else if(M.ttKind==='t' && M.ttTeacher) table=mTT(`${M.ttTeacher} · ${mLab(mon)} 주`, mWithDate(M.ttDate, ()=>buildTT(M.ttTeacher, new Set(), null, null, 'A', {})));
-  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표</div></div>
+  if(M.ttKind==='cls' && M.ttCls) table=mTT(`${M.ttCls} · ${mLab(mon)} 주`, mWithDate(M.ttDate, ()=>buildClassTT(M.ttCls, null, {})), {mon, kind:'cls', who:M.ttCls});
+  else if(M.ttKind==='t' && M.ttTeacher) table=mTT(`${M.ttTeacher} · ${mLab(mon)} 주`, mWithDate(M.ttDate, ()=>buildTT(M.ttTeacher, new Set(), null, null, 'A', {})), {mon, kind:'t', who:M.ttTeacher});
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">시간표${VIEW_ONLY?' (교체·대강 반영)':''}</div></div>
     <div class="m-filter">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${sel}
     <div class="m-wk"><button onclick="M.ttDate=_addDaysISO(M.ttDate,-7);mRender()">◀ 이전 주</button><button class="${mon===twISO(_mondayOfISO(kstToday()))?'on':''}" onclick="M.ttDate=kstToday();mRender()">이번 주</button><button onclick="M.ttDate=_addDaysISO(M.ttDate,7);mRender()">다음 주 ▶</button></div>
-    ${table}<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업</div></div>`;
+    ${table}<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업. 바뀐 칸을 누르면 내역이 나옵니다.</div></div>`;
 }
 
 /* ── 기록 ── */
@@ -7770,12 +7771,12 @@ function mRecTTWeeks(rng){
     const html=mWithDate(mon, ()=> M.recKind==='cls' ? buildClassTT(M.recWho, null, {}) : buildTT(M.recWho, new Set(), null, null, 'A', {}));
     const t=document.createElement('template'); t.innerHTML=html;
     t.content.querySelectorAll('thead th').forEach((th,i)=>{ const iso=_addDaysISO(mon,i-1); if(i>0 && iso>=rng[0] && iso<=rng[1]) th.classList.add('m-hl'); });
-    out.push({title:`${M.recWho} · ${mLab(mon)} 주`, html:t.innerHTML});
+    out.push({title:`${M.recWho} · ${mLab(mon)} 주`, html:t.innerHTML, mon});
   }
   return out;
 }
 function mRecTT(rng){
-  return mRecTTWeeks(rng).map(w=>mTT(w.title, w.html)).join('')+'<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 조회한 날짜</div>';
+  return mRecTTWeeks(rng).map(w=>mTT(w.title, w.html, {mon:w.mon, kind:M.recKind, who:M.recWho})).join('')+'<div class="m-sub">초록 칸 = 교체·대강으로 들어온 수업, 빨간 취소선 = 빠진 수업, 파란 요일 = 조회한 날짜</div>';
 }
 function mRecXlsx(){
   const rng=mRecRng();
@@ -7853,7 +7854,7 @@ function mRecHTML(){
   const n=M.recSel.size;
   const xl = asTT && M.recKind && M.recWho ? `<button class="m-ghost" onclick="mRecXlsx()">📥 엑셀</button>` : '';   // 보이는 주간표를 그 모양대로 .xlsx 로
   const btns=all.length||xl?`<div class="m-btns">${all.length?`<button class="m-add" onclick="mRecCopy(event)">📋 ${n?n+'건 복사':'전체 복사'}</button>`:''}${xl}${n?`<button class="m-ghost" onclick="M.recSel.clear();mRender()">선택 해제</button>`:''}</div>`:'';
-  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록${VIEW_ONLY?' (보기 전용)':''}</div><div class="m-seg">${v('list')}목록</button>${v('tt')}시간표</button></div></div>
+  return `<div class="m-sec"><div class="m-h"><div class="m-ttl">기록</div><div class="m-seg">${v('list')}목록</button>${v('tt')}시간표</button></div></div>
     ${nav}${who}
     ${body||'<div class="m-note ok">이 조건에는 교체·대강 기록이 없습니다</div>'}
     ${btns}<div class="m-sub" style="margin-top:12px">${asTT?'기록 선택은 목록형에서 합니다(고른 것이 없으면 보이는 기간 전체를 복사). 엑셀은 보이는 주간표를 그대로 내려받습니다.':'기록을 누르면 선택됩니다.'} 복사는 결보강 일지와 같은 한 줄 문장(메신저용). ${VIEW_ONLY?'':'삭제·출력은 데스크톱에서.'}</div></div>`;
@@ -7871,9 +7872,25 @@ function mRecCopy(e){
 }
 window.addEventListener('resize', ()=>{ if(mIsMobile()) mRender(); });
 
+/* ── 주간표의 바뀐 칸(초록·빨간 취소선)을 누르면 그 칸의 교체·대강 내역을 결보강 일지 한 줄 문장으로 보여준다 ──
+   캡처 단계에서 가로채 데스크톱용 onclick(clickSlot)은 실행되지 않게 한다 */
+function mTtCellClick(e){
+  const td=e.target.closest&&e.target.closest('.m-tt .tc.diff-in, .m-tt .tc.diff-out'); if(!td) return;
+  e.stopPropagation(); e.preventDefault();
+  const w=td.closest('.m-tt'), mon=w.dataset.mon, kind=w.dataset.kind, who=w.dataset.who; if(!mon||!who) return;
+  const tr=td.parentElement, p=+(tr.querySelector('.pl')||{}).textContent||0, iso=_addDaysISO(mon, td.cellIndex-1), key=mWdOf(iso)+p;
+  const sw=swHistLoad().filter(r=>!r.isDG).filter(r=>{ const hit=(r.dateISO_sw===iso&&_swapKeyA(r)===key)||(r.dateBISO===iso&&_swapKeyB(r)===key);
+    return hit && (kind==='cls' ? (r.cA===who||r.cB===who) : (r.tA===who||r.tB===who)); });
+  const dg=dgLoadHistory().filter(r=>r.dateISO===iso && +String(r.pA).replace('교시','')===p && (kind==='cls' ? r.cA===who : (r.tA===who||r.tSub===who)));
+  const lines=[...swCopyLines(sw), ...dgCopyLines(dg)];
+  syncPopup({icon:td.classList.contains('diff-in')?'🟢':'🔴', title:`${mLab(iso)} ${p}교시 · ${who} — ${td.classList.contains('diff-in')?'들어온 수업':'빠진 수업'}`,
+    html: lines.length ? lines.map(l=>`<div style="padding:4px 0;border-bottom:1px dashed #e4e7f0;word-break:keep-all;">${_esc(l)}</div>`).join('') : '이 칸에 해당하는 기록을 찾지 못했습니다.'});
+}
+document.addEventListener('click', mTtCellClick, true);
+
 /* ══ 보기 전용(/view): 다른 선생님이 기록 탭만 보는 화면 ══
    - 기록은 비밀번호 없는 읽기 전용 API(/api/view)에서 받아 메모리(VIEW)에만 둔다. 이 브라우저의 localStorage(본인 앱 기록)는 읽지도 쓰지도 않는다.
-   - 화면은 휴대폰 간단 모드의 기록 탭만(다른 탭·클라우드 단추 숨김), 어느 폭에서나. 저장·동기화·시간표 편집은 모두 꺼진다. */
+   - 화면은 휴대폰 간단 모드의 시간표 탭만(교체·대강이 반영된 학급·교사 주간표, 바뀐 칸을 누르면 내역). 다른 탭·클라우드 단추 숨김, 어느 폭에서나. 저장·동기화·시간표 편집은 모두 꺼진다. */
 const VIEW_ONLY=/^\/view\/?$/.test(location.pathname);
 const VIEW={sw:[],dg:[]};
 if(VIEW_ONLY){
@@ -7882,7 +7899,7 @@ if(VIEW_ONLY){
   mIsMobile=function(){ return true; };
   swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
   swHistSave=function(){}; dgSaveHistory=function(){};
-  M.tab='rec';
+  M.tab='tt';
   const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
     .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!VIEW.sw.length&&!VIEW.dg.length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
   document.addEventListener('DOMContentLoaded', load);
