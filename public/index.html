@@ -7736,10 +7736,19 @@ function mTtGroupItems(){
 function mTtTargets(){
   const items=mTtGroupItems();
   if(M.ttKind==='cls') return M.ttClsOne && items.includes(M.ttClsOne) ? [M.ttClsOne] : items;
-  // 교사: 이름 검색 — 정확히 맞으면 그 한 명, 아니면 글자가 들어간 교사 모두(없으면 묶음 전체)
+  // 교사: 이름 검색 — 정확히 맞으면 그 한 명, 아니면 글자(초성 포함)가 들어간 교사 모두(없으면 묶음 전체)
   const q=(M.ttTOne||'').trim(); if(!q) return items;
   if(items.includes(q)) return [q];
-  const hit=items.filter(t=>t.includes(q)); return hit.length?hit:items;
+  const hit=items.filter(t=>t.includes(q)||mChoMatch(t,q)); return hit.length?hit:items;
+}
+/* 초성 검색: 'ㄱㅌ' → 김태욱, 'ㅂㅇ' → 박연옥·박용훈. 검색어의 각 글자가 자음이면 이름 글자의 초성과, 완성 글자면 글자 그대로 비교 */
+const CHO='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+function mCho(ch){ const c=ch.charCodeAt(0); return c>=0xAC00&&c<=0xD7A3 ? CHO[Math.floor((c-0xAC00)/588)] : ch; }
+function mChoMatch(name, q){
+  if(![...q].some(ch=>CHO.includes(ch))) return false;   // 자음이 하나도 없으면 초성 검색이 아님
+  const ok=(n,ch)=> CHO.includes(ch) ? mCho(n)===ch : n===ch;
+  for(let i=0;i+q.length<=name.length;i++){ let m=true; for(let j=0;j<q.length;j++) if(!ok(name[i+j],q[j])){ m=false; break; } if(m) return true; }
+  return false;
 }
 /* 시간표 탭 조회 기간: 일별 보기면 그 날 하루, 아니면 기준 주부터 n주 (월~금) */
 function mTtRng(){
