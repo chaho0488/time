@@ -1281,6 +1281,7 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
     <div style="padding:11px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <label style="font-size:12px;font-weight:700;color:var(--muted);">교사</label>
       <input id="twTeacher" list="twTeacherList" placeholder="이름 검색/선택" onchange="renderTeacherWeek()"
+        onfocus="this.dataset.prev=this.value;this.value=''" onblur="if(!this.value)this.value=this.dataset.prev||''"
         style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:'Noto Sans KR',sans-serif;color:var(--text);background:var(--s1);outline:none;width:120px;">
       <datalist id="twTeacherList"></datalist>
       <span style="width:1px;height:20px;background:var(--border);margin:0 2px;"></span>
