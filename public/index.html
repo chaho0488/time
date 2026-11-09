@@ -5831,7 +5831,9 @@ function swDayPick(col){
 
 /* ── 교체 기록 탭: 좌측(S.records) + 중앙(미리보기) ── */
 function renderSw2(){
-  ['dgHist','sw2'].forEach(c=>{ if(!swDay[c]) swDaySetLabel(c, kstToday()); });   // 아직 이동 전이면 버튼에 오늘 날짜를 표시
+  // 처음 열면 두 칸 모두 오늘 날짜로 조회 (swDayShow 가 각 칸·미리보기를 그림). 이후에는 보던 조건 유지
+  const fresh=['dgHist','sw2'].filter(c=>!swDay[c]);
+  if(fresh.length){ fresh.forEach(c=>swDayShow(c, kstToday())); return; }
   renderSavedDgCol();
   renderSw2Left();
   renderSwPreview();
