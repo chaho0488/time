@@ -695,6 +695,10 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
   .m-seg button.on{background:var(--accent);color:#fff;}
   .m-row{display:flex;gap:6px;margin-bottom:6px;align-items:stretch;}
   .m-row .m-inp{padding:8px 8px;font-size:14px;min-width:0;flex:1;}
+  /* 이름 검색 칸 아래 펼쳐지는 이름 목록(브라우저 자동완성 대신 직접 그림 — 비밀번호 관리자 창이 가로채지 않게) */
+  .m-sug{position:absolute;top:100%;left:0;right:0;z-index:30;max-height:240px;overflow:auto;background:var(--white);border:1.5px solid var(--border2);border-radius:10px;margin-top:3px;box-shadow:0 6px 18px rgba(0,0,0,.12);}
+  .m-sug div{padding:9px 12px;font-size:14px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .m-sug div:last-child{border-bottom:none;} .m-sug div:hover{background:var(--s1);}
   .m-ib{width:40px;flex-shrink:0;border:1.5px solid var(--border2);border-radius:10px;background:var(--white);font-size:15px;color:var(--text2);font-family:inherit;padding:0;}
   .m-ib.on{background:var(--accent);border-color:var(--accent);color:#fff;}
   .m-row .m-seg{flex:0 0 54%;border-radius:10px;} .m-row .m-seg button{flex:1;font-size:13px;padding:0;}
@@ -7834,9 +7838,18 @@ function mTtTables(){
 }
 /* 이름 검색 칸: 글자를 칠 때마다 조금 기다렸다 다시 그린다. 다시 그리면 입력 칸이 새로 만들어지므로, 치는 중이었으면 초점과 커서를 되돌린다 */
 function mTtSearch(inp){
-  M.ttTOne=inp.value; clearTimeout(M._ttT);
+  M.ttTOne=inp.value; clearTimeout(M._ttT); mTtSug(inp);
   M._ttT=setTimeout(()=>{ const typing=document.activeElement===inp, v=inp.value; mRender();
-    if(typing){ const i=document.querySelector('#mBody input[list=mTtNames]'); if(i){ i.focus(); try{ i.setSelectionRange(v.length,v.length); }catch(e){} } } }, 300);
+    if(typing){ const i=document.getElementById('mTtNameInp'); if(i){ i.focus(); mTtSug(i); try{ i.setSelectionRange(v.length,v.length); }catch(e){} } } }, 300);   // 치던 중이면 걸러진 목록 그대로
+}
+/* 이름 검색 칸 아래 이름 목록: 비어 있으면 고른 묶음의 전체 이름, 치면 글자·초성이 맞는 이름만. 누르면 그 교사 하나로 */
+function mTtSug(inp, all){   // all: 칸에 초점이 올 때는 적힌 이름과 상관없이 전체 목록
+  const box=document.getElementById('mTtSug'); if(!box) return;
+  const q=all?'':inp.value.trim(), items=mTtGroupItems();
+  const list=q?items.filter(t=>t.includes(q)||mChoMatch(t,q)):items;
+  // pointerdown에서 처리: 입력 칸이 초점을 잃기(목록이 닫히기) 전에 선택되도록
+  box.innerHTML=list.map(t=>`<div onpointerdown="event.preventDefault();M.ttTOne='${_esc(t)}';mRender()">${_esc(t)}</div>`).join('')||`<div style="color:var(--text3)">맞는 이름 없음</div>`;
+  box.style.display='block';
 }
 function mTtGroupLabel(){
   const isCls=M.ttKind==='cls', grp=isCls?M.ttClsGrp:M.ttTGrp, one=isCls?M.ttClsOne:M.ttTOne;
@@ -7883,7 +7896,7 @@ function mTtHTML(){
   // 학급은 목록에서 바로 고르고, 교사는 이름을 쳐서 찾는다(자동완성 목록 포함). 묶음을 고르면 그 안에서만
   const oneSel = isCls
     ? `<select class="m-inp" onchange="M.ttClsOne=this.value;mRender()">${o('','전체',one)}${items.map(x=>o(x,x,one)).join('')}</select>`
-    : `<input class="m-inp" list="mTtNames" value="${_esc(one||'')}" placeholder="이름 검색" autocomplete="off" oninput="mTtSearch(this)"><datalist id="mTtNames">${items.map(x=>`<option value="${x}">`).join('')}</datalist>`;
+    : `<span style="position:relative;flex:1;display:flex;min-width:0"><input class="m-inp" id="mTtNameInp" type="search" value="${_esc(one||'')}" placeholder="이름 검색" autocomplete="off" oninput="mTtSearch(this)" onfocus="mTtSug(this,true)" onblur="setTimeout(()=>{const s=document.getElementById('mTtSug');if(s)s.style.display='none'},150)"><div id="mTtSug" class="m-sug" style="display:none"></div></span>`;
   const who=`<div class="m-row"><div class="m-seg" style="flex:0 0 30%">${kindBtn('cls')}학급</button>${kindBtn('t')}교사</button></div>${grpSel}${oneSel}</div>`;
   // 2줄: ◀ [n주 범위 | 날짜] ▶ 오늘 📅 [일별] — 📅로 고른 날짜(또는 '오늘')는 요일 머리글을 파랗게. 일별 = 대상을 행, 1~7교시를 열로 한 날 비교
   const md=iso=>`${+iso.slice(5,7)}/${+iso.slice(8,10)}`;
