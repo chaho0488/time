@@ -252,6 +252,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .tc.hl1{cursor:pointer;box-shadow:inset 0 0 0 2px #86efac;}   /* 교체 후보 칸: 누를 수 있음(선택되면 hl1s 초록 실선) */
 .tc.hl1:hover{transform:scale(1.05);cursor:pointer;}
 .tc.hl1s{box-shadow:inset 0 0 0 2px var(--green)!important;transform:scale(1.06);z-index:3;}
+.tc.force{box-shadow:inset 0 0 0 2px #f59e0b!important;background:#fffbeb!important;}   /* 강제 교체 후보·대기 칸: 주황 */
+.tc .pend-note{font-size:8px;color:#b45309;font-weight:800;line-height:1;white-space:nowrap;overflow:hidden;}
 .tc.hl2{cursor:pointer;box-shadow:inset 0 0 0 2px #fde68a;}
 .tc.hl2:hover{transform:scale(1.05);cursor:pointer;}
 .tc.hl2s{box-shadow:inset 0 0 0 2px var(--yellow)!important;transform:scale(1.06);z-index:3;}
@@ -2613,19 +2615,25 @@ function getWantSwapKeys(wantedTeacher){
   const res=new Set();
   const sc=TTB(wantedTeacher);
   if(!sc||!S.teacher||!S.keyA) return res;
-  const freedByRec=new Set(), addedByRec=new Set();
-  unsavedRecs().forEach(r=>{
-    freedByRec.add(`${r.tA}|${r.kA}`); freedByRec.add(`${r.tB}|${r.kB}`);
-    addedByRec.add(`${r.tA}|${r.kB}`); addedByRec.add(`${r.tB}|${r.kA}`);
-  });
   for(const[k2,s2] of Object.entries(sc)){
     if(BLK.has(s2.subject.trim())) continue;
     if(k2===S.keyA) continue;
-    if(TTB(S.teacher)[k2] && !freedByRec.has(`${S.teacher}|${k2}`)) continue;
-    if(addedByRec.has(`${S.teacher}|${k2}`)) continue;
+    // 결강 교사가 k2에 수업이 있어도 후보로 둠(강제 교체) — 칸에 ⚠ 표시, 추가할 때 확인
     res.add(k2);
   }
   return res;
+}
+/* 강제 교체 사유: 결강 교사(S.teacher)가 교체 교시 kB에, 또는 교체 교사 tB가 결강 교시 kA에 수업이 있으면 그 내용. 없으면 ''.
+   작성 중 목록으로 이미 비워진 칸은 수업 없는 것으로 봄 */
+function swapForceReason(tB,kB){
+  if(!S.teacher||!S.keyA||!tB||!kB) return '';
+  const freed=new Set(); unsavedRecs().forEach(r=>{ freed.add(`${r.tA}|${r.kA}`); freed.add(`${r.tB}|${r.kB}`); });
+  const out=[];
+  const a=TTB(S.teacher)[kB];
+  if(a && !freed.has(`${S.teacher}|${kB}`)) out.push(`${S.teacher} ${kB}에 ${a.subject}·${a.class} 수업 있음`);
+  const b=TTA(tB)[S.keyA];
+  if(b && !freed.has(`${tB}|${S.keyA}`)) out.push(`${tB} ${S.keyA}에 ${b.subject}·${b.class} 수업 있음`);
+  return out.join(', ');
 }
 /* 현재 선택 교사가 '교체 원하는 교사(목록에만 있음)'인지 */
 function isWantOnly(teacher){
@@ -2697,19 +2705,20 @@ function previewRecs(){
   return out;
 }
 /* 미리보기 기준으로 teacher의 그 날짜·교시가 빠지는지(out)/들어오는지(in) */
-function pvMarkFor(pv,teacher,key,iso){
-  let m=null;
+function pvMarkFor(pv,teacher,key,iso,base){   // base: 그 칸에 지금(저장 내역 반영) 있는 수업
+  const marks = base&&base.pendIn ? [{...base.pendIn, kind:'in'}] : [];   // 저장된 강제 교체의 대기 수업도 같이 겹침
+  if(!pv.length && !marks.length) return null;
   for(const r of pv){
     if(r.tA===teacher){
-      if(key===r.kA&&iso===r.iA) m={kind:'out',other:r.tB,pv:r.pv};
-      if(key===r.kB&&iso===r.iB) m={kind:'in',other:r.tB,subject:r.sA,class:r.cA,pv:r.pv};
+      if(key===r.kA&&iso===r.iA) marks.push({kind:'out',other:r.tB,subject:r.sA,class:r.cA,pv:r.pv});
+      if(key===r.kB&&iso===r.iB) marks.push({kind:'in',other:r.tB,subject:r.sA,class:r.cA,pv:r.pv});
     }
     if(r.tB===teacher){
-      if(key===r.kB&&iso===r.iB) m={kind:'out',other:r.tA,pv:r.pv};
-      if(key===r.kA&&iso===r.iA) m={kind:'in',other:r.tA,subject:r.sB,class:r.cB,pv:r.pv};
+      if(key===r.kB&&iso===r.iB) marks.push({kind:'out',other:r.tA,subject:r.sB,class:r.cB,pv:r.pv});
+      if(key===r.kA&&iso===r.iA) marks.push({kind:'in',other:r.tA,subject:r.sB,class:r.cB,pv:r.pv});
     }
   }
-  return m;
+  return layerMarks(base||null, marks);
 }
 function cancelPreview(){
   S.pvOn=false;
@@ -2946,7 +2955,8 @@ function buildTT(teacher,selKeyOrKeys,hlKeys,conflictKey,side,slotColors){
       const hm = colISO0 ? swapMarkFor(teacher, k, colISO0) : null;
       const hmIn  = !!(sl && sl.swapIn);
       const hmOut = !sl && hm && (hm.kind==='out' || hm.kind==='dgout');
-      const pm = colISO0 && _pv.length ? pvMarkFor(_pv, teacher, k, colISO0) : null;
+      const pm = colISO0 ? pvMarkFor(_pv, teacher, k, colISO0, sl) : null;
+      const pend = pm && pm.kind==='pendin' ? pm : null;   // 강제 교체로 들어올 수업이 대기 중(원래 수업이 아직 그 칸에 있음)
       const lockN = colISO0 ? clubLock(colISO0, k) : null;
       if(lockN){
         // 동아리활동 시간: 교체 불가(빗금). 결강 표에서 누르면 안내
@@ -3007,9 +3017,13 @@ function buildTT(teacher,selKeyOrKeys,hlKeys,conflictKey,side,slotColors){
       const candTitle = (isHL && otherWkB) ? ` · ${getDateForKey(k)} 교체 후보` : '';   // 교체 주가 다르면 어느 날짜 수업인지 표시
       const pvOut = pm && pm.kind==='out';
       if(pvOut) cls+=' diff-out'; else if(hmIn) cls+=' diff-in';
-      h+=`<td class="${cls}" ${oc} title="${sl.subject}·${sl.class}${sl.room?'·'+sl.room:''}${dgNote?' · 대강 지정됨':''}${hmTitle}${candTitle}${pvOut?' · '+pm.other+' 교체로 빠지는 수업':''}">
+      // 강제 교체: 후보 칸인데 결강 교사/교체 교사가 그 시간에 수업이 있음 → ⚠ 표시(누르면 확인 후 추가)
+      const forceR = (isHL && side!=='A') ? swapForceReason(teacher, k) : '';
+      if(forceR||pend) cls+=' force';
+      const pendNote = pend ? `<div class="pend-note" title="강제 교체 대기: ${pend.subject}·${pend.class} (${pend.other})">⚠${pend.class}</div>` : '';
+      h+=`<td class="${cls}" ${oc} title="${sl.subject}·${sl.class}${sl.room?'·'+sl.room:''}${dgNote?' · 대강 지정됨':''}${hmTitle}${candTitle}${pvOut?' · '+pm.other+' 교체로 빠지는 수업':''}${forceR?' · ⚠ 강제 교체: '+forceR:''}${pend?' · ⚠ '+pend.other+' 강제 교체로 '+pend.subject+'·'+pend.class+' 들어올 예정(이 수업을 다른 시간으로 옮겨야 함)':''}">
         <div class="cs">${sl.subject}</div>
-        <div class="cc">${sl.class}</div>
+        <div class="cc">${sl.class}</div>${pendNote}
       </td>`;
     });
     h+=`</tr>`;
@@ -3065,7 +3079,8 @@ function buildAfterTT(teacher,slotColors){
   const keysB=getKeysB();
   // 교체 주가 결강 주와 다르면 교체 교시는 이 표(교체 주)에서 클릭해 고름
   const pick=(!sameWeek&&S.round!==2&&teacher===S.selTeacher&&!S.selPair?.length)
-    ?(isWantOnly(teacher)?getWantSwapKeys(teacher):new Set((S.swaps.find(g=>g.teacher===teacher)?.slots||[]).map(s=>s.key))):null;
+    ?new Set((S.swaps.find(g=>g.teacher===teacher)?.slots||[]).map(s=>s.key)):null;
+  if(pick&&S.wantTeachers.includes(teacher)) getWantSwapKeys(teacher).forEach(k=>pick.add(k));   // 교체 원하는 교사: 모든 수업 칸(강제 포함)
 
   // 확정 교체 내역 (아직 저장 전 목록) — 각 기록의 날짜가 교체 주에 속할 때만 표시
   S.records.filter(r=>r.tA===teacher||r.tB===teacher).forEach(r=>{
@@ -3408,7 +3423,8 @@ function renderTTb1(){
   const grp=S.swaps.find(g=>g.teacher===t);
   // 교체 원하는 교사(목록에만 있음)면 후보 교시를 직접 계산
   const wantOnly=!grp&&isWantOnly(t);
-  const hlKeys=wantOnly?getWantSwapKeys(t):new Set(grp?grp.slots.map(s=>s.key):[]);
+  const hlKeys=new Set(grp?grp.slots.map(s=>s.key):[]);
+  if(S.wantTeachers.includes(t)) getWantSwapKeys(t).forEach(k=>hlKeys.add(k));   // 교체 원하는 교사는 모든 수업 칸을 고를 수 있음(수업 겹치면 ⚠ 강제 교체)
   const consecOnB1=S.consecMode>0;
   const blockB1=S.keyA&&consecOnB1?getConsecBlock(S.teacher,S.keyA):null;
   const conflictKeysB1=blockB1?new Set(blockB1.keys):(S.keyA?new Set([S.keyA]):new Set());
@@ -3684,13 +3700,17 @@ function _addRecordCore(){
   }
   // 단일 교체
   const sA=TTA(S.teacher)[S.keyA],sB=TTB(S.selTeacher)[S.selKey];
+  if(!sA||!sB) return;
+  // 강제 교체: 그 시간에 이미 수업이 있으면 확인 후 추가. 남는 수업은 이어서 다른 교사와 교체해야 함(연쇄)
+  const forceR=swapForceReason(S.selTeacher,S.selKey);
+  if(forceR && !confirm(`⚠️ 강제 교체\n${forceR}\n\n그대로 추가할까요? 그 수업은 이어서 다른 교사와 교체해 주세요.`)) return;
   S.records.push(mkRec({
     id:Date.now(),date:getDateLabel(),
     tA:S.teacher,kA:S.keyA,pA:S.keyA.slice(-1)+'교시',
     sA:sA.subject,cA:sA.class,rA:sA.room||'',
     tB:S.selTeacher,kB:S.selKey,pB:S.selKey.slice(-1)+'교시',dateB:getDateForKey(S.selKey),
     sB:sB.subject,cB:sB.class,rB:sB.room||'',
-    conf:confText
+    conf:forceR?'⚠️ 강제':confText
   }));
   renderAll();renderRec();
 }
@@ -5472,6 +5492,13 @@ function swHistLoad(){
     return _swHistCache.arr.slice();
   }catch(e){ return []; }
 }
+/* 저장 순서(savedAt/id)대로 정렬한 기록 — 칸 표시를 겹칠 때 씀. 내역이 바뀔 때만 다시 정렬 */
+const _swSortCache={ raw:null, arr:[] };
+function swHistSorted(){
+  const arr=swHistLoad(), raw=_swHistCache.raw;
+  if(raw!==_swSortCache.raw){ _swSortCache.raw=raw; _swSortCache.arr=arr.sort((a,b)=>_recStamp(a)-_recStamp(b)); }
+  return _swSortCache.arr;
+}
 function swHistSave(arr){ if(typeof fsTrackDeleted==='function') fsTrackDeleted('sw', swHistLoad(), arr); localStorage.setItem(SW_HIST_KEY, JSON.stringify(arr)); if(typeof fsAutoSave==='function') fsAutoSave(); }
 
 function swHistAdd(newRecs){
@@ -5634,9 +5661,26 @@ function effectiveSlot(teacher, key, dateISO){
   if(!dateISO) return (TIMETABLE[teacher] && TIMETABLE[teacher][key]) || null;
   const base = baseSlotFor(teacher, key, dateISO);
   const m = swapMarkFor(teacher, key, dateISO, {ignoreDG:true});
-  if(!m) return base;
+  if(!m || m.kind==='pendin') return base;   // pendin: 강제 교체로 들어올 수업이 대기 중, 원래 수업은 아직 그대로
   if(m.kind==='in') return {subject:m.subject,class:m.class,room:m.room||'',via:m.other};
   return null;
+}
+/* 한 칸에 걸린 표시들을 기록 순서대로 겹쳐 최종 표시 하나를 돌려줌. base = 그 칸의 원래 수업.
+   보통은 '마지막 기록이 이김'과 같지만, 강제 교체(아직 수업이 있는 칸에 다른 수업이 들어옴)는
+   들어올 수업을 'pendin'(대기)으로 두고, 그 칸의 원래 수업이 다른 기록으로 빠지는 순간 들어온다.
+   그래서 두 강제 교체가 연쇄(수6↔수7 맞바꿈)로 저장되어도 어느 순서든 결과가 같다. */
+function layerMarks(base, marks){
+  let cur=base, curIsBase=!!base, mark=null, pend=null;
+  const same=(a,b)=>a&&b&&a.class===b.class&&a.subject===b.subject;
+  for(const m of marks){
+    if(m.kind==='in'||m.kind==='dgin'){
+      if(cur && same(cur,m)) continue;   // 같은 수업이 또 들어옴(작성 중 기록 + 미리보기 중복) → 무시
+      if(cur) pend=m; else { cur=m; curIsBase=false; mark=m; }
+    } else if(cur && (curIsBase || same(cur,m))){
+      if(pend){ cur=pend; curIsBase=false; mark=pend; pend=null; } else { cur=null; mark=m; }
+    } else if(pend && same(pend,m)) pend=null;
+  }
+  return pend ? {...pend, kind:'pendin'} : mark;
 }
 /* 저장된 교체·대강 내역 기준으로, 그 날짜·교시가 어떻게 바뀌었는지 표시 정보를 반환.
    kind: 'out'(교체로 빠짐) | 'in'(교체로 들어옴) | 'dgout'(대강 맡김) | 'dgin'(대강 맡음)
@@ -5646,9 +5690,9 @@ function _recStamp(r){ return Number(r.savedAt||r.id||0); }
 function swapMarkFor(teacher, key, dateISO, opts){
   if(!teacher || !key || !dateISO) return null;
   const ignoreDG = !!(opts && opts.ignoreDG);
-  let best=null, bestStamp=-1;
-  const take=(m, r)=>{ const st=_recStamp(r); if(st>=bestStamp){ bestStamp=st; best=m; } };
-  for(const r of swHistLoad()){
+  const marks=[];
+  const take=(m)=>marks.push(m);
+  for(const r of swHistSorted()){
     const kA=_swapKeyA(r), kB=_swapKeyB(r), dA=r.dateISO_sw, dB=r.dateBISO;
     if(r.isDG){
       if(ignoreDG) continue;
@@ -5665,7 +5709,7 @@ function swapMarkFor(teacher, key, dateISO, opts){
       if(key===kA && dateISO===dA) take({kind:'in',other:r.tA,subject:r.sB,class:r.cB,room:r.rB||''}, r);
     }
   }
-  return best;
+  return layerMarks(baseSlotFor(teacher, key, dateISO), marks);
 }
 /* 어떤 주(baseDate가 속한 주)에 대한 교사의 실효 시간표: 기본 시간표에서 교체·대강으로
    빠진 수업은 제거하고, 들어온 수업은 그 칸에 넣은 객체. baseDate 없으면 기본 시간표 그대로. */
@@ -5685,6 +5729,7 @@ function effSchedule(teacher, baseDate){
       const m=swapMarkFor(teacher,k,iso);
       if(m && (m.kind==='in'||m.kind==='dgin')) out[k]={subject:m.subject,class:m.class,room:m.room||'',via:m.other,swapIn:true};
       else if(m && (m.kind==='out'||m.kind==='dgout')) { /* 그날 빠진 수업 */ }
+      else if(m && m.kind==='pendin') { const bs=baseSlotFor(teacher,k,iso); if(bs) out[k]={...bs, pendIn:m}; }   // 강제 교체: 원래 수업 그대로 두고 대기 중인 수업만 표시
       else { const bs=baseSlotFor(teacher,k,iso); if(bs) out[k]=bs; }
     }
   });
