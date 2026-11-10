@@ -8,3 +8,7 @@
 - `wrangler.toml` — Worker 이름(time)·KV 바인딩(DATA).
 
 비밀번호는 Cloudflare 대시보드 → Worker `time` → Settings → Variables and Secrets → `APP_PW`(Secret) 로 넣는다.
+
+## 올리기 전 점검
+
+`node test/check-view.js` — 가짜 서버로 관리자 앱과 조회 사이트(`/view`)를 띄워 같은 교체 기록이 두 화면에 똑같이 반영되는지 확인한다(인터넷·클라우드 불필요). `npm i -D playwright` 가 한 번 필요하고, 크롬 위치를 따로 잡으려면 `CHROME=경로` 를 앞에 붙인다.
