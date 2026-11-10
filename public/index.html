@@ -8067,7 +8067,7 @@ if(VIEW_ONLY){
 
   for(const ss of document.styleSheets){ try{ for(const r of ss.cssRules) if(r.media && /760px/.test(r.media.mediaText)) r.media.mediaText='all'; }catch(e){} }   // 휴대폰 모드 CSS를 모든 폭에 적용
   mIsMobile=function(){ return true; };
-  swHistLoad=function(){ return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };
+  swHistLoad=function(){ _swHistCache.raw=VIEW.sw; return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };   // raw: 기록이 새로 오면(배열이 바뀌면) 정렬 캐시도 다시 만들게
   swHistSave=function(){}; dgSaveHistory=function(){};
   M.tab='tt';   // 시간표 탭 그대로(기본값·동작은 관리자 앱과 같은 코드)
   const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
