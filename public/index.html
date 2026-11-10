@@ -5486,7 +5486,7 @@ function switchTab(tab){
 /* ══════════════════════════════════════════
    교체 내역 탭 (영구 저장)
 ══════════════════════════════════════════ */
-const SW_HIST_KEY = 'timetable_swap_history_v1';
+const SW_HIST_KEY = (/^\/view\/?$/.test(location.pathname)?'view_':'')+'timetable_swap_history_v1';   // 조회(/view)는 같은 주소라 관리자 기록과 칸을 나눔
 let sw2TypeFilter = ''; // 내역 패널 전용
 
 const _swHistCache={ raw:null, arr:[] };
@@ -6394,7 +6394,7 @@ function swPreviewByClass(swRecs, dgRecs){
 }
 
 
-const DG_STORAGE_KEY = 'timetable_dg_history';
+const DG_STORAGE_KEY = (/^\/view\/?$/.test(location.pathname)?'view_':'')+'timetable_dg_history';   // 조회(/view)는 같은 주소라 관리자 기록과 칸을 나눔
 
 let DG = {
   teacher: null,
@@ -8058,7 +8058,6 @@ document.addEventListener('click', mTtCellClick, true);
    - 기록은 비밀번호 없는 읽기 전용 API(/api/view)에서 받아 메모리(VIEW)에만 둔다. 이 브라우저의 localStorage(본인 앱 기록)는 읽지도 쓰지도 않는다.
    - 화면은 휴대폰 간단 모드의 시간표 탭만(교체·대강이 반영된 학급·교사 주간표, 바뀐 칸을 누르면 내역). 다른 탭·클라우드 단추 숨김, 어느 폭에서나. 저장·동기화·시간표 편집은 모두 꺼진다. */
 const VIEW_ONLY=/^\/view\/?$/.test(location.pathname);
-const VIEW={sw:[],dg:[]};
 if(VIEW_ONLY){
   document.documentElement.classList.add('view');
   document.title='26-2 시간표 조회';   // 탭 제목·즐겨찾기·공유할 때 보이는 이름
@@ -8067,11 +8066,11 @@ if(VIEW_ONLY){
 
   for(const ss of document.styleSheets){ try{ for(const r of ss.cssRules) if(r.media && /760px/.test(r.media.mediaText)) r.media.mediaText='all'; }catch(e){} }   // 휴대폰 모드 CSS를 모든 폭에 적용
   mIsMobile=function(){ return true; };
-  swHistLoad=function(){ _swHistCache.raw=VIEW.sw; return VIEW.sw.slice(); }; dgLoadHistory=function(){ return VIEW.dg.slice(); };   // raw: 기록이 새로 오면(배열이 바뀌면) 정렬 캐시도 다시 만들게
-  swHistSave=function(){}; dgSaveHistory=function(){};
+  swHistSave=function(){}; dgSaveHistory=function(){};   // 조회 화면은 기록을 바꾸지 않음
   M.tab='tt';   // 시간표 탭 그대로(기본값·동작은 관리자 앱과 같은 코드)
-  const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ VIEW.sw=Array.isArray(d&&d.swHist)?d.swHist:[]; VIEW.dg=Array.isArray(d&&d.dgHist)?d.dgHist:[]; effClearCache(); mRender(); })
-    .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!VIEW.sw.length&&!VIEW.dg.length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
+  // 클라우드에서 받은 기록을 관리자 앱과 같은 자리(브라우저 저장소, 조회용 칸)에 넣어 두면, 읽는 코드는 관리자 앱과 완전히 같은 한 벌을 쓴다
+  const load=()=>fetch('/api/view',{cache:'no-store'}).then(r=>r.json()).then(d=>{ localStorage.setItem(SW_HIST_KEY, JSON.stringify(Array.isArray(d&&d.swHist)?d.swHist:[])); localStorage.setItem(DG_STORAGE_KEY, JSON.stringify(Array.isArray(d&&d.dgHist)?d.dgHist:[])); effClearCache(); mRender(); })
+    .catch(()=>{ const el=document.getElementById('mBody'); if(el&&!swHistLoad().length&&!dgLoadHistory().length) el.innerHTML='<div class="m-sec"><div class="m-note warn">기록을 불러오지 못했습니다. 잠시 후 새로고침해 주세요.</div></div>'; });
   document.addEventListener('DOMContentLoaded', ()=>{ document.querySelector('#mApp .m-top').innerHTML='<span class="m-title">26-2 시간표 조회</span>'; load(); });   // 화면 맨 위 이름(이 스크립트보다 아래에 있어 문서가 다 읽힌 뒤 바꿈)
   document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) load(); });   // 다시 열어 볼 때 최신 기록으로
 }

@@ -36,8 +36,14 @@ const check = (name, got) => {
   });
 
   // 1) 조회 사이트: 클라우드(/api/view)에서 받은 기록이 시간표에 반영되는지
+  //    (같은 주소의 관리자 기록은 건드리지 않아야 함 — 담당 교사 폰에는 둘이 같이 있음)
+  await page.goto('http://fake.test/'); await page.waitForTimeout(500);
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('tt_reset_2sem_20260818', '1');   // 2학기 1회성 초기화는 이미 끝난 상태로
+    localStorage.setItem('timetable_swap_history_v1', '[{"id":"관리자"}]'); });
   await page.goto('http://fake.test/view'); await page.waitForTimeout(1200);
   check('조회 사이트(/view)', await page.evaluate(PROBE));
+  const adminKept = await page.evaluate(() => localStorage.getItem('timetable_swap_history_v1') === '[{"id":"관리자"}]');
+  console.log(adminKept ? '✅ 조회 화면이 관리자 기록을 건드리지 않음' : '❌ 조회 화면이 관리자 기록을 덮어씀'); if (!adminKept) fail++;
   const green = await page.evaluate(() => { M.ttKind = 't'; M.ttTOne = '이문수'; M.ttDate = '2026-11-10'; M.ttHl = M.ttDate; M.ttDayAll = false; mRender();
     return [...document.querySelectorAll('#mBody .m-tt td.diff-in')].map(td => td.textContent.trim().replace(/\s+/g, ' ')); });
   console.log(green.includes('역사 2전3') ? '✅ 조회 화면에 초록 칸(역사 2전3) 표시' : `❌ 조회 화면에 초록 칸 없음: ${JSON.stringify(green)}`);
