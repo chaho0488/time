@@ -14,7 +14,7 @@ binding = "ASSETS"
 binding = "DATA"
 id = "9fc5ec395fdd4272ac590051af301128"
 
-# 대강 신청(/dg) 저장소 (D1). 표: dg(slot PRIMARY KEY, period, who, label, at, UNIQUE(period, who))
+# 대강 신청(/dg) 저장소 (D1). 표: dg(slot PRIMARY KEY, period, who, label, at, dev, UNIQUE(period, who))
 [[d1_databases]]
 binding = "DG"
 database_name = "time-dg"

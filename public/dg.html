@@ -25,6 +25,7 @@
   .cls { font-weight: 600; }
   .who { margin-top: 4px; font-weight: 700; color: #1a7f37; }
   .at { font-size: .75rem; color: #777; }
+  .e { margin-top: 4px; font-size: .8rem; color: #5B3FA8; background: none; border: 1px solid #5B3FA8; border-radius: 4px; cursor: pointer; }
   .x { margin-top: 4px; font-size: .8rem; color: #c62828; background: none; border: 1px solid #c62828; border-radius: 4px; cursor: pointer; }
   .admin { margin-top: 16px; font-size: .85rem; color: #777; }
   .admin input { width: 9em; }
@@ -39,7 +40,8 @@
       <li>먼저 <b>본인 이름-과목</b>(예: 홍길동-수학)을 적고, 원하는 칸의 <b>[신청]</b>을 누르세요.</li>
       <li>먼저 저장된 신청만 인정되며, 이미 신청된 칸은 바꿀 수 없습니다.</li>
       <li>같은 교시에는 한 칸만 신청할 수 있습니다. 회색 칸은 수업이 없는 칸입니다.</li>
-      <li>취소·변경은 담당 선생님께 말씀해 주세요.</li>
+      <li>취소·수정은 <b>신청한 휴대폰·PC</b>에서 그 칸의 [수정]·[취소]로 할 수 있습니다. 다른 학급으로 옮기려면 취소 후 다시 신청하세요.</li>
+      <li>다른 기기에서 고쳐야 하면 담당 선생님께 말씀해 주세요.</li>
     </ul>
   </div>
   <div class="box">
@@ -48,12 +50,17 @@
     <div id="msg"></div>
   </div>
   <div class="wrap"><table id="tbl"></table></div>
-  <div class="admin">관리자 취소: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 신청 칸에 취소 단추가 보입니다)</div>
+  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 모든 신청 칸에 수정·취소 단추가 보입니다)</div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let data = null;
+
+// 이 기기 표시: 처음 열 때 한 번 만들어 두고, 신청·취소·수정 때 함께 보내 '내 신청'을 알아본다
+let DEV = '';
+try { DEV = localStorage.getItem('dgDev') || ''; if (!DEV) { DEV = crypto.randomUUID(); localStorage.setItem('dgDev', DEV); } } catch {}
+const H = (extra = {}) => ({ 'X-Dev': DEV, ...extra });
 
 // 이름-과목은 이 기기에 기억해 두어 다시 열어도 그대로
 try { $('me').value = localStorage.getItem('dgMe') || ''; } catch {}
@@ -64,7 +71,7 @@ function say(text, ok) { $('msg').textContent = text; $('msg').className = ok ? 
 
 async function load() {
   try {
-    const r = await fetch('/api/dg', { cache: 'no-store' });
+    const r = await fetch('/api/dg', { cache: 'no-store', headers: H() });
     if (!r.ok) throw new Error((await r.json()).error || r.status);
     data = await r.json();
     render();
@@ -84,7 +91,7 @@ function render() {
       const slot = `${col}|${t}`, s = got[slot];
       if (!cls[col]) h += '<td class="no"></td>';
       else if (s) h += `<td class="done"><div class="cls">${esc(cls[col])}</div><div class="who">${esc(s.label)}</div><div class="at">${esc(s.at)}</div>`
-        + (admin ? `<button class="x" data-del="${esc(slot)}">취소</button>` : '') + '</td>';
+        + (s.mine || admin ? `<div><button class="e" data-edit="${esc(slot)}">수정</button> <button class="x" data-del="${esc(slot)}">취소</button></div>` : '') + '</td>';
       else h += `<td class="open"><div class="cls">${esc(cls[col])}</div><button data-slot="${esc(slot)}">신청</button></td>`;
     }
     h += '</tr>';
@@ -103,12 +110,19 @@ $('tbl').addEventListener('click', async e => {
     const cls = data.rows.find(r => r[0] === t)[1][col];
     if (!confirm(`${colName} ${t} ${cls}\n→ ${me} (으)로 신청할까요?`)) return;
     b.disabled = true;
-    const r = await fetch('/api/dg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
+    const r = await fetch('/api/dg', { method: 'POST', headers: H({ 'Content-Type': 'application/json' }), body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
     say(r.ok ? `신청되었습니다: ${colName} ${t} ${cls} → ${r.label}` : r.error, r.ok);
+  } else if (b.dataset.edit) {
+    const old = data.signups.find(s => s.slot === b.dataset.edit).label;
+    const label = prompt('이름-과목을 고쳐 적어 주세요 (신청 순서는 그대로입니다)', old);
+    if (label === null || label.trim() === old) return;
+    const r = await fetch('/api/dg', { method: 'PATCH', headers: H({ 'Content-Type': 'application/json', 'X-Pw': $('pw').value }), body: JSON.stringify({ slot: b.dataset.edit, label }) })
+      .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
+    say(r.ok ? `수정했습니다: ${r.label}` : r.error, r.ok);
   } else if (b.dataset.del) {
     if (!confirm('이 신청을 취소할까요?')) return;
-    const r = await fetch('/api/dg?slot=' + encodeURIComponent(b.dataset.del), { method: 'DELETE', headers: { 'X-Pw': $('pw').value } })
+    const r = await fetch('/api/dg?slot=' + encodeURIComponent(b.dataset.del), { method: 'DELETE', headers: H({ 'X-Pw': $('pw').value }) })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
     say(r.ok ? '취소했습니다' : r.error, r.ok);
   }

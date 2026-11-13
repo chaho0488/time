@@ -6,7 +6,7 @@ import worker from '../src/worker.js';
 
 // D1 흉내: prepare().bind().run()/all()/first() 만
 const db = new DatabaseSync(':memory:');
-db.exec('CREATE TABLE dg (slot TEXT PRIMARY KEY, period TEXT NOT NULL, who TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, UNIQUE(period, who))');
+db.exec('CREATE TABLE dg (slot TEXT PRIMARY KEY, period TEXT NOT NULL, who TEXT NOT NULL, label TEXT NOT NULL, at TEXT NOT NULL, dev TEXT, UNIQUE(period, who))');
 const D1 = {
   prepare(sql) {
     let args = [];
@@ -46,10 +46,44 @@ assert.equal(r.status, 400);
 r = await call('POST', { slot: '수5|2신2', label: '이몽룡' });
 assert.equal(r.status, 400, '과목 없으면 거절');
 
-r = await call('DELETE', null, { 'X-Pw': 'no' }, '?slot=' + encodeURIComponent('수5|1신2'));
-assert.equal(r.status, 401, '비밀번호 없이 취소 금지');
-r = await call('DELETE', null, { 'X-Pw': 'pw' }, '?slot=' + encodeURIComponent('수5|1신2'));
+// 취소·수정: 신청한 기기(X-Dev) 또는 관리자 비밀번호만
+const A = { 'X-Dev': 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' }, B = { 'X-Dev': 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' };
+const q = slot => '?slot=' + encodeURIComponent(slot);
+r = await call('DELETE', null, {}, q('수5|1신2'));
+assert.equal(r.status, 403, '기기 표시 없는 신청(홍길동)은 관리자만 취소');
+r = await call('DELETE', null, { 'X-Pw': 'pw' }, q('수5|1신2'));
 assert.ok(r.ok);
+
+r = await call('POST', { slot: '목4|1신1', label: '성춘향-과학' }, A);
+const at0 = r.at;
+r = await call('GET', null, A);
+assert.equal(r.signups.find(x => x.slot === '목4|1신1').mine, true, '신청한 기기에는 내 신청으로 보임');
+assert.ok(!JSON.stringify(r).includes('aaaaaaaa'), '기기 표시는 응답에 나오면 안 됨');
+r = await call('GET', null, B);
+assert.equal(r.signups[0].mine, false, '다른 기기에는 내 신청 아님');
+
+r = await call('PATCH', { slot: '목4|1신1', label: '이몽룡-국어' }, B);
+assert.equal(r.status, 403, '다른 기기는 수정 불가');
+r = await call('DELETE', null, B, q('목4|1신1'));
+assert.equal(r.status, 403, '다른 기기는 취소 불가');
+r = await call('PATCH', { slot: '목4|1신1', label: '성춘향 - 물리' }, A);
+assert.equal(r.label, '성춘향-물리');
+r = await call('GET');
+assert.equal(r.signups[0].label, '성춘향-물리'); assert.equal(r.signups[0].at, at0, '수정해도 신청 시각(선착순)은 그대로');
+
+await call('POST', { slot: '목4|2전2', label: '이몽룡-국어' }, B);
+r = await call('PATCH', { slot: '목4|1신1', label: '이몽룡-국어' }, A);
+assert.equal(r.status, 409, '수정으로 같은 교시 두 칸을 만들 수 없음');
+r = await call('PATCH', { slot: '목4|1신1', label: '이몽룡' }, A);
+assert.equal(r.status, 400, '수정도 이름-과목 형식');
+r = await call('PATCH', { slot: '목4|2전2', label: '변학도-사회' }, { 'X-Pw': 'pw' });
+assert.ok(r.ok, '관리자는 남의 신청도 수정');
+
+r = await call('DELETE', null, A, q('목4|1신1'));
+assert.ok(r.ok, '신청한 기기에서 취소');
+r = await call('DELETE', null, A, q('목4|1신1'));
+assert.equal(r.status, 404);
+await call('DELETE', null, { 'X-Pw': 'pw' }, q('목4|2전2'));
 r = await call('GET');
 assert.equal(r.signups.length, 0);
 
