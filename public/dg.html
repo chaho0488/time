@@ -14,9 +14,12 @@
   #me { font-size: 1.05rem; padding: 8px 10px; width: 12em; max-width: 60vw; border: 2px solid #5B3FA8; border-radius: 6px; }
   #msg { margin-top: 8px; min-height: 1.4em; font-weight: 600; }
   .ok { color: #1a7f37; } .err { color: #c62828; }
+  /* 날짜별로 표를 나눠 위아래로 쌓는다 — 한 표에 9교시를 다 넣으면 폰에서 옆으로 넘겨야 했음 */
+  h2 { font-size: 1.05rem; color: #5B3FA8; margin: 16px 0 6px; }
   .wrap { overflow-x: auto; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px #0001; }
-  table { border-collapse: collapse; min-width: 900px; width: 100%; }
-  th, td { border: 1px solid #d5d8e3; padding: 6px; text-align: center; font-size: .9rem; }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  th, td { border: 1px solid #d5d8e3; padding: 6px; text-align: center; font-size: .9rem; overflow-wrap: anywhere; }
+  th.t { width: 4em; }
   thead th { background: #ece8f7; }
   th.t { position: sticky; left: 0; background: #ece8f7; z-index: 1; white-space: nowrap; }
   td.no { background: #eee; }
@@ -29,6 +32,13 @@
   .x { margin-top: 4px; font-size: .8rem; color: #c62828; background: none; border: 1px solid #c62828; border-radius: 4px; cursor: pointer; }
   .admin { margin-top: 16px; font-size: .85rem; color: #777; }
   .admin input { width: 9em; }
+  @media (max-width: 600px) {   /* 폰: 목요일 6교시도 한 화면에 들어가게 칸을 좁힘 */
+    main { padding: 10px; }
+    th, td { padding: 4px 2px; font-size: .8rem; }
+    th.t { width: 3.2em; }
+    td.open button { padding: 6px 8px; font-size: .8rem; }
+    .at { font-size: .65rem; }
+  }
 </style>
 </head>
 <body>
@@ -49,7 +59,7 @@
     <input id="me" placeholder="홍길동-수학" maxlength="26" autocomplete="off">
     <div id="msg"></div>
   </div>
-  <div class="wrap"><table id="tbl"></table></div>
+  <div id="tbl"></div>
   <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 모든 신청 칸에 수정·취소 단추가 보입니다)</div>
 </main>
 <script>
@@ -84,19 +94,28 @@ function render() {
   document.title = data.title;
   const got = Object.fromEntries(data.signups.map(s => [s.slot, s]));
   const admin = $('pw').value !== '';
-  let h = '<thead><tr><th class="t">학급</th>' + data.cols.map(([, name]) => `<th>${esc(name).replace(') ', ')<br>')}</th>`).join('') + '</tr></thead><tbody>';
-  for (const [t, cls] of data.rows) {   // t = 학급, cls = 교시별 과목
-    h += `<tr><th class="t">${esc(t)}</th>`;
-    for (const [col] of data.cols) {
-      const slot = `${col}|${t}`, s = got[slot];
-      if (!cls[col]) h += '<td class="no"></td>';
-      else if (s) h += `<td class="done"><div class="cls">${esc(cls[col])}</div><div class="who">${esc(s.label)}</div><div class="at">${esc(s.at)}</div>`
-        + (s.mine || admin ? `<div><button class="e" data-edit="${esc(slot)}">수정</button> <button class="x" data-del="${esc(slot)}">취소</button></div>` : '') + '</td>';
-      else h += `<td class="open"><div class="cls">${esc(cls[col])}</div><button data-slot="${esc(slot)}">신청</button></td>`;
+  // 교시 이름 '11/19(목) 1교시' → 날짜('11/19(목)')별로 표 하나씩. 그날 수업이 없는 학급 줄은 뺀다
+  const days = new Map();
+  for (const c of data.cols) { const d = c[1].split(' ')[0]; if (!days.has(d)) days.set(d, []); days.get(d).push(c); }
+  let h = '';
+  for (const [day, cols] of days) {
+    h += `<h2>${esc(day)}</h2><div class="wrap"><table><thead><tr><th class="t">학급</th>`
+      + cols.map(([, name]) => `<th>${esc(name.slice(day.length).trim())}</th>`).join('') + '</tr></thead><tbody>';
+    for (const [t, cls] of data.rows) {   // t = 학급, cls = 교시별 과목
+      if (!cols.some(([col]) => cls[col])) continue;
+      h += `<tr><th class="t">${esc(t)}</th>`;
+      for (const [col] of cols) {
+        const slot = `${col}|${t}`, s = got[slot];
+        if (!cls[col]) h += '<td class="no"></td>';
+        else if (s) h += `<td class="done"><div class="cls">${esc(cls[col])}</div><div class="who">${esc(s.label)}</div><div class="at">${esc(s.at)}</div>`
+          + (s.mine || admin ? `<div><button class="e" data-edit="${esc(slot)}">수정</button> <button class="x" data-del="${esc(slot)}">취소</button></div>` : '') + '</td>';
+        else h += `<td class="open"><div class="cls">${esc(cls[col])}</div><button data-slot="${esc(slot)}">신청</button></td>`;
+      }
+      h += '</tr>';
     }
-    h += '</tr>';
+    h += '</tbody></table></div>';
   }
-  $('tbl').innerHTML = h + '</tbody>';
+  $('tbl').innerHTML = h;
 }
 
 $('tbl').addEventListener('click', async e => {
