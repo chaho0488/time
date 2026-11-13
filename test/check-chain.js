@@ -2,6 +2,7 @@
 // 실행: node test/check-chain.js   (playwright 필요, 크롬은 CHROME=경로 로 지정 가능. 인터넷·클라우드 불필요)
 // 1) 실제 시간표: 김태욱 목3(2신3) → 한명민 목2 ↔ 목3 → 이문수 목2  (교사 3명, 목2·목3 안에서 맞물림)
 // 2) 가상 교사를 한 명 붙여 교사 4명 연쇄도 찾고('교체 원하는 교사'로 좁힘), 저장 뒤 시간표가 겹치지 않는지 확인
+// 4) 결강 교사 쪽 겹침: 정재정 목2(3신1) ↔ 김태욱 목4 → 정재정의 목4 배관 3신3을 다른 교사와 이어서 교체
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
@@ -89,6 +90,34 @@ const RUN = ({ date, n, want }) => {
     ok('저장 뒤 겹치는 칸·대기 칸 없음', !b.dup.length && !b.pend.length, JSON.stringify([b.dup, b.pend]));
     const moved = await page.evaluate(([date, k]) => [(effSchedule('이문수', date)[k] || {}).class || null, (effSchedule('가상교사', date)[k] || {}).class || null], [DATE, free]);
     ok(`이문수 ${free}에 가상반, 가상교사 ${free} 없음`, moved[0] === '가상반' && moved[1] === null, JSON.stringify(moved));
+  }
+
+  // 4) 결강 교사 쪽 겹침: 정재정 목2 ↔ 김태욱 목4 (정재정은 목4에 배관 3신3이 있어 그 수업도 옮겨야 함)
+  const j = await page.evaluate(() => {
+    localStorage.clear(); effClearCache(); S.records = []; S.wantTeachers = ['김태욱']; setRound(1);
+    const date = '2026-12-03';
+    document.getElementById('teacherSel').value = '정재정'; onTeacher('정재정');
+    document.getElementById('dateInput').value = date; onDate(); clickSlot('목2'); setRound(2);
+    const all = S.swaps.filter(g => g.chain && g.teacher === '김태욱' && g.slots[0].key === '목4');
+    const i = S.swaps.findIndex(g => g.chain && g.teacher === '김태욱' && g.slots[0].key === '목4' && !g.conflict && g.chain[1].tA === '정재정' && g.chain[1].kA === '목4');
+    if (i < 0) return { n: all.length, i };
+    const chain = S.swaps[i].chain.map(l => `${l.tA}${l.kA}↔${l.tB}${l.kB}`).join(' → '), len = S.swaps[i].chain.length;
+    selectChain(i); addRecord(); const added = S.records.length; saveSelToSwHist(); effClearCache();
+    // 그 주 전체(월~금)에서 한 학급을 두 교사가 같은 교시에 맡는 칸, 대기로 남은 칸
+    const seen = {}, dup = [], pend = [];
+    for (const t of Object.keys(TIMETABLE)) for (const [k, v] of Object.entries(effSchedule(t, date))) {
+      if (BLK.has(v.subject.trim())) continue;
+      if (v.pendIn) pend.push(t + k);
+      const key = k + '|' + v.class; if (seen[key]) dup.push(`${key} ${seen[key]}·${t}`); seen[key] = t;
+    }
+    const jj = effSchedule('정재정', date), kt = effSchedule('김태욱', date);
+    return { n: all.length, i, chain, len, added, dup, pend, 정재정목2: jj['목2']?.class || null, 정재정목4: jj['목4']?.class || null, 김태욱목2: kt['목2']?.class || null, 김태욱목4: kt['목4']?.class || null };
+  });
+  ok('결강 교사 쪽 겹침 연쇄: 정재정 목2↔김태욱 목4 → 정재정 목4↔…', j.i >= 0, JSON.stringify(j));
+  if (j.i >= 0) {
+    ok(`기록 ${j.len}건 추가 (${j.chain})`, j.added === j.len, JSON.stringify(j));
+    ok('정재정 목2 비고 목4 3신1, 김태욱 목2 3신1·목4 비움', j.정재정목2 === null && j.정재정목4 === '3신1' && j.김태욱목2 === '3신1' && j.김태욱목4 === null, JSON.stringify(j));
+    ok('저장 뒤 그 주 전체에 겹치는 칸·대기 칸 없음', !j.dup.length && !j.pend.length, JSON.stringify([j.dup, j.pend]));
   }
 
   // 3) 휴대폰 화면: 연쇄 교체 단추 → 후보 → 확인 → 추가
