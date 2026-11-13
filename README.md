@@ -5,11 +5,14 @@
 
 - `public/index.html` — 앱. 컴퓨터의 `G:\내 드라이브\결보강 프로그램\timetable_2학기.html`과 같은 파일에 클라우드 동기화·휴대폰 화면(CSS)을 더한 것.
 - `src/worker.js` — `/api/data` GET/PUT (KV, 비밀번호 `APP_PW`). 그 밖은 정적 파일.
-- `wrangler.toml` — Worker 이름(time)·KV 바인딩(DATA).
+- `public/dg.html` — 대강 신청 화면(https://time.uehs.workers.dev/dg). 선착순 신청은 D1 `time-dg`의 `dg` 표에 저장(같은 칸·같은 교시 중복은 DB가 막음). 칸 목록은 `src/worker.js`의 `DG`; 다음 신청 때는 `DG`를 바꾸고 `DELETE FROM dg`로 표를 비운다. 취소는 화면 아래 관리자 비밀번호(APP_PW).
+- `wrangler.toml` — Worker 이름(time)·KV 바인딩(DATA)·D1 바인딩(DG).
 
 비밀번호는 Cloudflare 대시보드 → Worker `time` → Settings → Variables and Secrets → `APP_PW`(Secret) 로 넣는다.
 
 ## 올리기 전 점검
+
+`node test/check-dg.mjs` — 대강 신청 API(선착순·같은 교시 중복·수업 없는 칸·취소 비밀번호·동시 신청)를 node:sqlite로 확인한다.
 
 `node test/check-view.js` — 가짜 서버로 관리자 앱과 조회 사이트(`/view`)를 띄워 같은 교체 기록이 두 화면에 똑같이 반영되는지 확인한다(인터넷·클라우드 불필요). `npm i -D playwright` 가 한 번 필요하고, 크롬 위치를 따로 잡으려면 `CHROME=경로` 를 앞에 붙인다.
 
