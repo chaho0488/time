@@ -18,8 +18,8 @@ const CORS = {
 const json = (obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8' } });
 
-// 대강 신청 표: 열 = 교시, 행 = 결강 교사, 칸 = 그 시간 수업(학반 과목). 수업 없는 칸은 신청 불가.
-// 다음 대강 신청 때는 이 DG 만 바꾸고 D1 표(dg)를 비운다.
+// 대강 신청 표: 열 = 교시, 행 = 학급, 칸 = 그 시간 과목. 수업 없는 칸은 신청 불가.
+// 결강 교사 이름은 공개 화면·API에 내보내지 않는다. 다음 대강 신청 때는 이 DG 만 바꾸고 D1 표(dg)를 비운다.
 const DG = {
   title: '11/18(수)·11/19(목) 대강 신청 (선착순)',
   cols: [
@@ -28,14 +28,16 @@ const DG = {
     ['목4', '11/19(목) 4교시'], ['목5', '11/19(목) 5교시'], ['목6', '11/19(목) 6교시'],
   ],
   rows: [
-    ['김동후', { 수5: '1신2 자동', 수6: '1신2 자동', 수7: '1신2 자동', 목1: '1전3 기기', 목2: '1전1 기기', 목4: '1신1 자동', 목5: '1신1 자동', 목6: '1신1 자동' }],
-    // 최소구현: 확정 시간표에는 이희섭 선생님의 이 시간 수업이 없어 빈 행 — 수업 칸이 확인되면 채운다
-    ['이희섭', {}],
-    // 수6(2전2)은 교체로 수7로 옮겨짐
-    ['김성민', { 수5: '2신2 영어', 수7: '2전2 영어', 목2: '2전3 영어', 목4: '2전2 영어', 목6: '2신2 영어' }],
+    ['1전1', { 목2: '기기' }],
+    ['1전3', { 목1: '기기' }],
+    ['1신1', { 목4: '자동', 목5: '자동', 목6: '자동' }],
+    ['1신2', { 수5: '자동', 수6: '자동', 수7: '자동' }],
+    ['2전2', { 수7: '영어', 목4: '영어' }],   // 수7 영어는 수6에서 교체로 옮겨진 수업
+    ['2전3', { 목2: '영어' }],
+    ['2신2', { 수5: '영어', 목6: '영어' }],
   ],
 };
-const DG_SLOTS = new Map();   // '수5|김동후' → 교시 id
+const DG_SLOTS = new Map();   // '수5|1신2' → 교시 id
 for (const [t, c] of DG.rows) for (const col of Object.keys(c)) DG_SLOTS.set(`${col}|${t}`, col);
 
 async function dgApi(req, env, url) {
@@ -68,7 +70,7 @@ async function dgApi(req, env, url) {
       const taken = await env.DG.prepare('SELECT label FROM dg WHERE slot = ?').bind(slot).first();
       if (taken) return json({ error: `이미 ${taken.label} 선생님이 신청한 칸입니다` }, 409);
       const same = await env.DG.prepare('SELECT slot FROM dg WHERE period = ? AND who = ?').bind(period, who).first();
-      if (same) return json({ error: `${who} 선생님은 이 교시에 이미 다른 칸(${same.slot.split('|')[1]})을 신청했습니다` }, 409);
+      if (same) return json({ error: `${who} 선생님은 이 교시에 이미 다른 학급(${same.slot.split('|')[1]})을 신청했습니다` }, 409);
       return json({ error: '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요' }, 500);
     }
     return json({ ok: true, label, at });

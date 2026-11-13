@@ -77,8 +77,8 @@ function render() {
   document.title = data.title;
   const got = Object.fromEntries(data.signups.map(s => [s.slot, s]));
   const admin = $('pw').value !== '';
-  let h = '<thead><tr><th class="t">교사</th>' + data.cols.map(([, name]) => `<th>${esc(name).replace(') ', ')<br>')}</th>`).join('') + '</tr></thead><tbody>';
-  for (const [t, cls] of data.rows) {
+  let h = '<thead><tr><th class="t">학급</th>' + data.cols.map(([, name]) => `<th>${esc(name).replace(') ', ')<br>')}</th>`).join('') + '</tr></thead><tbody>';
+  for (const [t, cls] of data.rows) {   // t = 학급, cls = 교시별 과목
     h += `<tr><th class="t">${esc(t)}</th>`;
     for (const [col] of data.cols) {
       const slot = `${col}|${t}`, s = got[slot];
@@ -98,14 +98,14 @@ $('tbl').addEventListener('click', async e => {
   if (b.dataset.slot) {
     const me = $('me').value.trim();
     if (!/^[^-]+-[^-]+$/.test(me)) { say('먼저 위 칸에 "이름-과목"을 적어 주세요 (예: 홍길동-수학)'); $('me').focus(); return; }
-    const [col, t] = b.dataset.slot.split('|');
+    const [col, t] = b.dataset.slot.split('|');   // t = 학급
     const colName = data.cols.find(c => c[0] === col)[1];
     const cls = data.rows.find(r => r[0] === t)[1][col];
-    if (!confirm(`${colName} ${t} 선생님 ${cls}\n→ ${me} (으)로 신청할까요?`)) return;
+    if (!confirm(`${colName} ${t} ${cls}\n→ ${me} (으)로 신청할까요?`)) return;
     b.disabled = true;
     const r = await fetch('/api/dg', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
-    say(r.ok ? `신청되었습니다: ${colName} ${t} 선생님 ${cls} → ${r.label}` : r.error, r.ok);
+    say(r.ok ? `신청되었습니다: ${colName} ${t} ${cls} → ${r.label}` : r.error, r.ok);
   } else if (b.dataset.del) {
     if (!confirm('이 신청을 취소할까요?')) return;
     const r = await fetch('/api/dg?slot=' + encodeURIComponent(b.dataset.del), { method: 'DELETE', headers: { 'X-Pw': $('pw').value } })
