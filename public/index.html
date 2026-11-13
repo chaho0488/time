@@ -826,6 +826,7 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
       <div class="want-swap-tags" id="wantSwapTags"></div>
     </div>
 
+    <div id="overlapGuide"></div>
     <div class="swap-list-wrap" id="swapListWrap">
       <div class="swap-list-lbl">교체 가능 교사</div>
       <div class="round-toggle">
@@ -2656,16 +2657,87 @@ function swapForceReason(tB,kB){
   if(a && !freed.has(`${S.teacher}|${kB}`)) out.push(`${S.teacher} ${kB}에 ${a.subject}·${a.class} 수업 있음`);
   const b=TTA(tB)[S.keyA];
   if(b && !freed.has(`${tB}|${S.keyA}`)) out.push(`${tB} ${S.keyA}에 ${b.subject}·${b.class} 수업 있음`);
+  const sA=TTA(S.teacher)[S.keyA], sB=TTB(tB)[kB];
+  if(sA&&sB&&sA.class!==sB.class){
+    // 학급이 다르면 각 학급이 옮겨 간 시간에 다른 수업이 있는지 확인
+    const busy=(cls,k,TT,skip)=>Object.keys(TIMETABLE).filter(t=>t!==skip&&TT(t)[k]?.class===cls&&!freed.has(`${t}|${k}`));
+    const x=busy(sA.class,kB,TTB,tB), y=busy(sB.class,S.keyA,TTA,S.teacher);
+    out.push(`학급이 다름(${sA.class}↔${sB.class})`);
+    if(x.length) out.push(`${sA.class} ${kB}에 ${x.join('·')} 수업과 겹침`);
+    if(y.length) out.push(`${sB.class} ${S.keyA}에 ${y.join('·')} 수업과 겹침`);
+  }
+  const sp=[sA,sB].filter(x=>x&&BLK.has(x.subject.trim())).map(x=>x.subject);
+  if(sp.length) out.push(`특수 수업(${[...new Set(sp)].join('·')}) 교체`);
   return out.join(', ');
 }
-/* 1회 교체에서 교체 교사 표의 '결강 학급과 같은 학급' 수업 칸: 자동 후보가 아니어도 눌러서 고를 수 있게(겹치면 ⚠ 강제 교체).
-   예) 한명민 목2(2신3) 결강 → 김태욱 목3(2신3)은 한명민이 목3에 수업이 있어 자동 후보가 아니지만 직접 고를 수 있음 */
+/* 1회 교체에서 교체 교사 표의 모든 수업 칸: 자동 후보가 아니어도 눌러서 수동으로 고를 수 있게(문제가 있으면 ⚠ 강제 교체).
+   겹침·학급 다름·특수 수업은 swapForceReason이 경고로 보여 주고, 추가할 때 한 번 더 확인한다. 동아리활동 시간만 막힘 */
 function sameClassKeys(t){
   const res=new Set();
-  const slA=S.teacher&&S.keyA?TTA(S.teacher)?.[S.keyA]:null;
-  if(!t||!slA||S.round===2||S.consecMode>0||BLK.has(slA.subject.trim())) return res;   // 연쇄·연강 모드는 목록에서 고름
-  for(const[k,sl] of Object.entries(TTB(t)||{})) if(k!==S.keyA&&sl.class===slA.class&&!BLK.has(sl.subject.trim())&&!sl.pendIn) res.add(k);
+  if(!t||!S.teacher||!S.keyA||!TTA(S.teacher)?.[S.keyA]||S.round===2||S.consecMode>0) return res;   // 연쇄·연강 모드는 목록에서 고름
+  for(const k of Object.keys(TTB(t)||{})) if(k!==S.keyA) res.add(k);
   return res;
+}
+/* ══ 겹침 찾기: 저장된 기록 + 작성 중 기록(저장 전)을 모두 반영했을 때
+   한 교사가 한 교시에 수업 2개 / 한 학급이 한 교시에 수업 2개인 곳과, 다음에 교체할 수업(그 칸에 원래 있던 수업).
+   보는 범위: 결강 주·교체 주·작성 중 기록이 걸친 주 */
+function overlapList(){
+  const wk=iso=>iso?dateISOForWeekday(iso,'월'):null;
+  const weeks=new Set([wk(swBaseDateFor('A')),wk(swBaseDateFor('B'))].filter(Boolean));
+  const recs=unsavedRecs().filter(r=>!r.isDG&&r.dateISO_sw&&r.dateBISO);
+  recs.forEach(r=>{ weeks.add(wk(r.dateISO_sw)); weeks.add(wk(r.dateBISO)); });
+  const names=Object.keys(TIMETABLE), cell=new Map();
+  const get=(t,iso,k)=>{ const id=t+'|'+iso+'|'+k; if(!cell.has(id)) cell.set(id,[]); return cell.get(id); };
+  for(const w of weeks) for(const t of names){
+    const sc=effSchedule(t,w);
+    for(const [k,sl] of Object.entries(sc)){
+      const a=get(t,dateISOForWeekday(w,k.slice(0,-1)),k);
+      a.push({subject:sl.subject,class:sl.class,moved:!!sl.swapIn});
+      if(sl.pendIn) a.push({subject:sl.pendIn.subject,class:sl.pendIn.class,moved:true});   // 저장된 강제 교체로 들어와 대기 중인 수업
+    }
+  }
+  // 작성 중 기록을 차례로 반영(빠지는 수업 먼저 빼고, 들어오는 수업을 넣음)
+  const rm=(a,cls)=>{ const i=a.findIndex(x=>x.class===cls); if(i>=0) a.splice(i,1); };
+  recs.forEach(r=>{
+    rm(get(r.tA,r.dateISO_sw,r.kA),r.cA); rm(get(r.tB,r.dateBISO,r.kB),r.cB);
+    get(r.tA,r.dateBISO,r.kB).push({subject:r.sA,class:r.cA,moved:true});
+    get(r.tB,r.dateISO_sw,r.kA).push({subject:r.sB,class:r.cB,moved:true});
+  });
+  const out=[], byCls=new Map();
+  // 다음에 옮길 수업: 그 칸에 원래 있던(옮겨 오지 않은) 수업. 모두 옮겨 온 것이면 첫 수업
+  const pick=list=>list.find(x=>!x.moved)||list[0];
+  cell.forEach((a,id)=>{
+    const [t,iso,k]=id.split('|');
+    if(a.length>=2){ const n=pick(a); out.push({kind:'t',iso,k,who:t,items:a.map(x=>({...x,t})),next:{t,...n}}); }
+    a.forEach(x=>{ if(BLK.has(x.subject.trim())) return; const ck=iso+'|'+k+'|'+x.class; if(!byCls.has(ck)) byCls.set(ck,[]); byCls.get(ck).push({...x,t}); });
+  });
+  byCls.forEach((a,ck)=>{
+    if(a.length<2||!a.some(x=>x.moved)) return;   // 원래 시간표에 있던 공동 수업은 겹침 아님
+    if(new Set(a.map(x=>x.t)).size<2) return;      // 한 교사 안의 겹침은 위에서 이미 셈
+    const [iso,k,cls]=ck.split('|'); out.push({kind:'c',iso,k,who:cls,items:a,next:pick(a)});
+  });
+  return out.sort((x,y)=>(x.iso+x.k).localeCompare(y.iso+y.k));
+}
+function overlapGuideHTML(phone){
+  const L=overlapList(); if(!L.length) return '';
+  const lab=iso=>{ const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`; };
+  const rows=L.map(o=>{
+    const what=o.kind==='t' ? `<b>${o.who}T</b>에 ${o.items.map(x=>`${x.subject} ${x.class}`).join(' + ')}` : `<b>${o.who}</b>에 ${o.items.map(x=>`${x.t}T ${x.subject}`).join(' + ')}`;
+    const n=o.next;
+    return `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #fdba74">${lab(o.iso)} ${o.k.slice(-1)}교시 — ${what} 겹침
+      <button onclick="fixOverlap('${n.t}','${o.iso}','${o.k}')" style="display:block;width:100%;margin-top:4px;padding:${phone?'8px':'4px'} 6px;border:1.5px solid #ea580c;border-radius:6px;background:#fff;color:#c2410c;font-weight:800;font-family:inherit;font-size:${phone?13:11}px;cursor:pointer;text-align:left">▶ 다음 교체: ${n.t}T ${o.k.slice(-1)}교시 ${n.subject} ${n.class} 고르기</button></div>`;
+  }).join('');
+  return `<div style="margin:${phone?'0 0 10px':'6px 8px'};padding:8px 10px;border:1.5px solid #fb923c;background:#fff7ed;border-radius:8px;color:#9a3412;font-size:${phone?13:11}px;line-height:1.5">
+    <b>⚠️ 수업 겹침 ${L.length}곳</b> <span style="font-weight:500">(저장 전 기록 포함) — 아래 수업을 이어서 교체하세요</span>${rows}</div>`;
+}
+function renderOverlapGuide(){ const el=document.getElementById('overlapGuide'); if(el) el.innerHTML=overlapGuideHTML(false); }
+/* 겹침 안내의 '다음 교체' 단추: 그 교사·날짜·교시를 결강으로 골라 바로 후보를 찾음 */
+function fixOverlap(t,iso,k){
+  S.round=1; document.getElementById('rnd1').className='round-btn active'; document.getElementById('rnd2').className='round-btn';
+  document.getElementById('teacherSel').value=t; onTeacher(t);
+  document.getElementById('swapDateInput').value=''; document.getElementById('dateInput').value=iso; onDate();
+  if(S.keyA!==k) clickSlot(k);
+  if(typeof mIsMobile==='function'&&mIsMobile()){ M.tab='swap'; mGo(S.keyA?3:2); }
 }
 /* 현재 선택 교사가 '교체 원하는 교사(목록에만 있음)'인지 */
 function isWantOnly(teacher){
@@ -2784,6 +2856,7 @@ function renderAll(){
   updatePanelMode();
   renderAfterA();renderAfterB();renderAfterC();
   renderRoomBar();renderRoomPanel();updateAddBtn();
+  renderOverlapGuide();
 }
 
 /* 1회/2회 모드에 따라 패널 구성 전환 */
@@ -3038,10 +3111,10 @@ function buildTT(teacher,selKeyOrKeys,hlKeys,conflictKey,side,slotColors){
         else if(side==='B2')cls+=' hl2';
         else cls+=' hl1';
       } else if(!blk) cls+=' click';
-      else if(hrcaSwap) cls+=' click'; // 화7/목7 특별 교체 허용
+      else if(hrcaSwap||side==='A') cls+=' click'; // 화7/목7 특별 교체 허용, 그 밖의 특수 수업은 수동 교체용
       if(blk&&!isSel&&!hrcaSwap&&!isHL)cls+=' blk';
       const oc=
-        side==='A'&&(!blk||hrcaSwap)?`onclick="clickSlot('${k}')"`
+        side==='A'?`onclick="clickSlot('${k}')"`
         :side==='B1'&&isHL?`onclick="clickSwap1('${teacher}','${k}')"`
         :side==='B2'&&isHL?`onclick="clickSwap2('${teacher}','${k}')"`
         :'';
@@ -3632,6 +3705,8 @@ function renderAfterC(){
 function renderRoomBar(){
   const el=document.getElementById('roomBar');
   if(!S.keyA||!S.selKey){el.className='room-bar';return;}
+  const fr=S.round!==2&&!S.selPair?.length?swapForceReason(S.selTeacher,S.selKey):'';
+  if(fr){ el.className='room-bar warn'; el.textContent=`⚠️ 수동(강제) 교체: ${fr} — 추가하면 겹치는 곳과 다음에 교체할 수업이 왼쪽에 나옵니다`; return; }
   const sA=TTA(S.teacher)?.[S.keyA],sB=TTB(S.selTeacher)?.[S.selKey];
   if(!sA||!sB){el.className='room-bar';return;}
   const conflicts=[];
@@ -3743,7 +3818,7 @@ function _addRecordCore(){
   if(!sA||!sB) return;
   // 강제 교체: 그 시간에 이미 수업이 있으면 확인 후 추가. 남는 수업은 이어서 다른 교사와 교체해야 함(연쇄)
   const forceR=swapForceReason(S.selTeacher,S.selKey);
-  if(forceR && !confirm(`⚠️ 강제 교체\n${forceR}\n\n그대로 추가할까요? 그 수업은 이어서 다른 교사와 교체해 주세요.`)) return;
+  if(forceR && !confirm(`⚠️ 수동(강제) 교체\n${forceR}\n\n그대로 추가할까요?\n추가하면 겹치는 곳과 다음에 교체할 수업이 왼쪽 '겹침' 안내에 나옵니다.`)) return;
   S.records.push(mkRec({
     id:Date.now(),date:getDateLabel(),
     tA:S.teacher,kA:S.keyA,pA:S.keyA.slice(-1)+'교시',
@@ -3881,6 +3956,7 @@ body{font-family:'Noto Sans KR',sans-serif;color:#1e2340;background:#fff;
 }
 
 function renderRec(){
+  renderOverlapGuide();
   const body=document.getElementById('recBody');
   document.getElementById('recCnt').textContent=S.records.length+'건';
   if(!S.records.length){
@@ -7682,7 +7758,7 @@ function mTT(title, html, ctx){ const a=ctx?` data-mon="${ctx.mon||''}" data-iso
 function mRender(){
   if(!mIsMobile()) return;
   const el=document.getElementById('mBody'); if(!el) return;
-  try{ el.innerHTML = M.tab==='swap' ? mSwapHTML() : M.tab==='dg' ? mDgHTML() : M.tab==='tt' ? mTtHTML() : mRecHTML(); }
+  try{ el.innerHTML = M.tab==='swap' ? overlapGuideHTML(true)+mSwapHTML() : M.tab==='dg' ? mDgHTML() : M.tab==='tt' ? mTtHTML() : mRecHTML(); }
   catch(e){ el.innerHTML=`<div class="m-sec"><div class="m-note warn">화면을 그리지 못했습니다: ${_esc(e.message||e)}</div></div>`; }
 }
 

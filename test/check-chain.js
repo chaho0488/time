@@ -135,6 +135,36 @@ const RUN = ({ date, n, want }) => {
   });
   ok('1회: 김태욱 목3(같은 학급) 칸을 눌러 고르고 ⚠ 강제 교체로 추가', h.clickable && h.force && h.sel === '목3' && h.rec === '한명민목2↔김태욱목3 ⚠️ 강제', JSON.stringify(h));
 
+  // 6) 수동 강제 교체 → 겹침 안내 → '다음 교체' 단추로 이어서 교체 → 겹침 사라짐 / 다른 학급 수동 교체도 경고·안내
+  page.on('dialog', d => d.accept());
+  const o = await page.evaluate(() => {
+    delete TIMETABLE['이문수']['목3']; delete TIMETABLE['가상교사'];   // 2)에서 붙인 가상 수업 되돌림
+    localStorage.clear(); effClearCache(); S.records = []; S.wantTeachers = []; setRound(1);
+    const base = overlapList().length;
+    document.getElementById('teacherSel').value = '한명민'; onTeacher('한명민');
+    document.getElementById('dateInput').value = '2026-11-19'; onDate(); clickSlot('목2');
+    selectSwap('김태욱'); clickSwap1('김태욱', '목3'); addRecord();
+    const g1 = document.getElementById('overlapGuide').innerText.replace(/\s+/g, ' ');
+    document.querySelector('#overlapGuide button').click();
+    const next = S.teacher + S.keyA;
+    selectSwap('이문수', '목2'); addRecord();
+    const g2 = document.getElementById('overlapGuide').innerText.trim();
+    S.records = []; renderRec();
+    document.getElementById('teacherSel').value = '한명민'; onTeacher('한명민');
+    document.getElementById('dateInput').value = '2026-11-19'; onDate(); clickSlot('목2');
+    selectSwap('김태욱'); const clickable = [...document.querySelectorAll('#ttB1 td[onclick]')].some(td => td.getAttribute('onclick').includes("'목1'"));
+    clickSwap1('김태욱', '목1'); const bar = document.getElementById('roomBar').textContent; addRecord();
+    const g3 = overlapList().map(x => `${x.k} ${x.who} → ${x.next.t}`);
+    S.records = []; renderRec();
+    return { base, g1, next, g2, clickable, bar, g3 };
+  });
+  ok('기록 없을 때 겹침 없음', o.base === 0, JSON.stringify(o));
+  ok('수동 교체 뒤 겹침 안내: 한명민 목3 HMI 2신1을 다음에 교체', o.g1.includes('한명민T에 HMI 2신1 + HMI 2신3 겹침') && o.g1.includes('다음 교체: 한명민T 3교시 HMI 2신1'), o.g1);
+  ok("'다음 교체' 단추 → 한명민 목3이 결강으로 골라짐", o.next === '한명민목3', o.next);
+  ok('이어서 교체하면 겹침 안내가 사라짐', o.g2 === '', o.g2);
+  ok('다른 학급 수업(김태욱 목1 3신3)도 눌러 고를 수 있고 경고가 나옴', o.clickable && o.bar.includes('학급이 다름(2신3↔3신3)'), o.bar);
+  ok('다른 학급 수동 교체 뒤 학급 겹침 2곳 안내', o.g3.length === 2 && o.g3.join('|') === '목1 2신3 → 양성필|목2 3신3 → 윤경희', JSON.stringify(o.g3));
+
   // 3) 휴대폰 화면: 연쇄 교체 단추 → 후보 → 확인 → 추가
   await page.setViewportSize({ width: 420, height: 900 });
   const m = await page.evaluate((date) => {
