@@ -2658,6 +2658,15 @@ function swapForceReason(tB,kB){
   if(b && !freed.has(`${tB}|${S.keyA}`)) out.push(`${tB} ${S.keyA}에 ${b.subject}·${b.class} 수업 있음`);
   return out.join(', ');
 }
+/* 1회 교체에서 교체 교사 표의 '결강 학급과 같은 학급' 수업 칸: 자동 후보가 아니어도 눌러서 고를 수 있게(겹치면 ⚠ 강제 교체).
+   예) 한명민 목2(2신3) 결강 → 김태욱 목3(2신3)은 한명민이 목3에 수업이 있어 자동 후보가 아니지만 직접 고를 수 있음 */
+function sameClassKeys(t){
+  const res=new Set();
+  const slA=S.teacher&&S.keyA?TTA(S.teacher)?.[S.keyA]:null;
+  if(!t||!slA||S.round===2||S.consecMode>0||BLK.has(slA.subject.trim())) return res;   // 연쇄·연강 모드는 목록에서 고름
+  for(const[k,sl] of Object.entries(TTB(t)||{})) if(k!==S.keyA&&sl.class===slA.class&&!BLK.has(sl.subject.trim())&&!sl.pendIn) res.add(k);
+  return res;
+}
 /* 현재 선택 교사가 '교체 원하는 교사(목록에만 있음)'인지 */
 function isWantOnly(teacher){
   return S.wantTeachers.includes(teacher) && !S.swaps.some(g=>g.teacher===teacher);
@@ -3113,6 +3122,7 @@ function buildAfterTT(teacher,slotColors){
   const pick=(!sameWeek&&S.round!==2&&teacher===S.selTeacher&&!S.selPair?.length)
     ?new Set((S.swaps.find(g=>g.teacher===teacher)?.slots||[]).map(s=>s.key)):null;
   if(pick&&S.wantTeachers.includes(teacher)) getWantSwapKeys(teacher).forEach(k=>pick.add(k));   // 교체 원하는 교사: 모든 수업 칸(강제 포함)
+  if(pick) sameClassKeys(teacher).forEach(k=>pick.add(k));   // 같은 학급 수업 칸(강제 포함)
 
   // 확정 교체 내역 (아직 저장 전 목록) — 각 기록의 날짜가 교체 주에 속할 때만 표시
   S.records.filter(r=>r.tA===teacher||r.tB===teacher).forEach(r=>{
@@ -3454,6 +3464,7 @@ function renderTTb1(){
   const wantOnly=!grp&&isWantOnly(t);
   const hlKeys=new Set(grp?grp.slots.map(s=>s.key):[]);
   if(S.wantTeachers.includes(t)) getWantSwapKeys(t).forEach(k=>hlKeys.add(k));   // 교체 원하는 교사는 모든 수업 칸을 고를 수 있음(수업 겹치면 ⚠ 강제 교체)
+  sameClassKeys(t).forEach(k=>hlKeys.add(k));   // 같은 학급 수업은 누구나 직접 고를 수 있음(겹치면 ⚠)
   const consecOnB1=S.consecMode>0;
   const blockB1=S.keyA&&consecOnB1?getConsecBlock(S.teacher,S.keyA):null;
   const conflictKeysB1=blockB1?new Set(blockB1.keys):(S.keyA?new Set([S.keyA]):new Set());
@@ -3517,6 +3528,7 @@ function renderTTb2(){
   nm.textContent=t;nm.className='tt-name';
   const grp=S.swaps.find(g=>g.teacher===t);
   const hlKeys=new Set(grp?grp.slots.map(s=>s.key):[]);
+  sameClassKeys(t).forEach(k=>hlKeys.add(k));   // 같은 학급 수업은 직접 고를 수 있음(겹치면 ⚠)
   const consecOnB2=S.consecMode>0;
   const blockB2=S.keyA&&consecOnB2?getConsecBlock(S.teacher,S.keyA):null;
   const conflictKeysB2=blockB2?new Set(blockB2.keys):(S.keyA?new Set([S.keyA]):new Set());

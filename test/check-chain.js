@@ -120,6 +120,21 @@ const RUN = ({ date, n, want }) => {
     ok('저장 뒤 그 주 전체에 겹치는 칸·대기 칸 없음', !j.dup.length && !j.pend.length, JSON.stringify([j.dup, j.pend]));
   }
 
+  // 5) 1회 교체에서 같은 학급 수업 칸 직접 고르기: 한명민 목2(2신3) ↔ 김태욱 목3(2신3) — '교체 원하는 교사' 없이
+  page.once('dialog', d => d.accept());   // 강제 교체 확인 창 → 확인
+  const h = await page.evaluate(() => {
+    localStorage.clear(); effClearCache(); S.records = []; S.wantTeachers = []; setRound(1);
+    document.getElementById('teacherSel').value = '한명민'; onTeacher('한명민');
+    document.getElementById('dateInput').value = '2026-12-03'; onDate(); clickSlot('목2');
+    selectSwap('김태욱');
+    const td = [...document.querySelectorAll('#ttB1 td[onclick]')].find(td => td.getAttribute('onclick').includes("'목3'"));
+    if (!td) return { clickable: false };
+    td.click(); addRecord();
+    const r = S.records[0] || {};
+    return { clickable: true, force: td.className.includes('force'), sel: S.selKey, rec: `${r.tA}${r.kA}↔${r.tB}${r.kB} ${r.conf}` };
+  });
+  ok('1회: 김태욱 목3(같은 학급) 칸을 눌러 고르고 ⚠ 강제 교체로 추가', h.clickable && h.force && h.sel === '목3' && h.rec === '한명민목2↔김태욱목3 ⚠️ 강제', JSON.stringify(h));
+
   // 3) 휴대폰 화면: 연쇄 교체 단추 → 후보 → 확인 → 추가
   await page.setViewportSize({ width: 420, height: 900 });
   const m = await page.evaluate((date) => {
