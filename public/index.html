@@ -1185,9 +1185,9 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
     </div>
     <div class="sw-filter" style="flex-wrap:nowrap;overflow-x:auto;gap:3px;background:var(--white);">
       <button class="sw-qbtn active" id="dgHistBtnAll" onclick="dgHistClearFilter()">전체</button>
-      <button class="sw-qbtn" onclick="swDayStep('dgHist',-1)" title="이전 수업일">◀</button><span style="position:relative;flex-shrink:0;"><button class="sw-qbtn" id="dgHistBtnToday" onclick="swDayShow('dgHist', swDay['dgHist']||kstToday())" title="이 날짜로 조회">오늘</button><button class="sw-qbtn" onclick="swDayPick('dgHist')" title="달력에서 날짜 고르기" style="padding-left:5px;padding-right:5px;">📅</button><input type="date" id="dgHistDayPick" onchange="if(this.value) swDayShow('dgHist',this.value)" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;"></span><button class="sw-qbtn" onclick="swDayStep('dgHist',1)" title="다음 수업일">▶</button>
-      <button class="sw-qbtn" id="dgHistBtnWeek" onclick="dgHistSetThisWeek()">이번주</button>
-      <button class="sw-qbtn" id="dgHistBtnNextWeek" onclick="dgHistSetNextWeek()">다음주</button>
+      <span style="display:flex;flex-shrink:0;" role="group" aria-label="조회 단위"><button class="sw-qbtn" id="dgHistUnitDay" onclick="swUnitSet('dgHist','day')" title="하루씩 조회" style="border-radius:5px 0 0 5px;">일</button><button class="sw-qbtn" id="dgHistUnitWeek" onclick="swUnitSet('dgHist','week')" title="한 주(월~금)씩 조회" style="border-radius:0 5px 5px 0;border-left:0;">주</button></span>
+      <button class="sw-qbtn" onclick="swDayStep('dgHist',-1)" title="이전 날·이전 주" aria-label="이전">◀</button><span style="position:relative;flex-shrink:0;"><button class="sw-qbtn" id="dgHistBtnToday" onclick="swDayShow('dgHist', swDay['dgHist']||kstToday())" title="이 날짜(주)로 조회">오늘</button><button class="sw-qbtn" onclick="swDayPick('dgHist')" title="달력에서 날짜 고르기" style="padding-left:5px;padding-right:5px;">📅</button><input type="date" id="dgHistDayPick" onchange="if(this.value) swDayShow('dgHist',this.value)" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;"></span><button class="sw-qbtn" onclick="swDayStep('dgHist',1)" title="다음 날·다음 주" aria-label="다음">▶</button>
+      <button class="sw-qbtn" onclick="swDayShow('dgHist', kstToday())" title="오늘(주 단위면 이번 주)로 이동">오늘</button>
       <select class="si si-sel" id="dgHistTeacher" onchange="renderSavedDgCol()" title="교사별 보기" style="font-size:11px;padding:3px 18px 3px 5px;width:78px;flex-shrink:0;">
         <option value="">교사 전체</option>
       </select>
@@ -1236,9 +1236,9 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
     </div>
     <div class="sw-filter" style="flex-wrap:nowrap;overflow-x:auto;gap:3px;background:var(--white);">
       <button class="sw-qbtn active" id="sw2BtnAll" onclick="sw2ClearFilter()">전체</button>
-      <button class="sw-qbtn" onclick="swDayStep('sw2',-1)" title="이전 수업일">◀</button><span style="position:relative;flex-shrink:0;"><button class="sw-qbtn" id="sw2BtnToday" onclick="swDayShow('sw2', swDay['sw2']||kstToday())" title="이 날짜로 조회">오늘</button><button class="sw-qbtn" onclick="swDayPick('sw2')" title="달력에서 날짜 고르기" style="padding-left:5px;padding-right:5px;">📅</button><input type="date" id="sw2DayPick" onchange="if(this.value) swDayShow('sw2',this.value)" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;"></span><button class="sw-qbtn" onclick="swDayStep('sw2',1)" title="다음 수업일">▶</button>
-      <button class="sw-qbtn" id="sw2BtnWeek" onclick="sw2SetThisWeek()">이번주</button>
-      <button class="sw-qbtn" id="sw2BtnNextWeek" onclick="sw2SetNextWeek()">다음주</button>
+      <span style="display:flex;flex-shrink:0;" role="group" aria-label="조회 단위"><button class="sw-qbtn" id="sw2UnitDay" onclick="swUnitSet('sw2','day')" title="하루씩 조회" style="border-radius:5px 0 0 5px;">일</button><button class="sw-qbtn" id="sw2UnitWeek" onclick="swUnitSet('sw2','week')" title="한 주(월~금)씩 조회" style="border-radius:0 5px 5px 0;border-left:0;">주</button></span>
+      <button class="sw-qbtn" onclick="swDayStep('sw2',-1)" title="이전 날·이전 주" aria-label="이전">◀</button><span style="position:relative;flex-shrink:0;"><button class="sw-qbtn" id="sw2BtnToday" onclick="swDayShow('sw2', swDay['sw2']||kstToday())" title="이 날짜(주)로 조회">오늘</button><button class="sw-qbtn" onclick="swDayPick('sw2')" title="달력에서 날짜 고르기" style="padding-left:5px;padding-right:5px;">📅</button><input type="date" id="sw2DayPick" onchange="if(this.value) swDayShow('sw2',this.value)" tabindex="-1" aria-hidden="true" style="position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0;pointer-events:none;"></span><button class="sw-qbtn" onclick="swDayStep('sw2',1)" title="다음 날·다음 주" aria-label="다음">▶</button>
+      <button class="sw-qbtn" onclick="swDayShow('sw2', kstToday())" title="오늘(주 단위면 이번 주)로 이동">오늘</button>
       <select class="si si-sel" id="sw2Teacher" onchange="renderSw2Left()" title="교사별 보기" style="font-size:11px;padding:3px 18px 3px 5px;width:78px;flex-shrink:0;">
         <option value="">교사 전체</option>
       </select>
@@ -1431,6 +1431,7 @@ const DATE_DAY_OVERRIDES = {
                                        7:{subject:'창체',mode:'homeroom',fromKey:'화7'} } }, // 담임 임장지도
   '2026-10-29': { useDay:'금', fixed:{ 6:{subject:'창체',mode:'homeroom',fromKey:'목7'},   // 부담임 창체 (10/6 HR ↔ 10/29 6교시 부담임 교체 기록과 같음)
                                        7:{subject:'귀가',class:'',mode:'all'} } },
+  '2026-11-19': { fixed:{ 7:{subject:'귀가',class:'',mode:'all'} } },   // 요일표는 그대로(useDay 없음), 7교시 수업만 없음
 };
 function dateOverride(iso){ return (iso && DATE_DAY_OVERRIDES[iso]) || null; }
 
@@ -1510,7 +1511,7 @@ function migrateOverrideKeys(){
 /* 시간표 표 머리글: 요일 변경일이면 어떤 요일표인지 표시 */
 function dayHeadHTML(d, iso){
   const ov=dateOverride(iso);
-  if(!ov) return d;
+  if(!ov||!ov.useDay) return d;
   return `${d}<div style="font-size:8px;color:#b45309;font-weight:800;line-height:1;white-space:nowrap;">${ov.useDay}요일표</div>`;
 }
 // 대강 전용 - HR·CA만 제외, 선택·분반 수업도 대강 가능
@@ -3399,7 +3400,7 @@ function buildClassTT(cls,hlKey,slotColors){
         h+=`<td class="tc blk" title="${f.subject}${f.class?' · '+f.class:''} (수업 없음)"><div class="cs">${f.subject}</div><div class="cc">${f.class||''}</div></td>`;
         return;
       }
-      const baseKey = dov ? (dov.useDay+p) : k;
+      const baseKey = dov&&dov.useDay ? (dov.useDay+p) : k;
       // 저장된 교체·대강 반영: 그 날짜에 실제로 이 학급에 들어가는 교사/과목
       const ov = colISO ? (clsOverrides[colISO+'|'+k]||null) : null;
       const e = ov || csched[baseKey];
@@ -5155,7 +5156,7 @@ function buildTeacherWeekData(teacher, mondayISO){
 function teacherWeekGridHTML(teacher, data){
   const sc=TIMETABLE[teacher]||{};
   let h=`<table class="tw-tbl"><thead><tr><th style="width:30px;"></th>`;
-  DAYS.forEach((d,i)=>{ const dt=data.weekDates[i]; const ov=dateOverride(twISO(dt)); h+=`<th><div class="tw-dow">${d}${ov?`<span style="font-size:.7em;color:#b45309;"> (${ov.useDay}요일표)</span>`:''}</div><div class="tw-date">${dt.getMonth()+1}/${dt.getDate()}</div></th>`; });
+  DAYS.forEach((d,i)=>{ const dt=data.weekDates[i]; const ov=dateOverride(twISO(dt)); h+=`<th><div class="tw-dow">${d}${ov&&ov.useDay?`<span style="font-size:.7em;color:#b45309;"> (${ov.useDay}요일표)</span>`:''}</div><div class="tw-date">${dt.getMonth()+1}/${dt.getDate()}</div></th>`; });
   h+=`</tr></thead><tbody>`;
   for(let p=1;p<=7;p++){
     h+=`<tr><td class="tw-pl">${p}</td>`;
@@ -5940,7 +5941,7 @@ function delSwHistRec(id){
 
 /* ── 교체 내역 패널 날짜 필터 ── */
 function sw2SetActiveBtn(id){
-  ['sw2BtnAll','sw2BtnToday','sw2BtnWeek','sw2BtnNextWeek'].forEach(b=>{
+  ['sw2BtnAll','sw2BtnToday'].forEach(b=>{
     const el=document.getElementById(b);
     if(el) el.classList.toggle('active', b===id);
   });
@@ -5951,26 +5952,6 @@ function sw2ClearFilter(){
   if(f) f.value=''; if(t) t.value=''; if(ms) ms.value='';
   const ts=document.getElementById('sw2Teacher'); if(ts) ts.value='';
   sw2SetActiveBtn('sw2BtnAll');
-  renderSw2Left();
-}
-function sw2SetThisWeek(){
-  const t=getKST(), dow=t.getDay();
-  const mon=new Date(t); mon.setDate(t.getDate()-(dow===0?6:dow-1));
-  const fri=new Date(mon); fri.setDate(mon.getDate()+4);
-  document.getElementById('sw2From').value=swYMD(mon);
-  document.getElementById('sw2To').value=swYMD(fri);
-  document.getElementById('sw2MonthSel').value='';
-  sw2SetActiveBtn('sw2BtnWeek');
-  renderSw2Left();
-}
-function sw2SetNextWeek(){
-  const t=getKST(), dow=t.getDay();
-  const mon=new Date(t); mon.setDate(t.getDate()-(dow===0?6:dow-1)+7);
-  const fri=new Date(mon); fri.setDate(mon.getDate()+4);
-  document.getElementById('sw2From').value=swYMD(mon);
-  document.getElementById('sw2To').value=swYMD(fri);
-  document.getElementById('sw2MonthSel').value='';
-  sw2SetActiveBtn('sw2BtnNextWeek');
   renderSw2Left();
 }
 function sw2SetMonth(m){
@@ -6001,22 +5982,34 @@ function sw2GetFiltered(){
   });
 }
 
-/* ── 저장 탭 하루 단위 이동: 대강(dgHist)·교체(sw2) 칸이 각자 자기 날짜를 따로 가짐 ── */
+/* ── 저장 탭 일·주 단위 이동: 대강(dgHist)·교체(sw2) 칸이 각자 자기 기준 날짜와 단위(일/주)를 따로 가짐 ── */
 const swDay={dgHist:'', sw2:''};
+const swUnit={dgHist:'day', sw2:'day'};
 function swDayLabel(iso){ const d=new Date(iso+'T00:00:00'); return `${d.getMonth()+1}/${d.getDate()}(${'일월화수목금토'[d.getDay()]})`; }
-function swDaySetLabel(col, iso){ const el=document.getElementById(col+'BtnToday'); if(el) el.textContent=swDayLabel(iso); }
+/* 조회 기간 [시작, 끝]: 일 = 기준 날짜 하루, 주 = 기준 날짜가 들어 있는 주 월~금 (휴대폰 기록 탭 mRecRng 와 같은 규칙) */
+function swDayRng(col){
+  const d=swDay[col]||kstToday();
+  if(swUnit[col]!=='week') return [d,d];
+  const mon=twISO(_mondayOfISO(d)); return [mon,_addDaysISO(mon,4)];
+}
 function swDayShow(col, iso){
   swDay[col]=iso;
-  [col+'From', col+'To'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=iso; });
-  const ms=document.getElementById(col+'MonthSel'); if(ms) ms.value='';
-  swDaySetLabel(col, iso);
+  const [from,to]=swDayRng(col), wk=swUnit[col]==='week';
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  set(col+'From',from); set(col+'To',to); set(col+'MonthSel','');
+  const lab=document.getElementById(col+'BtnToday'); if(lab) lab.textContent = wk ? swDayLabel(from)+'~'+swDayLabel(to) : swDayLabel(iso);
+  [['UnitDay',!wk],['UnitWeek',wk]].forEach(([id,on])=>{ const el=document.getElementById(col+id); if(el){ el.classList.toggle('active',on); el.setAttribute('aria-pressed',on); } });
   if(col==='dgHist'){ dgHistSetActiveBtnOnly('dgHistBtnToday'); renderSavedDgCol(); }
   else { sw2SetActiveBtn('sw2BtnToday'); renderSw2Left(); }
   renderSwPreview();
 }
+/* 일/주 바꾸기: 보던 기준 날짜는 그대로 두고 범위만 바꿈 */
+function swUnitSet(col, unit){ swUnit[col]=unit; swDayShow(col, swDay[col]||kstToday()); }
+/* ◀ ▶: 주는 7일씩, 일은 토·일을 건너뛰고 하루씩 */
 function swDayStep(col, n){
   const d=new Date((swDay[col]||kstToday())+'T00:00:00');
-  do d.setDate(d.getDate()+n); while(d.getDay()===0||d.getDay()===6);   // 토·일은 수업이 없으니 건너뜀
+  if(swUnit[col]==='week') d.setDate(d.getDate()+7*n);
+  else do d.setDate(d.getDate()+n); while(d.getDay()===0||d.getDay()===6);
   swDayShow(col, swYMD(d));
 }
 /* 📅를 누르면 그 칸이 보고 있는 날짜로 달력을 엶 (날짜 단추 자체는 누르면 바로 그 날로 조회 — 달력에서 같은 날을 고르면 change 가 안 나서 분리) */
@@ -6144,7 +6137,7 @@ function dgHistGetFiltered(){
 }
 
 function dgHistSetActiveBtnOnly(id){
-  ['dgHistBtnAll','dgHistBtnToday','dgHistBtnWeek','dgHistBtnNextWeek'].forEach(b=>{
+  ['dgHistBtnAll','dgHistBtnToday'].forEach(b=>{
     const el=document.getElementById(b); if(el) el.classList.toggle('active', b===id);
   });
 }
@@ -6167,26 +6160,6 @@ function dgHistSetMonthSel(){
   if(f) f.value=`${y}-${pad(m)}-01`;
   if(t) t.value=`${y}-${pad(m)}-${pad(lastDay)}`;
   dgHistSetActiveBtnOnly('');
-  renderSavedDgCol();
-}
-function dgHistSetThisWeek(){
-  const d=getKST(), dow=d.getDay(), mon=new Date(d);
-  mon.setDate(d.getDate()-(dow===0?6:dow-1));
-  const fri=new Date(mon); fri.setDate(mon.getDate()+4);
-  function fmt(x){return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;}
-  const f=document.getElementById('dgHistFrom'), t=document.getElementById('dgHistTo');
-  if(f) f.value=fmt(mon); if(t) t.value=fmt(fri);
-  dgHistSetActiveBtnOnly('dgHistBtnWeek');
-  renderSavedDgCol();
-}
-function dgHistSetNextWeek(){
-  const d=getKST(), dow=d.getDay(), mon=new Date(d);
-  mon.setDate(d.getDate()-(dow===0?6:dow-1)+7);
-  const fri=new Date(mon); fri.setDate(mon.getDate()+4);
-  function fmt(x){return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;}
-  const f=document.getElementById('dgHistFrom'), t=document.getElementById('dgHistTo');
-  if(f) f.value=fmt(mon); if(t) t.value=fmt(fri);
-  dgHistSetActiveBtnOnly('dgHistBtnNextWeek');
   renderSavedDgCol();
 }
 
