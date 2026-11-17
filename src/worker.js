@@ -5,6 +5,7 @@
 //   GET  /view      → 앱 화면(index.html)을 '보기 전용' 모드로 (기록 탭만 보임; 앱이 주소를 보고 판단)
 //   GET  /api/dg    → 대강 신청 표(칸 목록 + 신청 내역)                  — 비밀번호 없음
 //   POST /api/dg    → 대강 신청 {slot, label} (선착순, D1 이 같은 칸 두 번 저장을 막음) — 비밀번호 없음
+//   DG.closed 가 true(마감)이면 신청·수정·취소 모두 관리자 비밀번호(X-Pw)가 있어야 한다 — 신청한 기기도 불가
 //   PATCH /api/dg   → 이름-과목 수정 {slot, label}                        — 신청한 기기(X-Dev) 또는 비밀번호(X-Pw)
 //   DELETE /api/dg?slot= → 신청 취소                                     — 신청한 기기(X-Dev) 또는 비밀번호(X-Pw)
 //   /dg             → public/dg.html (대강 신청 화면, 정적 파일)
@@ -22,6 +23,7 @@ const json = (obj, status = 200) =>
 // 대강 신청 표: 열 = 교시, 행 = 학급, 칸 = 그 시간 과목. 수업 없는 칸은 신청 불가.
 // 결강 교사 이름은 공개 화면·API에 내보내지 않는다. 다음 대강 신청 때는 이 DG 만 바꾸고 D1 표(dg)를 비운다.
 const DG = {
+  closed: true,   // 마감: 관리자만 신청·수정·취소. 다음 대강 신청을 받을 때 false 로 되돌린다
   title: '11/18(수)·11/19(목) 대강 신청 (선착순)',
   cols: [
     ['수5', '11/18(수) 5교시'], ['수6', '11/18(수) 6교시'], ['수7', '11/18(수) 7교시'],
@@ -80,6 +82,8 @@ async function dgApi(req, env, url) {
   const slot = String((req.method === 'DELETE' ? url.searchParams.get('slot') : body.slot) || '');
   const period = DG_SLOTS.get(slot);
   if (!period) return json({ error: '신청할 수 없는 칸입니다' }, 400);
+  const admin = !!env.APP_PW && req.headers.get('X-Pw') === env.APP_PW;
+  if (DG.closed && !admin) return json({ error: '신청이 마감되어 더 이상 바꿀 수 없습니다. 담당 선생님께 말씀해 주세요' }, 403);
 
   if (req.method === 'POST') {
     const l = dgLabel(body.label);
@@ -97,7 +101,6 @@ async function dgApi(req, env, url) {
   // 취소·수정: 신청한 기기이거나 관리자 비밀번호
   const row = await env.DG.prepare('SELECT dev FROM dg WHERE slot = ?').bind(slot).first();
   if (!row) return json({ error: '이미 취소된 칸입니다' }, 404);
-  const admin = !!env.APP_PW && req.headers.get('X-Pw') === env.APP_PW;
   if (!admin && !(dev && row.dev === dev)) return json({ error: '신청한 기기에서만 취소·수정할 수 있습니다. 담당 선생님께 말씀해 주세요' }, 403);
 
   if (req.method === 'DELETE') {

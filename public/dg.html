@@ -44,6 +44,7 @@
 <body>
 <main>
   <h1 id="title">대강 신청</h1>
+  <div class="box err" id="closed" hidden><b>신청이 마감되었습니다.</b> 더 이상 신청·수정·취소할 수 없습니다. 바꿀 내용이 있으면 담당 선생님께 말씀해 주세요.</div>
   <div class="box">
     <ul>
       <li>아래 시간 수업의 대강을 <b>선착순</b>으로 받습니다.</li>
@@ -60,7 +61,7 @@
     <div id="msg"></div>
   </div>
   <div id="tbl"></div>
-  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 모든 신청 칸에 수정·취소 단추가 보입니다)</div>
+  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 모든 칸에 신청·수정·취소 단추가 보입니다)</div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -94,6 +95,8 @@ function render() {
   document.title = data.title;
   const got = Object.fromEntries(data.signups.map(s => [s.slot, s]));
   const admin = $('pw').value !== '';
+  const locked = data.closed && !admin;   // 마감 뒤에는 관리자만 단추가 보인다 (서버도 같은 규칙으로 막음)
+  $('closed').hidden = !data.closed;
   // 교시 이름 '11/19(목) 1교시' → 날짜('11/19(목)')별로 표 하나씩. 그날 수업이 없는 학급 줄은 뺀다
   const days = new Map();
   for (const c of data.cols) { const d = c[1].split(' ')[0]; if (!days.has(d)) days.set(d, []); days.get(d).push(c); }
@@ -108,8 +111,8 @@ function render() {
         const slot = `${col}|${t}`, s = got[slot];
         if (!cls[col]) h += '<td class="no"></td>';
         else if (s) h += `<td class="done"><div class="cls">${esc(cls[col])}</div><div class="who">${esc(s.label)}</div><div class="at">${esc(s.at)}</div>`
-          + (s.mine || admin ? `<div><button class="e" data-edit="${esc(slot)}">수정</button> <button class="x" data-del="${esc(slot)}">취소</button></div>` : '') + '</td>';
-        else h += `<td class="open"><div class="cls">${esc(cls[col])}</div><button data-slot="${esc(slot)}">신청</button></td>`;
+          + ((s.mine && !locked) || admin ? `<div><button class="e" data-edit="${esc(slot)}">수정</button> <button class="x" data-del="${esc(slot)}">취소</button></div>` : '') + '</td>';
+        else h += `<td class="open"><div class="cls">${esc(cls[col])}</div>` + (locked ? '' : `<button data-slot="${esc(slot)}">신청</button>`) + '</td>';
       }
       h += '</tr>';
     }
@@ -129,7 +132,7 @@ $('tbl').addEventListener('click', async e => {
     const cls = data.rows.find(r => r[0] === t)[1][col];
     if (!confirm(`${colName} ${t} ${cls}\n→ ${me} (으)로 신청할까요?`)) return;
     b.disabled = true;
-    const r = await fetch('/api/dg', { method: 'POST', headers: H({ 'Content-Type': 'application/json' }), body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
+    const r = await fetch('/api/dg', { method: 'POST', headers: H({ 'Content-Type': 'application/json', 'X-Pw': $('pw').value }), body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
     say(r.ok ? `신청되었습니다: ${colName} ${t} ${cls} → ${r.label}` : r.error, r.ok);
   } else if (b.dataset.edit) {

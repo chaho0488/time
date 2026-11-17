@@ -2,7 +2,16 @@
 // 실행: node test/check-dg.mjs
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
-import worker from '../src/worker.js';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import closedWorker from '../src/worker.js';   // 지금 올라가는 그대로(마감 상태)
+
+// 선착순 규칙 점검은 '신청 받는 중' 상태로 본다: 마감 표시만 false 로 바꾼 사본을 불러온다
+const src = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8');
+assert.ok(src.includes('closed: true'), '마감 표시(closed: true)가 있어야 함');
+const tmp = new URL('./.worker-open.mjs', import.meta.url);
+writeFileSync(tmp, src.replace('closed: true', 'closed: false'));
+const worker = (await import(tmp)).default;
+rmSync(tmp);
 
 // D1 흉내: prepare().bind().run()/all()/first() 만
 const db = new DatabaseSync(':memory:');
@@ -20,8 +29,8 @@ const D1 = {
   },
 };
 const env = { DG: D1, APP_PW: 'pw', ASSETS: { fetch: () => new Response('asset') } };
-const call = (method, body, headers = {}, q = '') =>
-  worker.fetch(new Request('https://x/api/dg' + q, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: body && JSON.stringify(body) }), env)
+const call = (method, body, headers = {}, q = '', w = worker) =>
+  w.fetch(new Request('https://x/api/dg' + q, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: body && JSON.stringify(body) }), env)
     .then(async r => ({ status: r.status, ...(await r.json()) }));
 
 let r = await call('GET');
@@ -90,5 +99,27 @@ assert.equal(r.signups.length, 0);
 // 동시에 같은 칸을 누른 경우: 하나만 성공
 const rs = await Promise.all(['가-가', '나-나', '다-다'].map(l => call('POST', { slot: '목2|2전3', label: l })));
 assert.equal(rs.filter(x => x.ok).length, 1);
+
+// 마감 상태: 신청한 기기도 못 바꾸고 관리자 비밀번호만 통한다
+await call('POST', { slot: '목4|1신1', label: '성춘향-과학' }, A);
+const shut = (method, body, headers, qs) => call(method, body, headers, qs, closedWorker);
+r = await shut('GET', null, A);
+assert.equal(r.closed, true, '화면이 마감을 알 수 있어야 함');
+r = await shut('POST', { slot: '목1|1전3', label: '이몽룡-국어' }, B);
+assert.equal(r.status, 403, '마감 뒤 새 신청 불가'); assert.match(r.error, /마감/);
+r = await shut('PATCH', { slot: '목4|1신1', label: '성춘향-물리' }, A);
+assert.equal(r.status, 403, '마감 뒤에는 신청한 기기도 수정 불가');
+r = await shut('DELETE', null, A, q('목4|1신1'));
+assert.equal(r.status, 403, '마감 뒤에는 신청한 기기도 취소 불가');
+r = await shut('DELETE', null, { ...A, 'X-Pw': 'x' }, q('목4|1신1'));
+assert.equal(r.status, 403, '틀린 비밀번호는 불가');
+r = await shut('GET');
+assert.equal(r.signups.find(x => x.slot === '목4|1신1').label, '성춘향-과학', '막힌 요청은 아무것도 바꾸지 않음');
+r = await shut('PATCH', { slot: '목4|1신1', label: '성춘향-물리' }, { 'X-Pw': 'pw' });
+assert.ok(r.ok, '관리자는 마감 뒤에도 수정');
+r = await shut('POST', { slot: '목1|1전3', label: '이몽룡-국어' }, { 'X-Pw': 'pw' });
+assert.ok(r.ok, '관리자는 마감 뒤에도 신청');
+r = await shut('DELETE', null, { 'X-Pw': 'pw' }, q('목1|1전3'));
+assert.ok(r.ok, '관리자는 마감 뒤에도 취소');
 
 console.log('대강 신청 점검 통과');
