@@ -3,15 +3,36 @@
 import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
-import closedWorker from '../src/worker.js';   // 지금 올라가는 그대로(마감 상태)
-
-// 선착순 규칙 점검은 '신청 받는 중' 상태로 본다: 마감 표시만 false 로 바꾼 사본을 불러온다
+// 규칙 점검은 실제 칸 목록(src/worker.js 의 DG)이 바뀌어도 그대로 돌도록, 점검용 칸 목록(11/18·19)을 끼운 사본으로 본다
 const src = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8');
-assert.ok(src.includes('closed: true'), '마감 표시(closed: true)가 있어야 함');
-const tmp = new URL('./.worker-open.mjs', import.meta.url);
-writeFileSync(tmp, src.replace('closed: true', 'closed: false'));
-const worker = (await import(tmp)).default;
-rmSync(tmp);
+const DG_RE = /const DG = \{\n[\s\S]*?\n\};\n/;
+assert.ok(DG_RE.test(src), 'src/worker.js 에 DG 칸 목록이 있어야 함');
+const FIXTURE = `const DG = {
+  closed: true,   // 마감: 관리자만 신청·수정·취소. 다음 대강 신청을 받을 때 false 로 되돌린다
+  title: '11/18(수)·11/19(목) 대강 신청 (선착순)',
+  cols: [
+    ['수5', '11/18(수) 5교시'], ['수6', '11/18(수) 6교시'], ['수7', '11/18(수) 7교시'],
+    ['목1', '11/19(목) 1교시'], ['목2', '11/19(목) 2교시'], ['목3', '11/19(목) 3교시'],
+    ['목4', '11/19(목) 4교시'], ['목5', '11/19(목) 5교시'], ['목6', '11/19(목) 6교시'],
+  ],
+  rows: [
+    ['1전1', { 목2: '기기' }],
+    ['1전3', { 목1: '기기' }],
+    ['1신1', { 목4: '자동', 목5: '자동', 목6: '자동' }],
+    ['1신2', { 수5: '자동', 수6: '자동', 수7: '자동' }],
+    ['2전2', { 수7: '영어', 목4: '영어' }],   // 수7 영어는 수6에서 교체로 옮겨진 수업
+    ['2전3', { 목2: '영어' }],
+    ['2신2', { 수5: '영어', 목6: '영어' }],
+  ],
+};
+`;
+async function load(closed) {
+  const tmp = new URL(`./.worker-${closed ? 'closed' : 'open'}.mjs`, import.meta.url);
+  writeFileSync(tmp, src.replace(DG_RE, () => FIXTURE.replace('closed: true', 'closed: ' + closed)));
+  try { return (await import(tmp)).default; } finally { rmSync(tmp); }
+}
+const worker = await load(false);        // 신청 받는 중
+const closedWorker = await load(true);   // 마감
 
 // D1 흉내: prepare().bind().run()/all()/first() 만
 const db = new DatabaseSync(':memory:');

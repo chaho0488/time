@@ -7,7 +7,7 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 
 const HTML = fs.readFileSync(new URL('../public/dg.html', import.meta.url), 'utf8');
 // 가짜 D1: 신청 1건(긴 이름-과목, 이 기기 신청이라 수정·취소 단추까지 보임)
-const signups = [{ slot: '목4|1신1', label: '남궁민수-신재생에너지', at: '11-13 15:33:20', mine: 1 }];
+const signups = [{ slot: '화5|2신3', label: '남궁민수-신재생에너지', at: '11-13 15:33:20', mine: 1 }];
 const env = { DG: { prepare: () => ({ bind: () => ({ all: async () => ({ results: signups }) }) }) } };
 const apiBody = await (await worker.fetch(new Request('http://x/api/dg'), env)).text();
 
@@ -27,9 +27,9 @@ for (const width of [360, 390, 1100]) {
     days: [...document.querySelectorAll('#tbl h2')].map(h => h.textContent),
     over: [...document.querySelectorAll('.wrap')].filter(w => w.scrollWidth > w.clientWidth + 1).length + (document.documentElement.scrollWidth > innerWidth + 1 ? 1 : 0),
     btns: document.querySelectorAll('#tbl button[data-slot]').length,
-    mine: !!document.querySelector('#tbl button[data-del="목4|1신1"]'),
+    mine: !!document.querySelector('#tbl button[data-del="화5|2신3"]'),
   }));
-  const ok = r.over === 0 && r.days.join() === '11/18(수),11/19(목)' && r.btns === 12 && r.mine;
+  const ok = r.over === 0 && r.days.join() === '11/24(화)' && r.btns === 3 && r.mine;
   console.log(`${ok ? '✅' : '❌'} 폭 ${width}px: 날짜별 표 ${r.days.join('·')}, 옆으로 넘치는 곳 ${r.over}, 신청 단추 ${r.btns}, 내 신청 취소 단추 ${r.mine}`);
   if (!ok) fail++;
   if (width === 390) await page.screenshot({ path: '/tmp/dg-390.png', fullPage: true });

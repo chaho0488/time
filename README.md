@@ -12,7 +12,7 @@
 
 ## 올리기 전 점검
 
-`node test/check-dg.mjs` — 대강 신청 API(선착순·같은 교시 중복·수업 없는 칸·취소 비밀번호·동시 신청)를 node:sqlite로 확인한다.
+`node test/check-dg.mjs` — 점검용 칸 목록을 끼운 사본으로(실제 `DG`를 바꿔도 고칠 필요 없음) 대강 신청 API(선착순·같은 교시 중복·수업 없는 칸·취소 비밀번호·동시 신청)를 node:sqlite로 확인한다.
 
 `node test/check-dg-phone.mjs` — 대강 신청 화면이 날짜별 표로 나뉘어 폰 폭(360·390px)에서도 옆으로 넘기지 않고 다 보이는지 확인한다(playwright 필요).
 
