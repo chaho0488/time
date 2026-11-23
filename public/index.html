@@ -2702,7 +2702,9 @@ function swapForceReason(tB,kB){
     if(x.length) out.push(`${sA.class} ${kB}에 ${x.join('·')} 수업과 겹침`);
     if(y.length) out.push(`${sB.class} ${S.keyA}에 ${y.join('·')} 수업과 겹침`);
   }
-  const sp=[sA,sB].filter(x=>x&&BLK.has(x.subject.trim())).map(x=>x.subject);
+  // 같은 학급 담임 HR ↔ 부담임 CA(옮겨진 창체 포함)는 원래 허용되는 교체라 경고하지 않음
+  const hrcaOK=sA&&sB&&sA.class===sB.class&&isHRCAKey(S.keyA,sA)&&(isHRCAKey(kB,sB)||sB.homeroom)&&getHRCAPartner(S.teacher,S.keyA,sA)?.teacher===tB;
+  const sp=hrcaOK?[]:[sA,sB].filter(x=>x&&BLK.has(x.subject.trim())).map(x=>x.subject);
   if(sp.length) out.push(`특수 수업(${[...new Set(sp)].join('·')}) 교체`);
   return out.join(', ');
 }

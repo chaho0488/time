@@ -34,6 +34,12 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
       const x1 = now['목1'] || {}, y7 = prev['목7'] || {};
       if (x1.subject !== '창체' || x1.teacher !== y7.teacher) out.badCw.push(c + '목1');
     }
+    // 담임 HR ↔ 부담임 창체(같은 학급)는 경고 없이 교체: 보통 주(화7↔목7), 교시 이동 주(화7↔목1), 반대 방향, 다른 학급은 경고
+    const fr = (iso, tA, kA, tB, kB) => { document.getElementById('dateInput').value = iso; effClearCache(); S.teacher = tA; S.keyA = kA; S.records = []; return swapForceReason(tB, kB); };
+    out.frShift = fr('2026-11-24', '장승하', '화7', '박주란', '목1'); out.frNormal = fr('2026-11-10', '장승하', '화7', '박주란', '목7');
+    out.frRev = fr('2026-11-26', '박주란', '목1', '장승하', '화7'); out.frOther = fr('2026-11-10', '장승하', '화7', '이용직', '화7');
+    out.cand = (document.getElementById('dateInput').value = '2026-11-24', effClearCache(), S.teacher = '장승하', findSwaps('장승하', '화7').map(c => c.teacher + c.slots[0].key).join());
+    S.teacher = ''; S.keyA = '';
     out.head = dayHeadHTML('목', '2026-11-26'); out.headPrev = dayHeadHTML('목', '2026-11-19'); out.headFri = dayHeadHTML('목', '2026-10-29');
     // 시간표 탭(조회 사이트와 같은 화면): 그날 일별표·그 주 주별표에만 안내 줄
     out.noteDay = mTT('t', '', { iso: '2026-11-26', kind: 'cls' }); out.noteWeek = mTT('t', '', { mon: '2026-11-23', kind: 'cls', who: '1전1' });
@@ -51,6 +57,8 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
   ok(`학급 주간표 ${r.nCls}개 반: 1교시 창체(부담임), 2~7교시 밀림`, r.nCls > 0 && r.badCw.length === 0, r.badCw);
   ok("머리글: 11/26은 '교시 이동', 요일표 변경일은 '금요일표', 보통 날은 꼬리표 없음", r.head.includes('교시 이동') && !r.head.includes('요일표') && r.headPrev === '목' && r.headFri.includes('금요일표'), [r.head, r.headPrev, r.headFri]);
   ok('시간표 탭 안내 줄: 11/26 일별·그 주 주별에만', r.noteDay.includes('11/26 교시 이동') && r.noteWeek.includes('11/26 교시 이동') && !r.noteOther.includes('교시 이동'), [r.noteDay, r.noteOther]);
+  ok('HR↔창체(같은 학급) 교체는 경고 없음: 교시 이동 주·보통 주·반대 방향', r.frShift === '' && r.frNormal === '' && r.frRev === '' && r.cand === '박주란목1', [r.frShift, r.frNormal, r.frRev, r.cand]);
+  ok('다른 학급 HR끼리는 여전히 경고', r.frOther.includes('특수 수업'), r.frOther);
   ok('데스크톱 학급 시간표 2전1: 1교시 창체, 2~7교시 밀림', r.tt.length === 7 && r.tt[0] === '창체' && r.ttPrev.slice(0, 6).every(Boolean) && r.tt.slice(1).join('|') === r.ttPrev.slice(0, 6).join('|'), [r.tt, r.ttPrev]);
   await browser.close();
   console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');
