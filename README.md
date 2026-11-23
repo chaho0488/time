@@ -26,3 +26,5 @@
 
 `node test/check-noclass.js` — 수업이 없어진 교시(11/19 목 7교시)가 그 칸만 귀가로 바뀌고 나머지 교시·다른 주는 그대로인지 확인한다. 날짜를 더 넣을 때는 `DATE_DAY_OVERRIDES`에 `useDay` 없이 `fixed`만 적는다.
 `node test/check-shift.js` : 교시 순서를 옮긴 날(11/26 목 7교시→1교시)에 교사·학급 시간표가 함께 밀리는지
+
+`node test/check-del-sync.js` : 저장 탭에서 지운 교체가 교체 탭(작성 중 목록·시간표·후보)에 바로 반영되는지

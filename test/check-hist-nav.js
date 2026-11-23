@@ -53,10 +53,10 @@ const eq = (name, got, want) => { const ok = JSON.stringify(got) === JSON.string
   // 두 칸은 서로 영향을 주지 않음: 교체만 주 단위로 바꿔도 대강은 일 단위 그대로
   await click(btn('sw2', 'swUnitSet', "'week'"));
   eq('칸별 독립', [(await st('sw2')).unit, (await st('dgHist')).unit], ['주', '일']);
-  // 오늘 단추: 주 단위에서는 이번 주 월~금
-  await click(`button[onclick="swDayShow('sw2', kstToday())"]`);
-  const t = await page.evaluate(() => { const m = twISO(_mondayOfISO(kstToday())); return [m, _addDaysISO(m, 4)]; });
-  const s = await st('sw2'); eq('오늘(주) = 이번 주', [s.from, s.to], t);
+  // 오늘 단추: 주 단위로 보고 있어도 일 단위로 바뀌어 오늘 하루만
+  await click(`button[onclick="swToday('sw2')"]`);
+  const t = await page.evaluate(() => kstToday());
+  const s = await st('sw2'); eq('오늘 = 오늘 하루(일 단위)', [s.from, s.to, s.unit], [t, t, '일']);
   await page.screenshot({ path: process.env.SHOT || '/dev/null' }).catch(() => {});
   await browser.close();
   console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');
