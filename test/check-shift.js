@@ -34,7 +34,10 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
       const x1 = now['목1'] || {}, y7 = prev['목7'] || {};
       if (x1.subject !== '창체' || x1.teacher !== y7.teacher) out.badCw.push(c + '목1');
     }
-    out.head = dayHeadHTML('목', '2026-11-26');
+    out.head = dayHeadHTML('목', '2026-11-26'); out.headPrev = dayHeadHTML('목', '2026-11-19'); out.headFri = dayHeadHTML('목', '2026-10-29');
+    // 시간표 탭(조회 사이트와 같은 화면): 그날 일별표·그 주 주별표에만 안내 줄
+    out.noteDay = mTT('t', '', { iso: '2026-11-26', kind: 'cls' }); out.noteWeek = mTT('t', '', { mon: '2026-11-23', kind: 'cls', who: '1전1' });
+    out.noteOther = mTT('t', '', { iso: '2026-11-25', kind: 'cls' }) + mTT('t', '', { mon: '2026-11-16', kind: 'cls', who: '1전1' }) + mTT('t', '');
     // 데스크톱 학급 시간표(buildClassTT)는 계산 경로가 달라 따로 확인: 목요일 열의 과목을 화면 그대로 읽음
     const thu = iso => { document.getElementById('dateInput').value = iso; const t = document.createElement('template'); t.innerHTML = buildClassTT('2전1', null, {});
       return [...t.content.querySelectorAll('tr')].map(tr => [...tr.querySelectorAll('td.tc')]).filter(c => c.length === 5).map(c => (c[3].querySelector('.cs') || {}).textContent || ''); };
@@ -46,7 +49,8 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
   ok('11/23 주 다른 요일: 그대로', r.badOtherDay.length === 0, r.badOtherDay);
   ok('11/19(전 주) 1~6교시: 영향 없음', r.badPrevWeek.length === 0, r.badPrevWeek);
   ok(`학급 주간표 ${r.nCls}개 반: 1교시 창체(부담임), 2~7교시 밀림`, r.nCls > 0 && r.badCw.length === 0, r.badCw);
-  ok("머리글에 '요일표' 꼬리표 없음", r.head === '목', r.head);
+  ok("머리글: 11/26은 '교시 이동', 요일표 변경일은 '금요일표', 보통 날은 꼬리표 없음", r.head.includes('교시 이동') && !r.head.includes('요일표') && r.headPrev === '목' && r.headFri.includes('금요일표'), [r.head, r.headPrev, r.headFri]);
+  ok('시간표 탭 안내 줄: 11/26 일별·그 주 주별에만', r.noteDay.includes('11/26 교시 이동') && r.noteWeek.includes('11/26 교시 이동') && !r.noteOther.includes('교시 이동'), [r.noteDay, r.noteOther]);
   ok('데스크톱 학급 시간표 2전1: 1교시 창체, 2~7교시 밀림', r.tt.length === 7 && r.tt[0] === '창체' && r.ttPrev.slice(0, 6).every(Boolean) && r.tt.slice(1).join('|') === r.ttPrev.slice(0, 6).join('|'), [r.tt, r.ttPrev]);
   await browser.close();
   console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');

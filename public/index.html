@@ -1425,6 +1425,7 @@ const BLK=new Set(['HR','CA','선택','분반','창체','귀가']);
        mode:'homeroom' → 담임 활동. fromKey(예: '화7' HR, '목7' CA)에 담임 학급이 있는 교사만
                          그 학급의 '창체'로 표시. 담임 결강 시 대강 지정 가능(교체는 불가)
    - periodMap : 교시 순서 이동 {그날 교시: 원래 교시}. 예) {2:1,…,7:6} → 1~6교시 수업이 한 시간씩 뒤로
+   - note : 그날 시간표 위에 보여 줄 안내 한 줄 (평소와 달라 오류처럼 보이는 날에 적음)
    날짜를 더 추가하려면 아래에 한 줄씩 넣으면 됩니다. */
 /* 이 학교 시간표에서 화7 HR = 담임, 목7 CA = 부담임 */
 const DATE_DAY_OVERRIDES = {
@@ -1434,9 +1435,18 @@ const DATE_DAY_OVERRIDES = {
                                        7:{subject:'귀가',class:'',mode:'all'} } },
   '2026-11-19': { fixed:{ 7:{subject:'귀가',class:'',mode:'all'} } },   // 요일표는 그대로(useDay 없음), 7교시 수업만 없음
   '2026-11-26': { fixed:{ 1:{subject:'창체',mode:'homeroom',fromKey:'목7'} },   // 7교시 부담임 창체(학교폭력예방교육)를 1교시로
-                  periodMap:{2:1, 3:2, 4:3, 5:4, 6:5, 7:6} },                    // 1~6교시 수업은 한 시간씩 뒤로
+                  periodMap:{2:1, 3:2, 4:3, 5:4, 6:5, 7:6},                      // 1~6교시 수업은 한 시간씩 뒤로
+                  note:'교시 이동: 7교시 창체 → 1교시, 1~6교시 수업은 한 시간씩 뒤로' },
 };
 function dateOverride(iso){ return (iso && DATE_DAY_OVERRIDES[iso]) || null; }
+/* 요일 머리글에 붙이는 짧은 꼬리표: 평소 요일표와 다른 날임을 알림 */
+function dateOverrideTag(ov){ return !ov ? '' : ov.useDay ? ov.useDay+'요일표' : ov.periodMap ? '교시 이동' : ''; }
+/* iso부터 days일 동안의 안내 줄(note) — 시간표 탭·조회 사이트 표 제목 아래에 표시 */
+function dateOverrideNotesHTML(iso, days){
+  let h='';
+  for(let i=0;i<days;i++){ const d=_addDaysISO(iso,i), ov=dateOverride(d); if(ov&&ov.note) h+=`<div class="m-note warn">⚠ ${Number(d.slice(5,7))}/${Number(d.slice(8,10))} ${ov.note}</div>`; }
+  return h;
+}
 
 /* ══ 동아리활동 잠금 ══ (2026학년도 창의적 체험활동 일별 현황표 0821 기준)
    동아리활동 시간은 수업 교체 불가 → 그 날짜·교시는 교체 탐색·교체 추가·저장에서 막음.
@@ -1514,8 +1524,9 @@ function migrateOverrideKeys(){
 /* 시간표 표 머리글: 요일 변경일이면 어떤 요일표인지 표시 */
 function dayHeadHTML(d, iso){
   const ov=dateOverride(iso);
-  if(!ov||!ov.useDay) return d;
-  return `${d}<div style="font-size:8px;color:#b45309;font-weight:800;line-height:1;white-space:nowrap;">${ov.useDay}요일표</div>`;
+  const tag=dateOverrideTag(ov);
+  if(!tag) return d;
+  return `${d}<div title="${ov.note||''}" style="font-size:8px;color:#b45309;font-weight:800;line-height:1;white-space:nowrap;">${tag}</div>`;
 }
 // 대강 전용 - HR·CA만 제외, 선택·분반 수업도 대강 가능
 const BLK_DG=new Set(); // 대강 탭에서는 모든 교시 선택 가능 (HR·CA 포함)
@@ -5159,7 +5170,7 @@ function buildTeacherWeekData(teacher, mondayISO){
 function teacherWeekGridHTML(teacher, data){
   const sc=TIMETABLE[teacher]||{};
   let h=`<table class="tw-tbl"><thead><tr><th style="width:30px;"></th>`;
-  DAYS.forEach((d,i)=>{ const dt=data.weekDates[i]; const ov=dateOverride(twISO(dt)); h+=`<th><div class="tw-dow">${d}${ov&&ov.useDay?`<span style="font-size:.7em;color:#b45309;"> (${ov.useDay}요일표)</span>`:''}</div><div class="tw-date">${dt.getMonth()+1}/${dt.getDate()}</div></th>`; });
+  DAYS.forEach((d,i)=>{ const dt=data.weekDates[i]; const ov=dateOverride(twISO(dt)); h+=`<th><div class="tw-dow">${d}${dateOverrideTag(ov)?`<span style="font-size:.7em;color:#b45309;"> (${dateOverrideTag(ov)})</span>`:''}</div><div class="tw-date">${dt.getMonth()+1}/${dt.getDate()}</div></th>`; });
   h+=`</tr></thead><tbody>`;
   for(let p=1;p<=7;p++){
     h+=`<tr><td class="tw-pl">${p}</td>`;
@@ -7766,7 +7777,8 @@ function mPeriods(teacher, iso, sideFn){   // 그 날짜 요일의 수업(교체
   for(let p=1;p<=DP[wd];p++){ const k=wd+p; out.push({key:k, p, sl:sc[k]||null, mark: swapMarkFor(teacher,k,iso)}); }
   return out;
 }
-function mTT(title, html, ctx){ const a=ctx?` data-mon="${ctx.mon||''}" data-iso="${ctx.iso||''}" data-kind="${ctx.kind}" data-who="${_esc(ctx.who||'')}"`:''; return `<div class="m-tt"${a}><div class="m-tt-h">${title}</div>${html}</div>`; }   // ctx: 바뀐 칸을 눌렀을 때 내역을 찾는 데 씀
+function mTT(title, html, ctx){ const a=ctx?` data-mon="${ctx.mon||''}" data-iso="${ctx.iso||''}" data-kind="${ctx.kind}" data-who="${_esc(ctx.who||'')}"`:''; const n=!ctx?'':ctx.iso?dateOverrideNotesHTML(ctx.iso,1):ctx.mon?dateOverrideNotesHTML(ctx.mon,5):'';   // 일별은 그날, 주별은 그 주 월~금
+  return `<div class="m-tt"${a}><div class="m-tt-h">${title}</div>${n}${html}</div>`; }   // ctx: 바뀐 칸을 눌렀을 때 내역을 찾는 데 씀
 function mRender(){
   if(!mIsMobile()) return;
   const el=document.getElementById('mBody'); if(!el) return;
