@@ -8,6 +8,8 @@
 //   DG.closed 가 true(마감)이면 신청·수정·취소 모두 관리자 비밀번호(X-Pw)가 있어야 한다 — 신청한 기기도 불가
 //   PATCH /api/dg   → 이름-과목 수정 {slot, label}                        — 신청한 기기(X-Dev) 또는 비밀번호(X-Pw)
 //   DELETE /api/dg?slot= → 신청 취소                                     — 신청한 기기(X-Dev) 또는 비밀번호(X-Pw)
+//   PUT  /api/dg    → 표 만들기 {date, teachers[], add}(그날 그 교사들의 수업을 칸으로; add 가 아니면 지난 신청을 지움) / 마감 {closed} — 비밀번호(X-Pw)
+//   DELETE /api/dg?all=1 → 지난 내용 초기화(표·신청 모두 비움)            — 비밀번호(X-Pw)
 //   /dg             → public/dg.html (대강 신청 화면, 정적 파일)
 //   /api/winter, /winter → 한파 수업 장소 이동 신청·실습실 배정 (아래 '한파' 부분 참고)
 // 그 밖의 경로는 public/ 의 정적 파일(앱 화면).
@@ -36,8 +38,31 @@ const DG = {
     ['2신3', { 화5: '역사' }],
   ],
 };
-const DG_SLOTS = new Map();   // '수5|1신2' → 교시 id
-for (const [t, c] of DG.rows) for (const col of Object.keys(c)) DG_SLOTS.set(`${col}|${t}`, col);
+// 관리자가 화면에서 표를 만들면(날짜·결강 교사 → 그날 수업 칸) KV(DATA)의 dgConf 에 저장되고, 그때부터는 위 DG 대신 그것을 쓴다
+const DG_KEY = 'dgConf';
+async function dgConf(env) {
+  try { const c = env.DATA && JSON.parse((await env.DATA.get(DG_KEY)) || 'null'); if (c && Array.isArray(c.cols) && Array.isArray(c.rows)) return c; } catch {}
+  return DG;
+}
+const dgSlots = conf => { const m = new Map(); for (const [t, c] of conf.rows) for (const col of Object.keys(c)) m.set(`${col}|${t}`, col); return m; };   // '수5|1신2' → 교시 id
+const dgTitle = cols => { const ds = [...new Set(cols.map(c => c[1].split(' ')[0]))]; return ds.length ? `${ds.join('·')} 대강 신청 (선착순)` : '대강 신청'; };
+// 표 만들기: 그 날짜에 결강 교사들이 하는 수업을 모두 칸으로 만든다(교시가 옮겨진 날은 옮겨진 교시로). 교사 이름은 관리자에게만 보인다
+function dgBuild(date, teachers, base) {
+  const day = '일월화수목금토'[new Date(date + 'T00:00:00Z').getUTCDay()], md = `${Number(date.slice(5, 7))}/${Number(date.slice(8))}(${day})`, id = date.slice(5, 7) + date.slice(8);
+  const cols = new Map((base ? base.cols : []).map(c => [c[0], c[1]])), rows = new Map((base ? base.rows : []).map(([t, c]) => [t, { ...c }]));
+  let n = 0;
+  for (const t of teachers) for (let p = 1; p <= 7; p++) {
+    const sh = W_SHIFT[date], bk = sh ? (sh[p] ? day + sh[p] : '') : day + p, v = bk && W_TT[t][bk];
+    if (!v) continue;
+    const [cls, subject] = v.split('|'), col = `${id}${day}${p}`;
+    cols.set(col, `${md} ${p}교시`);
+    if (!rows.has(cls)) rows.set(cls, {});
+    if (!rows.get(cls)[col]) { rows.get(cls)[col] = subject; n++; }
+  }
+  const key = c => c[0] + (c[1] === '전' ? 0 : 1) + c.slice(2);   // 학년 → 전기반 → 신재생반
+  const cl = [...cols].sort((a, b) => a[0].localeCompare(b[0])), absent = [...(base && base.absent || []), ...teachers.map(t => `${md} ${t}`)];
+  return { n, conf: { closed: false, title: dgTitle(cl), cols: cl, rows: [...rows].sort((a, b) => key(a[0]).localeCompare(key(b[0]))), absent: [...new Set(absent)] } };
+}
 
 // '이름-과목' 한 줄 → {who, label}: 하이픈 앞뒤 공백은 정리하고, 이름·과목 모두 있어야 함
 function dgLabel(raw) {
@@ -63,11 +88,41 @@ async function dgApi(req, env, url) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (!env.DG) return json({ error: 'D1(DG)이 연결되지 않았습니다' }, 503);
   const dev = dgDev(req);
+  const admin = !!env.APP_PW && req.headers.get('X-Pw') === env.APP_PW;
+  const conf = await dgConf(env);
+
+  // 관리자: 표 만들기·추가 {date, teachers[], add}, 마감·다시 열기 {closed}
+  if (req.method === 'PUT') {
+    if (!admin) return json({ error: '관리자 비밀번호가 필요합니다' }, 401);
+    if (!env.DATA) return json({ error: '저장소(KV)가 연결되지 않았습니다' }, 503);
+    let b; try { b = await req.json(); } catch { return json({ error: '잘못된 요청입니다' }, 400); }
+    if (b && typeof b.closed === 'boolean') { await env.DATA.put(DG_KEY, JSON.stringify({ ...conf, closed: b.closed })); return json({ ok: true, closed: b.closed }); }
+    const date = String((b && b.date) || ''), teachers = [...new Set(Array.isArray(b && b.teachers) ? b.teachers.map(String) : [])];
+    if (!wIsDate(date)) return json({ error: '날짜를 골라 주세요' }, 400);
+    if ([0, 6].includes(new Date(date + 'T00:00:00Z').getUTCDay())) return json({ error: '주말은 고를 수 없습니다' }, 400);
+    if (!teachers.length || teachers.length > 20) return json({ error: '결강 교사를 한 명 이상(20명까지) 골라 주세요' }, 400);
+    const bad = teachers.find(t => !Object.hasOwn(W_TT, t));
+    if (bad) return json({ error: `${bad}: 목록에 없는 교사입니다` }, 400);
+    const { n, conf: next } = dgBuild(date, teachers, b.add ? conf : null);
+    if (!n) return json({ error: '그 날짜에 새로 넣을 수업이 없습니다(수업이 없는 날이거나 이미 표에 있는 칸)' }, 400);
+    if (!b.add) await env.DG.prepare('DELETE FROM dg').run();   // 새 표: 지난 신청은 지운다
+    await env.DATA.put(DG_KEY, JSON.stringify(next));
+    return json({ ok: true, added: n, title: next.title });
+  }
+  // 관리자: 지난 내용 초기화(표와 신청 모두 비움)
+  if (req.method === 'DELETE' && url.searchParams.get('all')) {
+    if (!admin) return json({ error: '관리자 비밀번호가 필요합니다' }, 401);
+    if (!env.DATA) return json({ error: '저장소(KV)가 연결되지 않았습니다' }, 503);
+    await env.DG.prepare('DELETE FROM dg').run();
+    await env.DATA.put(DG_KEY, JSON.stringify({ closed: false, title: '대강 신청', cols: [], rows: [], absent: [] }));
+    return json({ ok: true });
+  }
 
   if (req.method === 'GET') {
     // mine: 이 기기에서 한 신청인지 (취소·수정 단추를 보일지)
     const { results } = await env.DG.prepare('SELECT slot, label, at, (dev IS NOT NULL AND dev = ?) AS mine FROM dg').bind(dev || '').all();
-    return new Response(JSON.stringify({ ...DG, signups: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    const { absent, ...pub } = conf;   // 결강 교사 이름과 교사 목록은 관리자에게만
+    return new Response(JSON.stringify({ ...pub, admin, ...(admin ? { absent: absent || [], teachers: Object.keys(W_TT) } : {}), signups: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
@@ -76,10 +131,9 @@ async function dgApi(req, env, url) {
     try { body = await req.json(); } catch { return json({ error: '잘못된 요청입니다' }, 400); }
   }
   const slot = String((req.method === 'DELETE' ? url.searchParams.get('slot') : body.slot) || '');
-  const period = DG_SLOTS.get(slot);
+  const period = dgSlots(conf).get(slot);
   if (!period) return json({ error: '신청할 수 없는 칸입니다' }, 400);
-  const admin = !!env.APP_PW && req.headers.get('X-Pw') === env.APP_PW;
-  if (DG.closed && !admin) return json({ error: '신청이 마감되어 더 이상 바꿀 수 없습니다. 담당 선생님께 말씀해 주세요' }, 403);
+  if (conf.closed && !admin) return json({ error: '신청이 마감되어 더 이상 바꿀 수 없습니다. 담당 선생님께 말씀해 주세요' }, 403);
 
   if (req.method === 'POST') {
     const l = dgLabel(body.label);

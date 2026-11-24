@@ -743,6 +743,7 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
     <button class="hdr-tab" id="tabBtn-timetable" onclick="switchTab('timetable')">📋 시간표 편집</button>
     <button class="hdr-tab" id="tabBtn-dgsite" onclick="switchTab('dgsite')">대강 신청</button>
     <button class="hdr-tab" id="tabBtn-winter" onclick="switchTab('winter')">실습실 이동</button>
+    <button class="hdr-tab" id="tabBtn-viewsite" onclick="switchTab('viewsite')">시간표 조회</button>
   </div>
   <button id="fsConnectBtn" onclick="fsConnectBtnClick()" title="구글 드라이브의 '내 드라이브 › 결보강 프로그램' 폴더에 데이터를 자동 저장/불러오기"
     style="margin-left:8px;padding:4px 12px;font-size:12px;font-weight:700;border:1.5px solid #cbd5e1;border-radius:6px;background:#f1f5f9;color:#475569;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">☁️ 드라이브 연결</button>
@@ -775,6 +776,7 @@ html.view #mApp{max-width:560px;margin:0 auto;padding-bottom:16px!important;}
 <!-- 선생님용 신청 사이트(/dg 대강 신청, /winter 교실 → 실습실 수업 장소 이동)를 이 화면 안에서 본다. 탭을 열 때 불러온다 -->
 <div class="tab-pane" id="tab-dgsite"><iframe data-src="/dg" title="대강 신청" style="flex:1;width:100%;border:0;background:#fff"></iframe></div>
 <div class="tab-pane" id="tab-winter"><iframe data-src="/winter" title="교실 → 실습실 수업 장소 이동 신청" style="flex:1;width:100%;border:0;background:#fff"></iframe></div>
+<div class="tab-pane" id="tab-viewsite"><iframe data-src="/view" title="시간표 조회(보기 전용)" style="flex:1;width:100%;border:0;background:#fff"></iframe></div>
 <div class="tab-pane active" id="tab-swap">
 <div class="app">
 
@@ -5648,7 +5650,7 @@ function switchTab(tab){
   document.getElementById('tabBtn-swaphist').classList.toggle('active', tab==='swaphist');
   document.getElementById('tabBtn-timetable').classList.toggle('active', tab==='timetable');
   // 신청 사이트 탭: 열 때마다 새로 불러와 최신 신청을 본다. 컴퓨터에서 파일(file://)로 연 앱은 배포 주소로 연다
-  for(const t of ['dgsite','winter']){
+  for(const t of ['dgsite','winter','viewsite']){
     const on=tab===t, fr=document.querySelector('#tab-'+t+' iframe');
     document.getElementById('tab-'+t).classList.toggle('active', on);
     document.getElementById('tabBtn-'+t).classList.toggle('active', on);

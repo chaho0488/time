@@ -12,7 +12,7 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
   page.on('pageerror', e => { console.log('❌ 페이지 오류', e.message); fail++; });
   await page.route('**/*', r => { const p = new URL(r.request().url()).pathname;
     if (p === '/') return r.fulfill({ contentType: 'text/html', body: HTML });
-    if (p === '/dg' || p === '/winter') return r.fulfill({ contentType: 'text/html', body: `<h1>site ${p}</h1>` });
+    if (p === '/dg' || p === '/winter' || p === '/view') return r.fulfill({ contentType: 'text/html', body: `<h1>site ${p}</h1>` });
     return r.abort(); });
   await page.goto('http://fake.test/'); await page.waitForTimeout(500);
   const st = () => page.evaluate(() => ({ panes: [...document.querySelectorAll('.tab-pane.active')].map(e => e.id).join(), btns: [...document.querySelectorAll('.hdr-tab.active')].map(e => e.id).join(),
@@ -26,6 +26,8 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
   ok('실습실 이동 탭: /winter 가 화면 안에 크게 열림', s.panes === 'tab-winter' && s.btns === 'tabBtn-winter' && s.src === '|/winter' && h === 'site /winter' && box.height > 500 && box.width > 1000, { s, h, box });
   await page.evaluate(() => switchTab('dgsite')); s = await st();
   ok('대강 신청 탭: /dg 가 열림', s.panes === 'tab-dgsite' && s.btns === 'tabBtn-dgsite' && s.src.startsWith('/dg|') && (await page.frameLocator('#tab-dgsite iframe').locator('h1').textContent()) === 'site /dg', s);
+  await page.evaluate(() => switchTab('viewsite'));
+  ok('시간표 조회 탭: /view 가 열림', (await page.textContent('#tabBtn-viewsite')) === '시간표 조회' && (await page.evaluate(() => document.querySelector('.tab-pane.active').id + '|' + document.querySelector('#tab-viewsite iframe').getAttribute('src'))) === 'tab-viewsite|/view' && (await page.frameLocator('#tab-viewsite iframe').locator('h1').textContent()) === 'site /view');
   await page.evaluate(() => switchTab('swap')); s = await st();
   ok('교체 탐색 탭으로 돌아옴', s.panes === 'tab-swap' && s.btns === 'tabBtn-swap', s);
   await browser.close();

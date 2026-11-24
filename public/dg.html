@@ -32,6 +32,13 @@
   .x { margin-top: 4px; font-size: .8rem; color: #c62828; background: none; border: 1px solid #c62828; border-radius: 4px; cursor: pointer; }
   .admin { margin-top: 16px; font-size: .85rem; color: #777; }
   .admin input { width: 9em; }
+  .arow { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: .9rem; }
+  .arow input { padding: 6px 8px; font-size: .95rem; border: 1px solid #999; border-radius: 6px; } #dT { width: 10em; }
+  #adminBox button { padding: 6px 12px; font-size: .9rem; border: 1px solid #5B3FA8; border-radius: 6px; background: #fff; color: #5B3FA8; cursor: pointer; font-weight: 600; }
+  #adminBox #dNew { background: #5B3FA8; color: #fff; } #adminBox #dReset { border-color: #c62828; color: #c62828; margin-top: 0; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; background: #ece8f7; border-radius: 999px; font-weight: 600; }
+  .chip button { border: 0 !important; padding: 0 6px !important; background: none !important; color: #c62828 !important; }
+  #amsg { margin-top: 8px; min-height: 1.2em; font-weight: 600; }
   @media (max-width: 600px) {   /* 폰: 목요일 6교시도 한 화면에 들어가게 칸을 좁힘 */
     main { padding: 10px; }
     th, td { padding: 4px 2px; font-size: .8rem; }
@@ -62,6 +69,18 @@
   </div>
   <div id="tbl"></div>
   <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 모든 칸에 신청·수정·취소 단추가 보입니다)</div>
+  <!-- 관리자 전용(비밀번호가 맞을 때만 보임): 날짜와 결강 교사를 고르면 그날 수업 칸이 자동으로 만들어진다 -->
+  <div class="box" id="adminBox" hidden>
+    <b>관리자: 대강 표 만들기</b>
+    <div class="arow"><label for="dDate">날짜</label> <input id="dDate" type="date">
+      <label for="dT">결강 교사</label> <input id="dT" list="dTlist" placeholder="이름 입력 후 Enter" autocomplete="off"><datalist id="dTlist"></datalist>
+      <button type="button" id="dAdd">교사 추가</button></div>
+    <div class="arow" id="dPicked"></div>
+    <div class="arow"><button type="button" id="dNew">새 표 만들기 (지난 신청 지움)</button> <button type="button" id="dMore">지금 표에 추가</button></div>
+    <div class="arow" id="dNow"></div>
+    <div class="arow"><button type="button" id="dClose"></button> <button type="button" class="x" id="dReset">지난 내용 초기화</button></div>
+    <div id="amsg"></div>
+  </div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -71,12 +90,13 @@ let data = null;
 // 이 기기 표시: 처음 열 때 한 번 만들어 두고, 신청·취소·수정 때 함께 보내 '내 신청'을 알아본다
 let DEV = '';
 try { DEV = localStorage.getItem('dgDev') || ''; if (!DEV) { DEV = crypto.randomUUID(); localStorage.setItem('dgDev', DEV); } } catch {}
-const H = (extra = {}) => ({ 'X-Dev': DEV, ...extra });
+const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': $('pw').value, ...extra });   // 비밀번호를 함께 보내면 서버가 관리자인지 알려 준다
 
 // 이름-과목은 이 기기에 기억해 두어 다시 열어도 그대로
 try { $('me').value = localStorage.getItem('dgMe') || ''; } catch {}
 $('me').addEventListener('input', () => { try { localStorage.setItem('dgMe', $('me').value); } catch {} });
-$('pw').addEventListener('input', render);
+let pwT = 0;
+$('pw').addEventListener('input', () => { render(); clearTimeout(pwT); pwT = setTimeout(load, 400); });   // 비밀번호를 다 치면 서버에 관리자인지 확인
 
 function say(text, ok) { $('msg').textContent = text; $('msg').className = ok ? 'ok' : 'err'; }
 
@@ -97,6 +117,7 @@ function render() {
   const admin = $('pw').value !== '';
   const locked = data.closed && !admin;   // 마감 뒤에는 관리자만 단추가 보인다 (서버도 같은 규칙으로 막음)
   $('closed').hidden = !data.closed;
+  renderAdmin();
   // 교시 이름 '11/19(목) 1교시' → 날짜('11/19(목)')별로 표 하나씩. 그날 수업이 없는 학급 줄은 뺀다
   const days = new Map();
   for (const c of data.cols) { const d = c[1].split(' ')[0]; if (!days.has(d)) days.set(d, []); days.get(d).push(c); }
@@ -118,8 +139,50 @@ function render() {
     }
     h += '</tbody></table></div>';
   }
-  $('tbl').innerHTML = h;
+  $('tbl').innerHTML = h || '<div class="box">지금 받고 있는 대강 신청이 없습니다.</div>';
 }
+
+// ── 관리자: 표 만들기(날짜 + 결강 교사 여러 명) · 마감 · 초기화 ──
+const pickedT = [];
+function asay(text, ok) { $('amsg').textContent = text; $('amsg').className = ok ? 'ok' : 'err'; }
+function renderAdmin() {
+  const on = !!data.admin;
+  $('adminBox').hidden = !on;
+  if (!on) return;
+  if (!$('dTlist').children.length) $('dTlist').innerHTML = (data.teachers || []).map(t => `<option value="${esc(t)}">`).join('');
+  $('dPicked').innerHTML = pickedT.length ? pickedT.map(t => `<span class="chip">${esc(t)}<button type="button" data-rm="${esc(t)}" aria-label="${esc(t)} 빼기">✕</button></span>`).join('') : '<span style="color:#777">결강 교사를 한 명 이상 추가하세요 (여러 명 가능)</span>';
+  $('dNow').innerHTML = '<span style="color:#777">지금 표: ' + ((data.absent || []).length ? data.absent.map(esc).join(', ') : data.cols.length ? esc(data.title) : '없음') + '</span>';
+  $('dClose').textContent = data.closed ? '마감 풀기 (다시 신청 받기)' : '신청 마감하기';
+}
+function addT() {
+  const v = $('dT').value.trim();
+  if (!v) return;
+  if (!(data.teachers || []).includes(v)) return asay(`${v}: 목록에 없는 교사입니다. 목록에서 골라 주세요`);
+  if (!pickedT.includes(v)) pickedT.push(v);
+  $('dT').value = ''; asay('', true); renderAdmin(); $('dT').focus();
+}
+$('dAdd').addEventListener('click', addT);
+$('dT').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addT(); } });
+$('dPicked').addEventListener('click', e => { const b = e.target.closest('button[data-rm]'); if (b) { pickedT.splice(pickedT.indexOf(b.dataset.rm), 1); renderAdmin(); } });
+const adminCall = (method, body, q = '') => fetch('/api/dg' + q, { method, headers: H({ 'Content-Type': 'application/json' }), body: body && JSON.stringify(body) })
+  .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
+async function build(add) {
+  if ($('dT').value.trim()) addT();   // 칸에 적어만 두고 '추가'를 안 누른 이름도 넣는다
+  if (!$('dDate').value) return asay('날짜를 골라 주세요');
+  if (!pickedT.length) return asay('결강 교사를 한 명 이상 추가해 주세요');
+  if (!add && (data.cols.length || data.signups.length) && !confirm('새 표를 만들면 지금 표와 신청 ' + data.signups.length + '건이 모두 지워집니다. 계속할까요?')) return;
+  const r = await adminCall('PUT', { date: $('dDate').value, teachers: pickedT, add });
+  asay(r.ok ? `${r.added}칸을 ${add ? '추가했습니다' : '만들었습니다'}: ${r.title}` : r.error, r.ok);
+  if (r.ok) pickedT.length = 0;
+  load();
+}
+$('dNew').addEventListener('click', () => build(false));
+$('dMore').addEventListener('click', () => build(true));
+$('dClose').addEventListener('click', async () => { const r = await adminCall('PUT', { closed: !data.closed }); asay(r.ok ? (r.closed ? '신청을 마감했습니다' : '다시 신청을 받습니다') : r.error, r.ok); load(); });
+$('dReset').addEventListener('click', async () => {
+  if (!confirm('지난 내용을 초기화할까요? 표와 신청 ' + data.signups.length + '건이 모두 지워지고 되돌릴 수 없습니다.')) return;
+  const r = await adminCall('DELETE', null, '?all=1'); asay(r.ok ? '초기화했습니다' : r.error, r.ok); load();
+});
 
 $('tbl').addEventListener('click', async e => {
   const b = e.target.closest('button');
