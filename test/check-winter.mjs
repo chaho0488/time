@@ -7,7 +7,8 @@ import worker from '../src/worker.js';
 Date.now = () => Date.parse('2026-11-24T03:00:00Z');   // 점검 기준일: 2026-11-24(화) 한국 시각 낮 12시
 
 // D1 흉내: prepare().bind().run()/all()/first(), batch(한 묶음 = 전부 되거나 전부 안 됨)
-export function fakeEnv() {
+// seed=true: 이용가능 실을 점검용 고정값(2D·3B·3C 11/25)으로 넣어 둔다 — 실제 기본값(W_AVAIL_DEFAULT)이 바뀌어도 점검은 그대로
+export function fakeEnv(seed = true) {
   const db = new DatabaseSync(':memory:');
   const D1 = {
     prepare(sql) {
@@ -26,7 +27,7 @@ export function fakeEnv() {
       return [];
     },
   };
-  const kv = new Map();
+  const kv = new Map(seed ? [['winterAvail2', JSON.stringify({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' })]] : []);
   return { DG: D1, DATA: { get: async k => kv.get(k) ?? null, put: async (k, v) => { kv.set(k, v); } }, APP_PW: 'pw', ASSETS: { fetch: () => new Response('asset') } };
 }
 
@@ -43,7 +44,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal(r.status, 200);
   assert.equal(r.rooms.length, 24, '실습실 23곳 + 1층 프로젝트실(음악실)');
   assert.deepEqual([r.start, r.fixed], [D, { '1P': '음악실' }]);
-  assert.deepEqual(r.avail, { '2D': D, '3B': D, '3C': D }, '처음에는 2D·3B·3C 가 11/25부터 이용가능');
+  assert.deepEqual(r.avail, { '2D': D, '3B': D, '3C': D }, '점검용 고정값: 2D·3B·3C 가 11/25부터 이용가능');
+  // 저장된 값이 없을 때의 기본값 = 2026-11-24 실습실 현황표의 가능 시작일
+  const def = (await (await worker.fetch(new Request('https://x/api/winter'), { ...env, DATA: { get: async () => null, put: async () => {} } })).json()).avail;   // 같은 표, 빈 KV
+  assert.equal(Object.keys(def).length, 17, '날짜가 있는 실 17곳');
+  assert.deepEqual([def['2A'], def['2D'], def['1A'], def['2G'], def['2C'], def['4D']], ['2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-30', '2026-12-02']);
+  assert.ok(['1C', '1D', '2E', '2X', '2Y', '4A', '1P'].every(c => !(c in def)), 'X 인 실과 음악실은 이용가능 목록에 없음');
   assert.equal(r.today, '2026-11-24');
   assert.equal(r.admin, false, '비밀번호 없이는 관리자가 아님');
   assert.equal((await call('GET', null, { 'X-Pw': 'x' })).admin, false, '틀린 비밀번호');

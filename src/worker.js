@@ -120,7 +120,7 @@ async function dgApi(req, env, url) {
 //   PUT    /api/winter       → 이용가능 실 목록 {avail:{실 코드: 이용 시작일}}                — 비밀번호(X-Pw)
 //   /winter                  → public/winter.html
 // 신청은 '매주 그 요일·교시 수업을 시작일부터 옮긴다'는 뜻이라 한 줄 = 교사의 수업 한 칸(요일교시).
-// 신청은 D1(DG)의 winter2 표(처음 부를 때 자동 생성), 이용가능 실 목록은 KV(DATA)의 winterAvail.
+// 신청은 D1(DG)의 winter2 표(처음 부를 때 자동 생성), 이용가능 실 목록은 KV(DATA)의 winterAvail2(없으면 W_AVAIL_DEFAULT).
 const W_ROOMS = [
   ['1A', '공유압실습실_01'], ['1B', '내선공사실습실_01'], ['1C', '내선공사실습실_02'],
   ['1D', '설비보전실습실'], ['1P', '프로젝트실(음악실)'], ['2A', '공유압실습실_02'], ['2B', '동력설비공사실습실'],
@@ -197,12 +197,19 @@ for (const [t, sc] of Object.entries(W_TT)) for (const [k, v] of Object.entries(
 const W_SHIFT = { '2026-11-26': { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6 } };
 // 이용가능한 실 → 이용 시작일. 그 날짜부터만 이용가능으로 보인다(관리자가 화면에서 바꿀 수 있음)
 const W_START = '2026-11-25';   // 실습실 이동이 시작되는 날: 이보다 앞선 날짜는 신청도 화면 조회도 안 됨
-const W_AVAIL_DEFAULT = { '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' };
+// 기본값: 2026-11-24 실습실 현황표의 '가능 시작일'(X 인 1C·1D·2E·2X·2Y·4A 는 없음 = 수업 불가)
+const W_AVAIL_DEFAULT = {
+  '1A': '2026-11-27', '1B': '2026-11-30',
+  '2A': '2026-11-25', '2B': '2026-11-25', '2C': '2026-11-30', '2D': '2026-11-26', '2F': '2026-11-25', '2G': '2026-11-28',
+  '3A': '2026-11-25', '3B': '2026-11-26', '3C': '2026-11-26', '3D': '2026-11-25', '3E': '2026-11-30', '3F': '2026-11-25',
+  '4B': '2026-11-25', '4C': '2026-11-25', '4D': '2026-12-02',
+};
+const W_AVAIL_KEY = 'winterAvail2';   // 기본값을 현황표대로 새로 잡으면서 이름을 바꿈(예전 winterAvail 은 더 읽지 않음)
 
 const wToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // 한국 날짜
 const wIsDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(new Date(d + 'T00:00:00Z')) && new Date(d + 'T00:00:00Z').toISOString().slice(0, 10) === d;
 async function wAvail(env) {
-  try { const a = JSON.parse((await env.DATA.get('winterAvail')) || 'null'); if (a && typeof a === 'object' && !Array.isArray(a)) return a; } catch {}
+  try { const a = JSON.parse((await env.DATA.get(W_AVAIL_KEY)) || 'null'); if (a && typeof a === 'object' && !Array.isArray(a)) return a; } catch {}
   return W_AVAIL_DEFAULT;
 }
 // winter2 표: 같은 요일교시에 같은 학급·같은 교사·같은 실은 한 번만
@@ -274,7 +281,7 @@ async function winterApi(req, env, url) {
     if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(c => !W_CODES.has(c)) || Object.values(a).some(d => typeof d !== 'string' || !wIsDate(d)))
       return json({ error: '실 코드 또는 이용 시작일이 올바르지 않습니다' }, 400);
     const avail = Object.fromEntries(W_ROOMS.map(r => r[0]).filter(c => c in a).map(c => [c, a[c]]));
-    await env.DATA.put('winterAvail', JSON.stringify(avail));
+    await env.DATA.put(W_AVAIL_KEY, JSON.stringify(avail));
     return json({ ok: true, avail });
   }
 
