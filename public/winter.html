@@ -310,6 +310,8 @@
   .pr.off, #mytt td.lab, #mytt td.lab small { color: var(--sub); }
   /* 배치도: 아직 못 쓰는 실 안의 이용 시작 날짜(예: 12/2~)는 보이지 않게 — 칸을 길게 누르면 뜨는 설명에는 남아 있다 */
   .plan .pr.off em { display: none; }
+  /* 교사명 아래 안내문과 '교체·대강으로 바뀐 수업도…' 문장은 보이지 않게 (스크립트가 이 칸을 찾으므로 칸은 남겨 둔다) */
+  #nameHint, #swapNote { display: none; }
   /* 3) 휴대폰 */
   @media (max-width: 600px) {
     /* 내 시간표의 수업 칸은 누르기 쉽게 44px */
