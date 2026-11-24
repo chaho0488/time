@@ -74,7 +74,13 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
       return { w: innerWidth, names: ['2D', '2F', '2X', '3B', '4B'].map(c => nm(c).textContent + (vis(nm(c)) ? '' : '(숨김)')).join(), all: [...document.querySelectorAll('#grid .pr')].every(b => vis(b.querySelector('span:not(.pcmark)'))), fits,
         pc: [...document.querySelectorAll('#grid .pr')].filter(b => b.querySelector('.pcmark')).map(b => b.dataset.plan).sort().join(), pcText: document.querySelector('#grid .pr .pcmark').textContent }; });
     ok('폰 폭(390px)에서도 배치도에 줄인 실 이름이 모두 보이고 칸 밖으로 넘치지 않음', v.w === 390 && v.names === '송변전,전기기기,생산자동화1,제어기기,전기설비1' && v.all && !v.fits.length, v);
-    ok('PC 사용가능 실 7곳(2E·2G·2X·2Y·3B·3C·3F)에 PC 표시', v.pc === '2E,2G,2X,2Y,3B,3C,3F' && v.pcText === 'PC', v); }
+    ok('PC 사용가능 실 7곳(2E·2G·2X·2Y·3B·3C·3F)에 PC 표시', v.pc === '2E,2G,2X,2Y,3B,3C,3F' && v.pcText === 'PC', v);
+    // 배치도 글자는 화면 폭에 따라 커짐: 390px → 760px → 1100px
+    const sizes = async w => { await page.setViewportSize({ width: w, height: 900 }); return page.evaluate(() => { const px = q => Math.round(parseFloat(getComputedStyle(document.querySelector(q)).fontSize) * 10) / 10;
+      return { code: px('#grid .pr[data-plan="2D"] b'), name: px('#grid .pr[data-plan="2D"] span:not(.pcmark)'), free: px('#grid .pr[data-plan="2D"] em'),
+        fits: [...document.querySelectorAll('#grid .pr')].filter(b => b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.plan), over: document.documentElement.scrollWidth > innerWidth + 1 }; }); };
+    const a = await sizes(390), b = await sizes(760), c = await sizes(1100); await page.setViewportSize({ width: 390, height: 800 });
+    ok('배치도 글자가 화면 폭에 비례해 커짐(폰에서도 실 코드 15px·이름 12px 이상), 어느 폭에서도 칸 밖으로 넘치지 않음', a.code >= 15 && a.name >= 12 && b.name > a.name && c.name > b.name && c.code > b.code && c.code >= 24 && ![a, b, c].some(x => x.fits.length || x.over), { a, b, c }); }
   await page.click('#grid .pr[data-plan="2D"]');
   t = await page.evaluate(() => ({ rooms: [...document.querySelectorAll('#grid .room')].map(r => r.dataset.room).join(), cells: [...document.querySelectorAll('#grid .room .strip li')].map(li => li.className).join(), name: document.querySelector('#grid .room .rname').textContent,
     pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: document.querySelector('#grid .ftable').previousElementSibling.querySelector('[data-plan="2D"]') !== null || document.querySelector('#grid .ftable').previousElementSibling.classList.contains('plan') }));
@@ -125,7 +131,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
 // 신청 → 신청 내역 2줄(배정 대기), 내 시간표의 그 칸은 '신청됨'
 await page.click('#send'); await page.waitForSelector('#list table');
 let sum = await page.evaluate(() => ({ head: [...document.querySelectorAll('#list table.sum > thead th')].map(t => t.textContent.trim()).join('|'), rows: [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].map(c => c.textContent).join('|')), detail: document.querySelectorAll('#list tr.d').length }));
-ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역은 접혀 있음)', sum.head === '|교사 ▲|과목|학반|' && sum.rows.join() === '|성준혁|과학|1신1, 1신3|자세히' && sum.detail === 0, sum);
+ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역은 접혀 있음), 선생님 화면에는 선택 칸·일괄 취소 단추가 없음', sum.head === '|교사 ▲|과목|학반|' && sum.rows.join() === '|성준혁|과학|1신1, 1신3|자세히' && sum.detail === 0 && !(await page.locator('#bulkDel, #list input[type=checkbox]').count()), sum);
 await page.click('#list button[data-open]');
 s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent, rows: [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => [...tr.cells].map(c => c.textContent).join('|')),
   req: [...document.querySelectorAll('#mytt td.req')].map(td => td.textContent), del: document.querySelectorAll('#list button[data-del]').length, sel: document.querySelectorAll('#list select').length }));
@@ -196,16 +202,17 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   for (const t of ['정선화', '김학선']) { const r = await post(t, pick(t)); if (!r.ok) console.log('점검용 신청 실패', t, r); }
   await page.reload(); await page.waitForSelector('#list tr.g');
   const col = i => page.evaluate(i => [...document.querySelectorAll('#list tr.g')].map(tr => tr.cells[i].textContent), i);
-  let v = { names: await col(1), boxes: await page.locator('#list input[data-pick]').count(), bulk: await page.evaluate(() => document.getElementById('bulkDel').disabled) };
-  ok('신청 내역 3줄: 교사 이름순, 내 신청(성준혁)만 고를 수 있고 취소 단추는 꺼져 있음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 1 && v.bulk, v);
+  let v = { names: await col(1), boxes: await page.locator('#list input[type=checkbox]').count(), bulk: await page.locator('#bulkDel').count() };
+  ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 내 신청이 있어도 선택 칸과 "선택한 신청 취소" 단추가 없음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 0 && v.bulk === 0, v);
   await page.click('#list button[data-sort="teacher"]'); v = await col(1);
   ok('교사 제목을 다시 누르면 거꾸로 정렬', v.join() === '정선화,성준혁,김학선', v);
   await page.click('#list button[data-sort="subject"]'); v = { subj: await col(2), head: await page.evaluate(() => document.querySelector('#list th[aria-sort="ascending"]').textContent.trim()) };
   ok('과목 제목을 누르면 과목순', v.subj.join() === [...v.subj].sort((a, b) => a.localeCompare(b, 'ko')).join() && v.head === '과목 ▲', v);
   await page.click('#list button[data-sort="cls"]'); v = await col(3);
   ok('학반 제목을 누르면 학반순(1학년 → 2학년, 전기반 → 신재생반)', v.map(x => x.split(',')[0]).join() === [...v].map(x => x.split(',')[0]).sort((a, b) => (a[0] + (a[1] === '전' ? 0 : 1) + a[2]).localeCompare(b[0] + (b[1] === '전' ? 0 : 1) + b[2])).join(), v);
-  // 관리자는 모든 줄을 고를 수 있음 → 두 줄을 골라 한 번에 취소
+  // 관리자만 줄을 고를 수 있음 → 두 줄을 골라 한 번에 취소
   await login(); await page.waitForFunction(() => document.querySelectorAll('#list input[data-pick]').length === 3);
+  ok('관리자로 로그인하면 줄마다 선택 칸과 꺼진 "선택한 신청 취소" 단추가 나옴', await page.evaluate(() => document.getElementById('bulkDel').disabled && !!document.getElementById('pickAllReq')));
   await page.check('#list input[data-pick^="정선화"]'); await page.check('#list input[data-pick^="김학선"]');
   v = await page.textContent('#bulkDel');
   ok('두 줄을 고르면 "선택한 신청 취소 (4건)"', v === '선택한 신청 취소 (4건)', v);
