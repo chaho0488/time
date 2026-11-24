@@ -74,6 +74,7 @@
   /* 내 수업 장소(실습실에서 하는 수업) 목록과 인쇄·엑셀 단추 */
   .mine { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
   .mine ul { margin: 6px 0 8px; padding-left: 1.2em; font-size: .9rem; }
+  .mine button:disabled { opacity: .45; cursor: default; } .mine button.x { border-color: var(--err, #B3261E); color: var(--err, #B3261E); }
   .mine button { padding: 6px 12px; margin-right: 6px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
   /* 인쇄: 교실에 붙일 안내 한 장만 */
   #printArea { display: none; }
@@ -379,6 +380,7 @@ const PLAN = {
         bottom: [['', 3179], ['', 11765, '4C'], ['', 12331, '4D'], ['약품실', 4156]], right: ['체력단련실', 11709] }],
 };
 let multi = false; const picked = new Set();   // 여러 수업을 한 번에 고르기: 켜면 수업 칸이 여러 개 골라지고, 고른 시간 모두에 비어 있는 실을 본다(pop === '*')
+const mineSel = new Set();         // '실습실에서 하는 수업' 목록에서 한 번에 취소하려고 고른 내 신청(id)
 const moreSel = new Set();         // '다른 시간에도 비어 있음' 창에서 고른 칸
 let more = null;                   // 방금 고른 실이 내 다른 수업 시간에도 비어 있을 때 띄우는 안내 { room, from }
 let pop = '', popErr = '';         // 실 고르기 창을 띄운 내 시간표 칸(요일교시)과 그 창에 보일 오류
@@ -479,10 +481,12 @@ function renderMine() {
     }
     h += '</tr>';
   }
-  const mv = myMoves();
+  const mv = myMoves(), mine = mv.filter(r => r.mine || data.admin);   // 취소할 수 있는 것: 이 기기에서 한 신청(관리자는 전부)
+  for (const id of [...mineSel]) if (!mine.some(r => r.id === id)) mineSel.delete(id);
   $('mytt').innerHTML = h + '</tbody></table></div>'
-    + (mv.length ? `<div class="mine"><b>실습실에서 하는 수업 ${mv.length}건</b><ul>${mv.map(r => `<li>${r.slot[0]} ${r.slot[1]}교시 · ${esc(r.cls)} ${esc(r.subject)} → <b>${r.room} ${esc(fullRoom(r.room))}</b> (${r.room[0]}층, ${md(startOf(r))}부터)</li>`).join('')}</ul>`
-      + '<button type="button" id="printMine">교실 안내용 인쇄</button><button type="button" id="xlsMine">엑셀로 받기</button></div>' : '');
+    + (mv.length ? `<div class="mine"><b>실습실에서 하는 수업 ${mv.length}건</b><ul>${mv.map(r => `<li>${r.mine || data.admin ? `<input type="checkbox" data-mine="${r.id}"${mineSel.has(r.id) ? ' checked' : ''} aria-label="${r.slot[0]} ${r.slot[1]}교시 취소 선택"> ` : ''}${r.slot[0]} ${r.slot[1]}교시 · ${esc(r.cls)} ${esc(r.subject)} → <b>${r.room} ${esc(fullRoom(r.room))}</b> (${r.room[0]}층, ${md(startOf(r))}부터)</li>`).join('')}</ul>`
+      + '<button type="button" id="printMine">교실 안내용 인쇄</button><button type="button" id="xlsMine">엑셀로 받기</button>'
+      + (mine.length ? `<button type="button" id="mineAll">${mineSel.size === mine.length ? '전체 선택 해제' : '전체 선택'}</button><button type="button" id="mineDel" class="x"${mineSel.size ? '' : ' disabled'}>선택한 신청 취소${mineSel.size ? ` (${mineSel.size}건)` : ''}</button>` : '') + '</div>' : '');
   renderPop();
 }
 // 실을 고른 내 신청(요일·교시 순)과 실의 전체 이름
@@ -615,6 +619,13 @@ function renderPop() {
 $('mytt').addEventListener('click', e => {
   if (e.target.closest('#printMine')) return printMine();
   if (e.target.closest('#xlsMine')) return void xlsMine();
+  if (e.target.closest('#mineAll')) { const ids = myMoves().filter(r => r.mine || data.admin).map(r => r.id); if (mineSel.size === ids.length) mineSel.clear(); else ids.forEach(id => mineSel.add(id)); return renderMine(); }
+  if (e.target.closest('#mineDel')) {   // 내 신청 여러 건을 한 번에 취소
+    const ids = [...mineSel];
+    if (!ids.length || !confirm(`선택한 신청 ${ids.length}건을 취소할까요?`)) return;
+    mineSel.clear(); pop = ''; more = null;
+    return void cancelIds(ids).then(({ done, err }) => say(err ? `${done}건 취소, ${ids.length - done}건은 취소하지 못했습니다: ${err}` : `${done}건을 취소했습니다`, !err));
+  }
   if (e.target.closest('#multiGo')) { if (picked.size) { pop = '*'; popErr = ''; more = null; renderMine(); } return; }
   const b = e.target.closest('button[data-slot]');
   if (!b) return;
@@ -623,7 +634,8 @@ $('mytt').addEventListener('click', e => {
   renderMine();
 });
 $('from').addEventListener('change', () => renderMine());   // 머리줄 날짜도 바뀌므로 내 시간표째 다시 그림(창도 함께)
-$('mytt').addEventListener('change', e => { if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
+$('mytt').addEventListener('change', e => { const m = e.target.closest('input[data-mine]'); if (m) { const id = Number(m.dataset.mine); if (m.checked) mineSel.add(id); else mineSel.delete(id); return renderMine(); }
+  if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
 $('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
 $('noticeNever').addEventListener('click', () => { try { localStorage.setItem('winterNoNotice', weekKey()); } catch {} $('notice').hidden = true; });   // 이 기기에서 이번 주에는 다시 띄우지 않음

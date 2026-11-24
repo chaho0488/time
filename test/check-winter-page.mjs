@@ -225,8 +225,15 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   v = await page.evaluate(() => ({ title: document.getElementById('popTitle').textContent, n: document.querySelectorAll('#pop button[data-more]').length, bg: getComputedStyle(document.querySelector('#pop button[data-more]')).backgroundColor, req: getComputedStyle(document.querySelector('#pop .moregrid td.req')).backgroundColor }));
   ok('여러 칸을 한 번에 신청한 뒤에도 "다른 시간에도 비어 있습니다" 창이 뜨고, 가능한 칸은 신청한 수업과 같은 색', v.title.includes('3C') && v.title.includes('다른 시간에도 비어 있습니다') && v.n >= 1 && v.bg === v.req, v);
   await page.click('#moreNo');
+  // 교사 본인 일괄 취소: 목록에서 한 건을 골라 취소하면 그 건만 지워지고, 관리자가 아니어도 된다
+  { const b = await page.evaluate(() => ({ n: document.querySelectorAll('#mytt input[data-mine]').length, dis: document.getElementById('mineDel').disabled, admin: !!data.admin }));
+    await page.click('#mineAll'); const all = await page.textContent('#mineDel'); await page.click('#mineAll');
+    await page.locator('#mytt input[data-mine]').first().check(); await page.click('#mineDel');
+    await page.waitForFunction(n => document.querySelectorAll('#mytt input[data-mine]').length === n - 1 && document.getElementById('msg').textContent.includes('1건을 취소'), b.n);
+    const left = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.length;
+    ok('교사 본인 일괄 취소: 전체 선택·골라서 취소(관리자 아님), 서버에서도 지워짐', b.n >= 2 && b.dis && !b.admin && all === `선택한 신청 취소 (${b.n}건)` && left === b.n - 1 && asked.at(-1) === '선택한 신청 1건을 취소할까요?', { b, all, left, asked: asked.at(-1) }); }
   await page.uncheck('#multiOn');
-  for (const k of ['수4', other]) { await page.click(`#mytt button[data-slot="${k}"]`); await page.click('#pop button[data-cancel]'); await page.waitForFunction(k => !document.querySelector(`#mytt button[data-slot="${k}"]`).classList.contains('req'), k); } }
+  for (const k of ['수4', other]) { if (!(await page.locator(`#mytt button.req[data-slot="${k}"]`).count())) continue;   /* 위 일괄 취소에서 이미 지운 칸 */ await page.click(`#mytt button[data-slot="${k}"]`); await page.click('#pop button[data-cancel]'); await page.waitForFunction(k => !document.querySelector(`#mytt button[data-slot="${k}"]`).classList.contains('req'), k); } }
 
 // (아래 점검용) 실을 고르지 않은 신청 2건을 이 기기 이름으로 넣어 둔다: 예전 방식 신청·관리자 대신 배정 흐름 확인
 { const dev = await page.evaluate(() => localStorage.getItem('dgDev'));
