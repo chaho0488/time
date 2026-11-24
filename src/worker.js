@@ -113,7 +113,7 @@ async function dgApi(req, env, url) {
 }
 
 // ───────── 한파 수업 장소 이동 신청(/winter) ─────────
-//   GET    /api/winter       → 실습실 목록·교사별 시간표·전공 수업·이용가능 실·신청 내역      — 비밀번호 없음
+//   GET    /api/winter       → 실습실 목록·교사별 시간표·전공 수업·이용가능 실·신청 내역      — 비밀번호 없음 (X-Pw 가 맞으면 admin:true — 관리자 로그인 확인용)
 //   POST   /api/winter       → 신청 {teacher, from(이동 시작일), slots:[요일교시…]}          — 비밀번호 없음
 //   DELETE /api/winter?id=   → 신청 취소                                                    — 신청한 기기(X-Dev) 또는 비밀번호(X-Pw)
 //   PATCH  /api/winter       → 실습실 배정 {id, room} (room 이 '' 이면 배정 취소)           — 비밀번호(X-Pw)
@@ -221,7 +221,7 @@ async function winterApi(req, env, url) {
 
   if (req.method === 'GET') {
     const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, fixed: W_FIXED, start: W_START, avail: await wAvail(env), today: wToday(), reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, fixed: W_FIXED, start: W_START, avail: await wAvail(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 

@@ -24,6 +24,7 @@ await page.route('**/*', async r => {
 });
 await page.goto('https://fake.test/winter');   /* https: 기기 표시(crypto.randomUUID)는 보안 주소에서만 만들어짐 */
 await page.waitForSelector('#grid .room');
+const login = async () => { await page.fill('#pw', 'pw'); await page.click('#login'); await page.waitForSelector('#adminOn:not([hidden])'); };
 const names = () => page.evaluate(() => document.getElementById('tlist').hidden ? [] : [...document.querySelectorAll('#tlist button')].map(b => b.textContent));
 const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [...document.querySelectorAll('#' + id + ', #' + id + ' .wrap')].some(w => w.scrollWidth > w.clientWidth + 1)).concat(document.documentElement.scrollWidth > innerWidth + 1 ? ['화면'] : []));
 
@@ -84,8 +85,17 @@ s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent
 ok('신청 2줄: 요일·교시·학급·과목·교사·시작일, 배정 대기, 내 신청이라 취소 단추', s.msg.startsWith('신청되었습니다') && s.rows.join() === '수 3교시|1신3|과학|성준혁|11/25(수)부터|배정 대기|취소,수 4교시|1신1|과학|성준혁|11/25(수)부터|배정 대기|취소' && s.del === 2 && s.sel === 0, s);
 ok('내 시간표의 신청한 칸은 "신청됨"으로 바뀌고 다시 고를 수 없음', s.req.join() === '1신3신청됨,1신1신청됨', s);
 
+// 관리자 로그인: 빈 칸·틀린 비밀번호는 안내가 뜨고 관리자 화면이 열리지 않음, 맞으면 '관리자 로그인됨'
+s = await page.evaluate(() => ({ btn: document.getElementById('login').textContent, on: !document.getElementById('adminOn').offsetParent && !!document.getElementById('login').offsetParent }));
+ok('맨 위에 "관리자 로그인" 단추가 있음', s.btn === '관리자 로그인' && s.on, s);
+await page.click('#login');
+ok('비밀번호 없이 누르면 "비밀번호를 입력해 주세요"', (await page.textContent('#adminMsg')) === '비밀번호를 입력해 주세요');
+await page.fill('#pw', '틀림'); await page.click('#login'); await page.waitForFunction(() => document.getElementById('adminMsg').textContent.includes('맞지'));
+ok('틀린 비밀번호: "비밀번호가 맞지 않습니다", 관리자 화면은 열리지 않음', (await page.locator('#list select').count()) === 0 && (await page.evaluate(() => document.getElementById('adminOn').hidden)));
+await login();
+s = await page.evaluate(() => ({ on: document.getElementById('adminOn').textContent, inHidden: !document.getElementById('adminIn').offsetParent && !document.getElementById('login').offsetParent && !!document.getElementById('logout').offsetParent, msg: document.getElementById('adminMsg').textContent, hint: document.getElementById('adminHint').hidden }));
+ok('맞는 비밀번호: "관리자 로그인됨"과 로그아웃 단추·관리자 안내가 보임', s.on.includes('관리자 로그인됨') && s.on.includes('로그아웃') && s.inHidden && !s.msg && !s.hint, s);
 // 관리자: 수3 은 세 곳 모두 전공 수업이라 빈 실 없음, 수4 는 2D·3B·3C 중에서 고름
-await page.fill('#pw', 'pw');
 s = await page.evaluate(() => [...document.querySelectorAll('#list select')].map(x => [...x.options].map(o => o.value).join('/')));
 ok('배정 칸에는 그 요일교시에 빈 이용가능 실만 (수3: 없음, 수4: 2D·3B·3C)', s.join() === ',/2D/3B/3C' && (await page.textContent('#list tbody tr')).includes('빈 실 없음'), s);
 // 빈 실 칸을 눌러 배정: 3B 수4 칸에 '대기 1건' → 누르면 그 시간 신청 목록 → 신청을 누르면 3B 에 배정
@@ -117,13 +127,13 @@ await page.check('#grid input[data-avail="2A"]');
 await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 20);
 ok('관리자가 이용가능 표시를 끄고 켜면 회색 닫힘이 바로 바뀜', true);
 
-// 비밀번호를 지우면(다른 선생님 화면) 배정 결과가 글자로 보임
-await page.fill('#pw', '');
+// 로그아웃하면(다른 선생님 화면) 배정 결과가 글자로 보임
+await page.click('#logout'); await page.waitForSelector('#adminIn:not([hidden])');
 s = await page.evaluate(() => document.querySelector('#list tbody tr:nth-child(2)').textContent);
 ok('선생님 화면에는 배정된 실습실 이름이 보임', s.includes('2D 송변전배전설비운영'), s);
 ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s = await over()).length, s);
 if (process.env.SHOT) { await page.click('#prev'); await page.screenshot({ path: process.env.SHOT + '-phone.png', fullPage: true });
-  await page.setViewportSize({ width: 1100, height: 900 }); await page.fill('#pw', 'pw'); await page.screenshot({ path: process.env.SHOT + '-pc.png', fullPage: true }); }
+  await page.setViewportSize({ width: 1100, height: 900 }); await login(); await page.screenshot({ path: process.env.SHOT + '-pc.png', fullPage: true }); }
 
 await browser.close();
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');

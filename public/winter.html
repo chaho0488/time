@@ -107,8 +107,14 @@
   #list .empty { padding: 18px; color: var(--sub); }
   .x { font-size: .85rem; font-weight: 700; color: var(--red); background: none; border: 1.5px solid var(--red); border-radius: 6px; cursor: pointer; padding: 3px 9px; }
   .wait { color: var(--warm-ink); font-weight: 700; }
-  .admin { font-size: .85rem; color: var(--sub); white-space: nowrap; }
-  .admin input { width: 8em; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; margin-left: 4px; }
+  .admin { font-size: .9rem; margin: 0; }
+  .admin span { display: inline-flex; align-items: center; gap: 6px; }
+  .admin span[hidden] { display: none; }   /* 위 display 가 hidden 을 덮어쓰지 않게 */
+  .admin input { width: 9.5em; padding: 7px 9px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; }
+  .admin button { padding: 7px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  #login { background: var(--ink); color: #fff; }
+  #adminMsg { font-size: .85rem; font-weight: 700; margin-top: 4px; }
+  #adminMsg:empty { display: none; }
   #adminHint { margin: -8px 0 16px; }
   /* 관리자: 빈 실 칸을 누르면 그 시간에 기다리는 신청을 골라 배정 */
   .strip li button { display: block; width: 100%; min-height: 2.2em; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
@@ -135,7 +141,11 @@
 <main>
   <div class="top">
     <h1>한파 관련 수업 장소 이동 신청</h1>
-    <label class="admin">관리자 <input id="pw" type="password" placeholder="비밀번호" autocomplete="off"></label>
+    <form class="admin" id="adminForm">
+      <span id="adminIn"><input id="pw" type="password" placeholder="관리자 비밀번호" autocomplete="off" aria-label="관리자 비밀번호"><button id="login">관리자 로그인</button></span>
+      <span id="adminOn" hidden><b class="ok">관리자 로그인됨</b><button type="button" id="logout">로그아웃</button></span>
+      <div id="adminMsg" class="err" role="alert"></div>
+    </form>
   </div>
   <p id="adminHint" class="fine" hidden>관리자 화면입니다. 실습실 시간표의 노란 "빈 실" 칸을 누르면 그 시간에 기다리는 신청을 골라 배정할 수 있습니다. 실 이름 앞 체크는 보고 있는 날짜부터 이용가능으로 표시합니다.</p>
 
@@ -186,7 +196,10 @@ const picked = new Set();          // 내 시간표에서 고른 칸(요일교�
 // 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
 let DEV = '';
 try { DEV = localStorage.getItem('dgDev') || ''; if (!DEV) { DEV = crypto.randomUUID(); localStorage.setItem('dgDev', DEV); } } catch {}
-const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': $('pw').value, ...extra });
+// 관리자 비밀번호: '관리자 로그인'을 눌러 서버가 맞다고 한 값만 쓴다. 이 탭을 닫을 때까지 기억
+let PW = '';
+try { PW = sessionStorage.getItem('winterPw') || ''; } catch {}
+const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': PW, ...extra });
 
 function say(text, ok) { $('msg').textContent = text; $('msg').className = ok ? 'ok' : 'err'; }
 const dayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); return isNaN(d) ? '' : '일월화수목금토'[d.getUTCDay()]; };
@@ -290,7 +303,8 @@ async function load() {
 
 function render() {
   if (!data) return;
-  const iso = $('vdate').value, day = dayOf(iso), n = NP[day] || 0, admin = $('pw').value !== '';
+  const iso = $('vdate').value, day = dayOf(iso), n = NP[day] || 0, admin = !!data.admin;
+  $('adminIn').hidden = admin; $('adminOn').hidden = !admin;
   $('vday').textContent = iso ? md(iso) : '';
   $('adminHint').hidden = !admin; if (!admin) openCell = '';
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
@@ -401,7 +415,18 @@ $('grid').addEventListener('click', async e => {
   say(r.ok ? `${room}에 배정했습니다` : r.error, r.ok);
   openCell = ''; load();
 });
-$('pw').addEventListener('input', render);
+// 관리자 로그인: 비밀번호를 서버에 확인받아 맞을 때만 관리자 화면으로
+$('adminForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = $('pw').value;
+  if (!v) { $('adminMsg').textContent = '비밀번호를 입력해 주세요'; $('pw').focus(); return; }
+  PW = v; $('adminMsg').textContent = ''; $('login').disabled = true;
+  await load();
+  $('login').disabled = false;
+  if (data && data.admin) { try { sessionStorage.setItem('winterPw', PW); } catch {} $('pw').value = ''; }
+  else { PW = ''; $('adminMsg').textContent = data ? '비밀번호가 맞지 않습니다' : '확인하지 못했습니다. 인터넷 연결을 확인해 주세요'; $('pw').select(); }
+});
+$('logout').addEventListener('click', () => { PW = ''; try { sessionStorage.removeItem('winterPw'); } catch {} load(); });
 $('vdate').addEventListener('change', () => { if (data && $('vdate').value < minDate()) $('vdate').value = minDate(); render(); });
 $('prev').addEventListener('click', () => { const d = addDays($('vdate').value, -1); if (d >= minDate()) { $('vdate').value = d; render(); } });
 $('next').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, 1); render(); });

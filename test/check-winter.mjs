@@ -45,6 +45,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.deepEqual([r.start, r.fixed], [D, { '1P': '음악실' }]);
   assert.deepEqual(r.avail, { '2D': D, '3B': D, '3C': D }, '처음에는 2D·3B·3C 가 11/25부터 이용가능');
   assert.equal(r.today, '2026-11-24');
+  assert.equal(r.admin, false, '비밀번호 없이는 관리자가 아님');
+  assert.equal((await call('GET', null, { 'X-Pw': 'x' })).admin, false, '틀린 비밀번호');
+  assert.equal((await call('GET', null, PW)).admin, true, '맞는 비밀번호면 관리자 로그인 확인');
   assert.equal(Object.keys(r.tt).length, 43, '교사 43명');
   assert.equal(r.tt['성준혁']['수3'], '1신3|과학|');
   assert.equal(r.tt['성준혁']['수4'], '1신1|과학|');
