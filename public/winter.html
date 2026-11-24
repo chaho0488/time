@@ -308,16 +308,26 @@
   #steps > .step:last-child > label .num { background: var(--warm); color: var(--ink); }
   /* 4) 이용할 수 없는 실·이미 실습실인 수업도 이름은 읽히게 */
   .pr.off, #mytt td.lab, #mytt td.lab small { color: var(--sub); }
-  /* 3) 휴대폰: 누르는 칸을 44px 이상으로 */
+  /* 배치도: 아직 못 쓰는 실 안의 이용 시작 날짜(예: 12/2~)는 보이지 않게 — 칸을 길게 누르면 뜨는 설명에는 남아 있다 */
+  .plan .pr.off em { display: none; }
+  /* 3) 휴대폰 */
   @media (max-width: 600px) {
+    /* 내 시간표의 수업 칸은 누르기 쉽게 44px */
     #mytt td, #mytt td button { height: 44px; min-height: 44px; }
     #mytt td small, #mytt td button small { display: block; margin-left: 0; }
-    .nav > button { width: 44px; height: 44px; }
-    .nav h2 { flex-basis: 100%; }   /* 제목을 한 줄로 올려 날짜 단추가 한 줄에 들어가게 */
-    .closeme { white-space: nowrap; flex: none; }   /* '닫기'가 두 줄로 꺾이지 않게 */
-    .nav input, #from, #teacher { min-height: 44px; }
+    #from, #teacher { min-height: 44px; }
     .multi label input, .morelist input, .room header input { width: 1.4em; height: 1.4em; }
-    .mine button, .closeme, .tabs button, .nav > #tabList { min-height: 44px; }
+    .mine button, .closeme { min-height: 44px; }
+    .closeme { white-space: nowrap; flex: none; }   /* '닫기'가 두 줄로 꺾이지 않게 */
+    /* 배치도는 폰 화면 높이에 맞춰 줄 높이를 정한다: 4층~2층(별관 포함, 실 7줄)이 어느 폰에서든 한 화면에 들어온다 */
+    #grid .prow { height: clamp(44px, calc((100svh - 190px) / 7), 110px); }
+    #grid .pmid { height: 16px; font-size: 10px; }
+    #grid .frow > .floor { margin: 6px 0 4px; font-size: .95rem; }
+    #grid .frow > .floor:first-child, #grid .frow:first-child > .floor { margin-top: 0; }
+    #grid .plan + .plan { margin-top: 4px; }
+    #grid .pc b { font-size: clamp(13px, 3.3cqw, 18px); line-height: 1.1; }
+    #grid .pr span:not(.pcmark) { font-size: clamp(11px, 2.5cqw, 14px); line-height: 1.15; }
+    #grid .pcmark { font-size: 9px; line-height: 1.2; }
   }
 </style>
 </head>
