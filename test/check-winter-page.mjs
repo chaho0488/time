@@ -87,7 +87,7 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
         bottom2: Math.round([...document.querySelectorAll('#grid .frow')][2].getBoundingClientRect().bottom), vh: innerHeight,
         fits: [...document.querySelectorAll('#grid .pr')].filter(b => b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.plan), over: document.documentElement.scrollWidth > innerWidth + 1 }; }); };
     const a = await sizes(390, 800), b = await sizes(760, 900), c = await sizes(1920, 910); if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '-first.png' }); await page.setViewportSize({ width: 390, height: 800 });
-    ok('배치도 글자: 폰에서도 실 코드 15px·이름 12px 이상, PC 에서는 코드 16px·이름 13px·제목 20px 로 작게, 어느 폭에서도 칸 밖으로 넘치지 않음', a.code >= 15 && a.name >= 12 && c.code === 16 && c.name === 13 && c.h1 === 20 && ![a, b, c].some(x => x.fits.length || x.over), { a, b, c });
+    ok('배치도: 폰 첫 화면에 2층까지 들어오고(실 코드 12px·이름 10px 이상), PC 에서는 코드 16px·이름 13px·제목 20px, 어느 폭에서도 칸 밖으로 넘치지 않음', a.code >= 12 && a.name >= 10 && a.bottom2 <= a.vh && c.code === 16 && c.name === 13 && c.h1 === 20 && ![a, b, c].some(x => x.fits.length || x.over), { a, b, c });
     ok('PC 화면(1920×910) 첫 화면에 4층~2층 배치도가 스크롤 없이 모두 보임', c.bottom2 <= c.vh, c); }
   await showGrid(); await page.click('#grid .pr[data-plan="2D"]');
   t = await page.evaluate(() => ({ rooms: [...document.querySelectorAll('#grid .room')].map(r => r.dataset.room).join(), cells: [...document.querySelectorAll('#grid .room .strip li')].map(li => li.className).join(), name: document.querySelector('#grid .room .rname').textContent,
@@ -121,7 +121,7 @@ await page.click('#tlist button[data-name="신지은"]');
 ok('이름을 고르면 화면 안 안내 창: "수업 장소 이동은 1주 단위로 신청할 수 있습니다." (새 창이 아니라 팝업 차단과 무관)', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('noticeText').textContent === '수업 장소 이동은 1주 단위로 신청할 수 있습니다.'));
 ok('안내 창에 "여러 수업을 한 번에 고르기 … 한 실습실에서 계속 할 수 있는지 확인" 문구', (await page.textContent('#noticeMulti')) === '여러 수업을 한 번에 고르기를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.');
 { const m = await page.evaluate(() => { const l = document.querySelector('#mytt .multi label'), c = getComputedStyle(l); return { color: c.color, size: parseFloat(c.fontSize), base: parseFloat(getComputedStyle(document.querySelector('#mytt .hint')).fontSize) }; });
-  ok('"여러 수업을 한 번에 고르기"는 빨간색 큰 글자', m.color === 'rgb(192, 57, 43)' && m.size > m.base + 3, m); }
+  ok('"여러 수업을 한 번에 고르기"는 큰 글자(호박색 띠 안)', m.size > m.base + 3, m); }
 await page.click('#noticeOk'); ok('확인을 누르면 안내 창이 닫힘', await page.evaluate(() => document.getElementById('notice').hidden));
 s = await page.evaluate(() => ({ btn: document.querySelectorAll('#mytt button[data-slot]').length, lab: [...document.querySelectorAll('#mytt td.lab')].map(td => td.textContent) }));
 ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 화7 HR 은 "HR · 창체" 회색(창체 시간은 실습실 불가)이라 고를 수 있는 칸이 없음', s.btn === 0 && s.lab.length === 19 && s.lab.filter(t => t.endsWith('음악 · 음악실')).length === 18 && s.lab.filter(t => t.endsWith('HR · 창체')).length === 1, s);

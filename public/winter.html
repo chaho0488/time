@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes">
 <title>교실 → 실습실 수업 장소 이동 신청</title>
 <!-- 글꼴(Pretendard): 불러오지 못하면 기기 기본 글꼴로 보인다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -322,13 +322,32 @@
     .mine button, .closeme { min-height: 44px; }
     .closeme { white-space: nowrap; flex: none; }   /* '닫기'가 두 줄로 꺾이지 않게 */
     /* 배치도는 폰 화면 높이에 맞춰 줄 높이를 정한다: 4층~2층(별관 포함, 실 7줄)이 어느 폰에서든 한 화면에 들어온다 */
-    #grid .prow { height: clamp(44px, calc((100svh - 190px) / 7), 110px); }
-    #grid .pmid { height: 16px; font-size: 10px; }
-    #grid .frow > .floor { margin: 6px 0 4px; font-size: .95rem; }
+    #grid .prow { height: var(--prowh, clamp(30px, calc((100svh - 300px) / 7), 110px)); }   /* --prowh: fitPlan() 이 실제 화면을 재서 넣는 줄 높이 */
+    #grid .pc b { flex-direction: row; gap: 3px; }   /* 실 코드와 PC 표시를 한 줄에(칸이 낮아도 두 줄이면 됨) */
+    /* 첫 화면 위쪽(제목·관리자·교사명·날짜 줄)을 낮게: 배치도 2층까지 한 화면에 들어오게 */
+    main { padding-top: 8px; }
+    .home { margin-bottom: 2px; font-size: .75rem; }
+    h1 { font-size: 1.05rem; }
+    .top { gap: 4px 8px; margin-bottom: 6px; }
+    .admin { font-size: .75rem; } .admin input { width: 8em; padding: 4px 7px; } .admin button { padding: 4px 8px; }
+    .apply { padding: 0 10px 8px; } .apply > .step:first-child { padding-top: 8px; }
+    #teacher { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
+    .nav { gap: 4px; margin: 8px 0 4px; }
+    .nav h2 { font-size: .95rem; margin-right: 2px; }
+    .nav > button { width: 1.9em; height: 1.9em; font-size: .8rem; }
+    .nav input { font-size: .8rem; padding: 3px 4px; }
+    #vday { font-size: .9rem; margin: 0 2px; }
+    .tabs button { padding: 4px 9px; font-size: .78rem; }
+    .nav > #tabList { padding: 4px 9px; margin-left: 0; font-size: .78rem; }
+    .legend { gap: 2px 8px; font-size: .66rem; margin-bottom: 4px; }
+    #grid .frow { margin-bottom: 3px; }
+    #grid .frow > .floor span { font-size: .62rem; }
+    #grid .pmid { height: 12px; font-size: 9px; }
+    #grid .frow > .floor { margin: 3px 0 2px; font-size: .8rem; }
     #grid .frow > .floor:first-child, #grid .frow:first-child > .floor { margin-top: 0; }
     #grid .plan + .plan { margin-top: 4px; }
-    #grid .pc b { font-size: clamp(13px, 3.3cqw, 18px); line-height: 1.1; }
-    #grid .pr span:not(.pcmark) { font-size: clamp(11px, 2.5cqw, 14px); line-height: 1.15; }
+    #grid .pc b { font-size: clamp(12px, 3.1cqw, 17px); line-height: 1.1; }
+    #grid .pr span:not(.pcmark) { font-size: clamp(10px, 2.4cqw, 13px); line-height: 1.1; }
     #grid .pcmark { font-size: 9px; line-height: 1.2; }
   }
 </style>
@@ -773,7 +792,23 @@ async function load() {
   } catch (e) { say('불러오지 못했습니다: ' + e.message); }
 }
 
-function render() {
+// 폰: 배치도 줄 높이를 화면에 맞춘다 — 첫 화면에 4층~2층이 다 들어오게(교사 시간표가 펼쳐져 배치도가 아래로 밀렸으면, 배치도까지 내렸을 때 한 화면에 들어오게)
+function fitPlan() {
+  const g = $('grid'); g.style.removeProperty('--prowh');
+  if (!matchMedia('(max-width: 600px)').matches) return;
+  const fr = [...g.querySelectorAll('.frow')], i2 = fr.findIndex(f => (f.querySelector('.floor') || {}).textContent?.startsWith('2층'));
+  if (i2 < 0) return;
+  const rows = fr.slice(0, i2 + 1).flatMap(f => [...f.querySelectorAll('.prow')]); if (!rows.length) return;
+  const cur = rows[0].getBoundingClientRect().height, top = g.getBoundingClientRect().top + scrollY, bottom = fr[i2].getBoundingClientRect().bottom + scrollY;
+  const rest = bottom - top - rows.length * cur, vh = innerHeight - 4;   // rest = 층 이름·복도·여백처럼 줄 높이와 무관한 부분
+  let h = (vh - top - rest) / rows.length;            // 첫 화면 기준
+  if (h < 24) h = (vh - rest) / rows.length;          // 배치도가 아래로 밀린 경우: 배치도만 한 화면
+  g.style.setProperty('--prowh', Math.max(24, Math.min(110, Math.floor(h))) + 'px');
+}
+addEventListener('resize', () => fitPlan());
+if (window.ResizeObserver) new ResizeObserver(() => fitPlan()).observe(document.querySelector('.apply'));   // 교사 시간표가 펼쳐지거나 닫혀 배치도 위치가 바뀔 때
+function render() { renderInner(); fitPlan(); }
+function renderInner() {
   if (!data) return;
   const iso = $('vdate').value, day = dayOf(iso), n = NP[day] || 0, admin = !!data.admin;
   $('adminIn').hidden = admin; $('adminOn').hidden = !admin;
