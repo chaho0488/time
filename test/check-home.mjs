@@ -8,7 +8,12 @@ const html = fs.readFileSync(new URL('../public/home.html', import.meta.url), 'u
 const links = [...html.matchAll(/<a [^>]*href="([^"]+)"[^>]*><b>([^<]+)<\/b>/g)].map(m => m[1] + ' ' + m[2]);
 assert.deepEqual(links, ['/view 시간표 보기', '/dg 대강 신청', '/winter 교실 → 실습실 수업 장소 이동', '/ 관리자 (교체 탐색기) · 비밀번호 필요']);
 assert.ok(html.includes('<h1>울산에너지고 시간표</h1>'));
-assert.ok(!/<script src|<link|<img|@import|url\(/.test(html), '다른 파일(스크립트·글꼴·그림)을 불러오지 않음');
+assert.ok(!/<script src|<link rel="stylesheet|<img|@import|url\(/.test(html), '스크립트·글꼴·그림 파일을 불러오지 않음(앱 설치 정보와 아이콘만 연결)');
+// 앱으로 설치: 교체 탐색기와 다른 앱으로 잡히도록 id·이름·시작 주소가 따로 있어야 함
+{ const m = JSON.parse(fs.readFileSync(new URL('../public/home.webmanifest', import.meta.url), 'utf8')), main = JSON.parse(fs.readFileSync(new URL('../public/manifest.json', import.meta.url), 'utf8'));
+  assert.ok(html.includes('<link rel="manifest" href="/home.webmanifest">'));
+  assert.deepEqual([m.id, m.name, m.start_url, m.display], ['/home', '울산에너지고 시간표', '/home', 'standalone']); assert.notEqual(m.name, main.name);
+  for (const i of m.icons) { const b = fs.readFileSync(new URL('../public' + i.src, import.meta.url)); assert.equal(b.readUInt32BE(16) + 'x' + b.readUInt32BE(20), i.sizes, i.src + ' 크기'); } }
 assert.ok(html.length < 9000, '9KB 미만');
 for (const f of ['dg.html', 'winter.html']) assert.ok(fs.readFileSync(new URL('../public/' + f, import.meta.url), 'utf8').includes('<a class="home" href="/home">← 울산에너지고 시간표</a>'), f + ' 에 돌아가기 링크');
 // 교체 탐색기에는 신청 사이트 탭을 두지 않는다(무거워지지 않게)
