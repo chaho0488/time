@@ -10,12 +10,15 @@
   h1 { font-size: 1.3rem; color: #5B3FA8; margin: 4px 0 12px; }
   h2 { font-size: 1.05rem; color: #5B3FA8; margin: 20px 0 6px; }
   .box { background: #fff; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px #0001; line-height: 1.7; }
-  .form { display: grid; grid-template-columns: 5em 1fr; gap: 8px 10px; align-items: center; }
-  .form label { font-weight: 600; }
-  .form input[type=text], .form input[type=date], .form select { font-size: 1rem; padding: 7px 8px; border: 2px solid #5B3FA8; border-radius: 6px; width: 100%; max-width: 16em; box-sizing: border-box; }
-  #periods label { display: inline-block; margin: 0 10px 4px 0; font-weight: 400; white-space: nowrap; }
-  #periods input { width: 1.2em; height: 1.2em; vertical-align: -3px; }
-  #send { margin-top: 10px; padding: 9px 22px; font-size: 1rem; border: 0; border-radius: 6px; background: #5B3FA8; color: #fff; cursor: pointer; }
+  .box > label { font-weight: 600; display: block; margin-top: 10px; }
+  .box > label:first-child { margin-top: 0; }
+  #teacher, #from { font-size: 1rem; padding: 7px 8px; border: 2px solid #5B3FA8; border-radius: 6px; width: 100%; max-width: 16em; box-sizing: border-box; }
+  .pick { position: relative; max-width: 16em; }
+  #tlist { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; background: #fff; border: 1px solid #5B3FA8; border-radius: 6px; box-shadow: 0 4px 12px #0003; max-height: 15em; overflow-y: auto; }
+  #tlist button { display: block; width: 100%; text-align: left; padding: 9px 10px; font-size: 1rem; border: 0; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
+  #tlist button:hover, #tlist button:focus { background: #ece8f7; }
+  .hint { font-size: .8rem; color: #666; }
+  #send { margin-top: 12px; padding: 9px 22px; font-size: 1rem; border: 0; border-radius: 6px; background: #5B3FA8; color: #fff; cursor: pointer; }
   #msg { margin-top: 8px; min-height: 1.4em; font-weight: 600; }
   .ok { color: #1a7f37; } .err { color: #c62828; }
   .nav { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
@@ -27,6 +30,16 @@
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid #d5d8e3; padding: 5px 4px; text-align: center; font-size: .85rem; }
   thead th { background: #ece8f7; }
+  /* 내 시간표: 옮기고 싶은 수업 칸을 눌러 고른다 */
+  #mytt table { table-layout: fixed; margin-top: 6px; }
+  #mytt th.p { width: 2.2em; background: #ece8f7; }
+  #mytt td { padding: 0; height: 3em; }
+  #mytt td button { width: 100%; height: 100%; min-height: 3em; border: 0; background: #fff; font: inherit; font-weight: 600; cursor: pointer; padding: 3px 2px; }
+  #mytt td button small, #mytt td small { display: block; font-weight: 400; font-size: .72rem; color: #555; }
+  #mytt td button.sel { background: #5B3FA8; color: #fff; }
+  #mytt td button.sel small { color: #e6defa; }
+  #mytt td.lab { background: #e9e9ee; color: #666; }           /* 이미 실습실에서 하는 수업 */
+  #mytt td.req { background: #d9f2df; }                         /* 이미 신청한 수업 */
   #grid table { table-layout: fixed; }   /* 폰에서도 1~7교시가 옆으로 넘기지 않고 한 화면에 보이게 칸 너비를 고르게 나눔 */
   #grid th.r { width: 9.5em; text-align: left; position: sticky; left: 0; background: #ece8f7; z-index: 1; font-weight: 600; }
   #grid th.r small { display: block; font-weight: 400; color: #555; font-size: .72rem; overflow-wrap: anywhere; }
@@ -37,10 +50,9 @@
   td.done { background: #d9f2df; font-weight: 600; }            /* 배정된 수업 */
   td.na { background: #f7f7f9; }                                /* 이용가능 표시가 없는 실의 빈 시간 */
   td.out { background: #ddd; }                                  /* 그 요일에 없는 교시 */
-  td small { display: block; font-weight: 400; font-size: .72rem; color: #555; }
-  #list td.l { text-align: left; }
+  #grid td small { display: block; font-weight: 400; font-size: .72rem; color: #555; }
+  #list td, #list th { white-space: nowrap; } #list td.l { white-space: normal; text-align: left; }
   #list select { font-size: .9rem; padding: 4px; max-width: 11em; }
-  #list td, #list th { white-space: nowrap; } #list td.l { white-space: normal; }
   .x { font-size: .8rem; color: #c62828; background: none; border: 1px solid #c62828; border-radius: 4px; cursor: pointer; padding: 2px 6px; }
   .wait { color: #b26a00; font-weight: 600; }
   .admin { margin-top: 16px; font-size: .85rem; color: #777; }
@@ -57,21 +69,17 @@
 <body>
 <main>
   <h1>한파 관련 수업 장소 이동 신청</h1>
-  <div class="box">
-    요 며칠 기온이 더 내려가 교실에서 수업을 진행하시기에 어려움이 크실 줄 압니다.<br>
-    추위로 수업 진행이 어려워 다른 장소에서 수업하기를 희망하시는 선생님께서는 아래에 적어 주십시오.<br>
-    신청을 먼저 받은 뒤, 사용 가능한 실습실을 확인하여 배정해 드리겠습니다. 배정 결과는 이 화면의 신청 내역에 표시됩니다.
-  </div>
 
   <div class="box">
-    <div class="form">
-      <label for="teacher">교사명</label><input id="teacher" type="text" placeholder="홍길동" maxlength="10" autocomplete="off">
-      <label for="cls">학급</label><select id="cls"><option value="">학급 선택</option></select>
-      <label for="subject">과목</label><input id="subject" type="text" placeholder="수학" maxlength="15" autocomplete="off">
-      <label for="date">날짜</label><input id="date" type="date">
-      <label>교시</label><div id="periods"></div>
+    <label for="teacher">교사명</label>
+    <div class="pick">
+      <input id="teacher" type="text" placeholder="이름 또는 초성 (예: ㅎㄱㄷ)" maxlength="10" autocomplete="off" aria-autocomplete="list" aria-controls="tlist">
+      <div id="tlist" hidden></div>
     </div>
-    <button id="send">신청</button>
+    <div id="mytt"></div>
+    <label for="from">언제부터 이동을 희망하십니까</label>
+    <input id="from" type="date">
+    <div><button id="send">신청</button></div>
     <div id="msg"></div>
   </div>
 
@@ -82,7 +90,7 @@
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
   </div>
-  <div class="legend"><span style="background:#e9e9ee">전공 수업</span><span style="background:#fffbe0">빈 실(이용가능)</span><span style="background:#d9f2df">배정된 수업</span>확정 시간표 기준이며 교체·대강으로 옮겨진 전공 수업은 반영되지 않습니다.</div>
+  <div class="legend"><span style="background:#e9e9ee">전공 수업</span><span style="background:#fffbe0">빈 실(이용가능)</span><span style="background:#d9f2df">배정된 수업</span>확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</div>
   <div id="note" class="err" style="font-weight:600"></div>
   <div class="wrap" id="grid"></div>
 
@@ -94,13 +102,14 @@
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let data = null;
+const DAYS = ['월', '화', '수', '목', '금'], NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
+let data = null, me = '';          // me = 고른 교사
+const picked = new Set();          // 내 시간표에서 고른 칸(요일교시)
 
 // 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
 let DEV = '';
 try { DEV = localStorage.getItem('dgDev') || ''; if (!DEV) { DEV = crypto.randomUUID(); localStorage.setItem('dgDev', DEV); } } catch {}
 const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': $('pw').value, ...extra });
-try { $('teacher').value = localStorage.getItem('winterTeacher') || ''; } catch {}
 
 function say(text, ok) { $('msg').textContent = text; $('msg').className = ok ? 'ok' : 'err'; }
 const dayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); return isNaN(d) ? '' : '일월화수목금토'[d.getUTCDay()]; };
@@ -110,46 +119,100 @@ function addDays(iso, n) {   // 주말은 건너뛴다
   do { d = new Date(d.getTime() + n * 864e5); } while ([0, 6].includes(d.getUTCDay()));
   return d.toISOString().slice(0, 10);
 }
-const roomName = code => (data.rooms.find(r => r[0] === code) || ['', ''])[1];
-// 그 날짜·교시에 그 실에서 하는 전공 수업 (서버의 wBase 와 같은 규칙)
-function baseAt(room, iso, p) {
-  const sh = data.shift[iso], bp = sh ? sh[p] : p;
-  return (bp && data.base[room] && data.base[room][dayOf(iso) + bp]) || null;
-}
-const assigned = (room, iso, p) => data.reqs.find(r => r.room === room && r.date === iso && r.period === p);
-// 이용가능 실은 이용 시작일부터만 이용가능 (서버의 wAvailOn 과 같은 규칙)
+const roomName = code => (data.rooms.find(r => r[0] === code) || ['', ''])[1].replace('실습실', '');
+const slotOrder = k => DAYS.indexOf(k[0]) * 10 + Number(k[1]);
+// 이용가능 실은 이용 시작일부터만 이용가능
 const availOn = (room, iso) => typeof data.avail[room] === 'string' && iso >= data.avail[room];
-// 배정할 수 있는 실: 그 날짜에 이용가능하고, 그 시간에 전공 수업도 다른 배정도 없는 실
-const freeRooms = (iso, p) => data.rooms.map(r => r[0]).filter(c => availOn(c, iso) && !baseAt(c, iso, p) && !assigned(c, iso, p));
+// 배정된 수업이 실제로 그 실에서 시작되는 날: 신청 시작일과 실의 이용 시작일 중 늦은 날
+const startOf = r => (data.avail[r.room] && data.avail[r.room] > r.from ? data.avail[r.room] : r.from);
+// 그 날짜의 p교시가 원래 시간표의 어느 칸인지 (교시가 옮겨진 날은 원래 교시로)
+function slotAt(iso, p) { const sh = data.shift[iso], bp = sh ? sh[p] : p; return bp ? dayOf(iso) + bp : null; }
+// 배정할 수 있는 실: 이용가능 표시가 있고, 그 요일교시에 전공 수업도 다른 배정도 없는 실 (서버와 같은 규칙)
+const freeRooms = slot => data.rooms.map(r => r[0]).filter(c => typeof data.avail[c] === 'string' && !(data.base[c] && data.base[c][slot]) && !data.reqs.some(r => r.room === c && r.slot === slot));
+const roomLabel = (r, c) => `${c} ${esc(roomName(c))}` + (data.avail[c] && data.avail[c] > r.from ? ` (${md(data.avail[c])}부터)` : '');
+
+// ── 교사 이름 찾기: 이름 일부나 초성(ㅎㄱㄷ), 쓰는 도중의 글자(홍기 → 홍길동)로도 찾는다 ──
+const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+const syl = ch => { const c = ch.charCodeAt(0) - 0xAC00; return c >= 0 && c < 11172 ? c : -1; };
+function charHit(q, n) {
+  if (q === n) return true;
+  const sn = syl(n), sq = syl(q);
+  if (sn < 0) return false;
+  if (CHO.includes(q)) return CHO[Math.floor(sn / 588)] === q;                    // 초성만
+  return sq >= 0 && sq % 28 === 0 && Math.floor(sq / 28) === Math.floor(sn / 28);   // 받침을 아직 안 쓴 글자
+}
+const nameHit = (q, name) => { for (let i = 0; i + q.length <= name.length; i++) if ([...q].every((ch, j) => charHit(ch, name[i + j]))) return true; return false; };
+function showNames() {
+  const q = $('teacher').value.replace(/\s+/g, '');
+  const names = data && q ? Object.keys(data.tt).filter(n => nameHit(q, n)).sort((a, b) => a.localeCompare(b, 'ko')) : [];
+  $('tlist').hidden = !names.length || (names.length === 1 && names[0] === me && q === me);
+  $('tlist').innerHTML = names.map(n => `<button type="button" data-name="${esc(n)}">${esc(n)}</button>`).join('');
+}
+function choose(name) {
+  me = name; picked.clear();
+  $('teacher').value = name; $('tlist').hidden = true;
+  try { localStorage.setItem('winterTeacher', name); } catch {}
+  renderMine();
+}
+$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; picked.clear(); renderMine(); } showNames(); });
+$('teacher').addEventListener('focus', showNames);
+$('teacher').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('tlist').querySelector('button'); if (b && !$('tlist').hidden) choose(b.dataset.name); } });
+$('tlist').addEventListener('click', e => { const b = e.target.closest('button[data-name]'); if (b) choose(b.dataset.name); });
+document.addEventListener('click', e => { if (!e.target.closest('.pick')) $('tlist').hidden = true; });
+
+// ── 내 시간표: 수업 칸을 눌러 옮기고 싶은 수업을 고른다 ──
+function renderMine() {
+  if (!data || !me) { $('mytt').innerHTML = '<div class="hint">이름을 고르면 선생님 시간표가 나옵니다.</div>'; return; }
+  const sc = data.tt[me];
+  let h = '<div class="hint">옮기고 싶은 수업 칸을 눌러 고르세요 (여러 칸 가능). 회색은 이미 실습실에서 하는 수업, 초록색은 이미 신청한 수업입니다.</div>'
+    + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  for (let p = 1; p <= 7; p++) {
+    h += `<tr><th class="p">${p}</th>`;
+    for (const d of DAYS) {
+      const k = d + p, v = sc[k];
+      if (p > NP[d]) { h += '<td class="out"></td>'; continue; }
+      if (!v) { h += '<td></td>'; continue; }
+      const [c, s, room] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === k);
+      if (room) h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${esc(room)}</small></td>`;
+      else if (r) h += `<td class="req">${esc(c)}<small>${r.room ? esc(r.room) + ' 배정' : '신청됨'}</small></td>`;
+      else h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}"${picked.has(k) ? ' class="sel"' : ''}>${esc(c)}<small>${esc(s)}</small></button></td>`;
+    }
+    h += '</tr>';
+  }
+  $('mytt').innerHTML = h + '</tbody></table></div>';
+}
+$('mytt').addEventListener('click', e => {
+  const b = e.target.closest('button[data-slot]');
+  if (!b) return;
+  const k = b.dataset.slot;
+  if (picked.has(k)) picked.delete(k); else picked.add(k);
+  b.classList.toggle('sel', picked.has(k)); b.setAttribute('aria-pressed', picked.has(k));
+});
 
 async function load() {
   try {
     const r = await fetch('/api/winter', { cache: 'no-store', headers: H() });
     if (!r.ok) throw new Error((await r.json()).error || r.status);
+    const first = !data;
     data = await r.json();
-    if (!$('cls').options[1]) for (const c of data.classes) $('cls').add(new Option(c, c));
-    if (!$('vdate').value) { const d0 = [0, 6].includes(new Date(data.today + 'T00:00:00Z').getUTCDay()) ? addDays(data.today, 1) : data.today; $('vdate').value = d0; $('date').value = d0; periodBoxes(); }
+    if (first) {
+      const d0 = [0, 6].includes(new Date(data.today + 'T00:00:00Z').getUTCDay()) ? addDays(data.today, 1) : data.today;
+      $('vdate').value = d0; $('from').value = addDays(data.today, 1); $('from').min = data.today;   // 시작일 기본값: 다음 수업일
+      let saved = ''; try { saved = localStorage.getItem('winterTeacher') || ''; } catch {}
+      if (data.tt[saved]) choose(saved); else renderMine();
+    } else renderMine();
     if (document.activeElement && document.activeElement.tagName === 'SELECT' && document.activeElement.closest('#list')) return;   // 배정 실을 고르는 중이면 다시 그리지 않음
     render();
   } catch (e) { say('불러오지 못했습니다: ' + e.message); }
 }
 
-// 신청 칸의 교시 체크박스: 고른 날짜의 요일에 맞춰 1~N교시
-function periodBoxes() {
-  const n = data ? (data.np[dayOf($('date').value)] || 0) : 0;
-  const on = new Set([...document.querySelectorAll('#periods input:checked')].map(i => i.value));
-  $('periods').innerHTML = n ? Array.from({ length: n }, (_, i) => `<label><input type="checkbox" value="${i + 1}"${on.has(String(i + 1)) ? ' checked' : ''}> ${i + 1}교시</label>`).join('')
-    : '<span class="err">월~금 날짜를 골라 주세요</span>';
-}
-$('date').addEventListener('change', periodBoxes);
-
 function render() {
   if (!data) return;
-  const iso = $('vdate').value, day = dayOf(iso), n = data.np[day] || 0, admin = $('pw').value !== '';
+  const iso = $('vdate').value, day = dayOf(iso), n = NP[day] || 0, admin = $('pw').value !== '';
   $('vday').textContent = iso ? md(iso) : '';
-  $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 전공 수업은 옮겨진 교시로 표시했습니다.' : '';
+  $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
-  // 실습실 시간표: 이용가능 실을 위에, 그 아래 나머지 실
+  // 실습실 시간표: 그 날짜에 이용가능한 실을 위에, 그 아래 나머지 실
   let h = '';
   if (!n) h = '<div style="padding:14px">수업이 없는 날입니다.</div>';
   else {
@@ -159,7 +222,9 @@ function render() {
       const ok = availOn(code, iso), from = data.avail[code];
       h += `<tr><th class="r">${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능"> ` : ''}${code}${ok ? '<span class="badge">이용가능</span>' : from ? `<span class="soon">${md(from).split('(')[0]}부터</span>` : ''}<small>${esc(name.replace('실습실', ''))}</small></th>`;
       for (let p = 1; p <= 7; p++) {
-        const b = p <= n && baseAt(code, iso, p), a = p <= n && assigned(code, iso, p);
+        const slot = p <= n && slotAt(iso, p);
+        const b = slot && data.base[code] && data.base[code][slot];
+        const a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
         if (p > n) h += '<td class="out"></td>';
         else if (b) { const [c, s, t] = b.split(' '); h += `<td class="busy">${esc(c)}<small>${esc(s)} ${esc(t)}</small></td>`; }
         else if (a) h += `<td class="done">${esc(a.cls)}<small>${esc(a.subject)} ${esc(a.teacher)}</small></td>`;
@@ -171,20 +236,20 @@ function render() {
   }
   $('grid').innerHTML = h;
 
-  // 신청 내역: 오늘 이후 전부(날짜·교시 순). 관리자는 빈 실을 골라 배정
-  const reqs = data.reqs.filter(r => r.date >= data.today);
+  // 신청 내역: 요일·교시 순. 관리자는 빈 실을 골라 배정
+  const reqs = [...data.reqs].sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot) || a.id - b.id);
   if (!reqs.length) { $('list').innerHTML = '<div style="padding:14px">아직 신청이 없습니다.</div>'; return; }
-  h = '<table><thead><tr><th>날짜</th><th>교시</th><th>학급</th><th>과목</th><th>교사</th><th>배정 실습실</th><th></th></tr></thead><tbody>';
+  h = '<table><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>교사</th><th>시작일</th><th>배정 실습실</th><th></th></tr></thead><tbody>';
   for (const r of reqs) {
     let cell;
     if (admin) {
-      const opts = freeRooms(r.date, r.period);
+      const opts = freeRooms(r.slot);
       cell = `<select data-assign="${r.id}"><option value="">${r.room ? '배정 취소' : '대기 (실 선택)'}</option>`
-        + (r.room ? `<option value="${r.room}" selected>${r.room} ${esc(roomName(r.room).replace('실습실', ''))}</option>` : '')
-        + opts.map(c => `<option value="${c}">${c} ${esc(roomName(c).replace('실습실', ''))}</option>`).join('') + '</select>'
+        + (r.room ? `<option value="${r.room}" selected>${roomLabel(r, r.room)}</option>` : '')
+        + opts.map(c => `<option value="${c}">${roomLabel(r, c)}</option>`).join('') + '</select>'
         + (!r.room && !opts.length ? ' <small class="err">빈 실 없음</small>' : '');
-    } else cell = r.room ? `<b class="ok">${r.room} ${esc(roomName(r.room))}</b>` : '<span class="wait">배정 대기</span>';
-    h += `<tr><td>${md(r.date)}</td><td>${r.period}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${esc(r.teacher)}</td><td class="l">${cell}</td>`
+    } else cell = r.room ? `<b class="ok">${roomLabel(r, r.room)}</b>` : '<span class="wait">배정 대기</span>';
+    h += `<tr><td>${r.slot[0]} ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${esc(r.teacher)}</td><td>${md(r.from)}부터</td><td class="l">${cell}</td>`
       + `<td>${r.mine || admin ? `<button class="x" data-del="${r.id}">취소</button>` : ''}</td></tr>`;
   }
   $('list').innerHTML = h + '</tbody></table>';
@@ -194,22 +259,16 @@ const api = (method, body, q = '') => fetch('/api/winter' + q, { method, headers
   .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
 
 $('send').addEventListener('click', async () => {
-  const body = { teacher: $('teacher').value.trim(), cls: $('cls').value, subject: $('subject').value.trim(), date: $('date').value,
-    periods: [...document.querySelectorAll('#periods input:checked')].map(i => Number(i.value)) };
   // 빈 칸은 보내기 전에 바로 알려 준다 (서버도 같은 내용을 다시 확인)
-  if (!body.teacher) { say('교사명을 적어 주세요'); $('teacher').focus(); return; }
-  if (!body.cls) { say('학급을 골라 주세요'); $('cls').focus(); return; }
-  if (!body.subject) { say('과목을 적어 주세요'); $('subject').focus(); return; }
-  if (!body.periods.length) { say('교시를 하나 이상 골라 주세요'); return; }
+  if (!me) { say('교사명을 목록에서 골라 주세요'); $('teacher').focus(); return; }
+  if (!picked.size) { say('시간표에서 옮기고 싶은 수업 칸을 눌러 골라 주세요'); return; }
+  if (!$('from').value) { say('언제부터 이동할지 날짜를 골라 주세요'); $('from').focus(); return; }
+  const slots = [...picked].sort((a, b) => slotOrder(a) - slotOrder(b));
   $('send').disabled = true;
-  const r = await api('POST', body);
+  const r = await api('POST', { teacher: me, from: $('from').value, slots });
   $('send').disabled = false;
-  if (r.ok) {
-    try { localStorage.setItem('winterTeacher', body.teacher); } catch {}
-    say(`신청되었습니다: ${md(body.date)} ${body.periods.join('·')}교시 ${body.cls} ${body.subject}`, true);
-    document.querySelectorAll('#periods input:checked').forEach(i => { i.checked = false; });
-    $('vdate').value = body.date;
-  } else say(r.error);
+  if (r.ok) { say(`신청되었습니다: ${slots.map(k => k[0] + k[1]).join(', ')} — ${md($('from').value)}부터`, true); picked.clear(); }
+  else say(r.error);
   load();
 });
 
