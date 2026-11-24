@@ -79,6 +79,11 @@ s = await page.evaluate(() => ({ v: document.getElementById('teacher').value, bt
   w3: document.querySelector('#mytt button[data-slot="수3"]').textContent }));
 ok('이름을 고르면 그 교사의 시간표가 나옴 (수3 = 1신3 과학)', s.v === '성준혁' && s.btn === 18 && s.hidden && s.w3 === '1신3과학', s);
 await page.click('#send'); ok('수업을 고르지 않으면 신청이 막힘', (await page.textContent('#msg')).includes('수업 칸'));
+await page.click('#pickAll');
+s = await page.evaluate(() => ({ all: document.querySelectorAll('#mytt button[data-slot]').length, sel: document.querySelectorAll('#mytt button.sel').length, label: document.getElementById('pickAll').textContent }));
+ok('전체 선택: 고를 수 있는 칸이 모두 선택되고 단추가 전체 해제로 바뀜', s.all > 0 && s.sel === s.all && s.label === '전체 해제', s);
+await page.click('#pickAll');
+ok('전체 해제: 선택이 모두 풀림', (await page.locator('#mytt button.sel').count()) === 0 && (await page.textContent('#pickAll')).startsWith('전체 선택'));
 await page.click('#mytt button[data-slot="수3"]'); await page.click('#mytt button[data-slot="수4"]'); await page.click('#mytt button[data-slot="목2"]'); await page.click('#mytt button[data-slot="목2"]');
 ok('누른 칸만 선택됨(다시 누르면 풀림)', (await page.evaluate(() => [...document.querySelectorAll('#mytt button.sel')].map(b => b.dataset.slot))).join() === '수3,수4');
 ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치지 않음', !(s = await over()).length, s);

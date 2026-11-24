@@ -52,6 +52,7 @@
   #mytt td button:hover { border-color: var(--ink); }
   #mytt td button.sel { background: var(--ink); border-color: var(--ink); color: #fff; }
   #mytt td button.sel small { color: #C9D3E6; }
+  #mytt .all { margin-top: 8px; padding: 8px 14px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
   #mytt td.lab { background: var(--frost); color: var(--frost-ink); }            /* 이미 실습실에서 하는 수업 */
   #mytt td.lab small { color: var(--frost-ink); }
   #mytt td.req { background: var(--pine-bg); color: var(--pine); }                /* 이미 신청한 수업 */
@@ -263,6 +264,7 @@ function renderMine() {
   if (!data || !me) { $('mytt').innerHTML = '<div class="hint">이름을 고르면 선생님 시간표가 나옵니다.</div>'; return; }
   const sc = data.tt[me];
   let h = '<div class="hint">수업 칸을 눌러 고르세요 (여러 칸 가능). 회색은 이미 실습실에서 하는 수업, 초록색은 이미 신청한 수업입니다.</div>'
+    + '<button type="button" id="pickAll" class="all"></button>'
     + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
   for (let p = 1; p <= 7; p++) {
     h += `<tr><th class="p">${p}</th>`;
@@ -278,13 +280,28 @@ function renderMine() {
     h += '</tr>';
   }
   $('mytt').innerHTML = h + '</tbody></table></div>';
+  syncAll();
+}
+// 전체 선택 단추: 고를 수 있는 칸이 모두 골라져 있으면 '전체 해제'로 바뀌고, 고를 칸이 없으면 숨긴다
+const pickable = () => [...document.querySelectorAll('#mytt button[data-slot]')];
+function syncAll() {
+  const a = $('pickAll'), bs = pickable();
+  if (!a) return;
+  a.hidden = !bs.length;
+  a.textContent = bs.length && bs.every(b => picked.has(b.dataset.slot)) ? '전체 해제' : `전체 선택 (${bs.length}칸)`;
 }
 $('mytt').addEventListener('click', e => {
+  if (e.target.closest('#pickAll')) {   // 한 번에 전부 고르기/풀기
+    const bs = pickable(), on = !bs.every(b => picked.has(b.dataset.slot));
+    for (const b of bs) { if (on) picked.add(b.dataset.slot); else picked.delete(b.dataset.slot); b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on); }
+    syncAll(); return;
+  }
   const b = e.target.closest('button[data-slot]');
   if (!b) return;
   const k = b.dataset.slot;
   if (picked.has(k)) picked.delete(k); else picked.add(k);
   b.classList.toggle('sel', picked.has(k)); b.setAttribute('aria-pressed', picked.has(k));
+  syncAll();
 });
 
 async function load() {
