@@ -140,7 +140,22 @@ ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역�
 await page.click('#list button[data-open]');
 s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent, rows: [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => [...tr.cells].map(c => c.textContent).join('|')),
   req: [...document.querySelectorAll('#mytt td.req')].map(td => td.textContent), del: document.querySelectorAll('#list button[data-del]').length, sel: document.querySelectorAll('#list select').length }));
-ok('"자세히"를 누르면 요일·교시별 2줄: 학급·시작일·배정 대기, 내 신청이라 취소 단추', s.msg.startsWith('신청되었습니다') && s.rows.join() === '수 3교시|1신3|11/25(수)부터|배정 대기|취소,수 4교시|1신1|11/25(수)부터|배정 대기|취소' && s.del === 2 && s.sel === 0, s);
+ok('"자세히"를 누르면 요일·교시별 2줄: 내 신청이라 실 선택 칸(수3 은 빈 실 없음, 수4 는 2D·3B·3C)과 취소 단추, 신청 뒤 "직접 고르세요" 안내', s.msg.startsWith('신청되었습니다') && s.msg.includes('직접 고르세요') && s.rows.length === 2 && s.rows[0].startsWith('수 3교시|1신3|11/25(수)부터|실 선택') && s.rows[0].includes('빈 실 없음') && s.rows[1].includes('2D') && s.rows[1].includes('3C') && s.del === 2 && s.sel === 2, s);
+// 선생님이 직접 실을 고름(관리자 로그인 없이): 배치도에 "내 신청 1" → 3C → 4교시 빈 실 칸 → 내 신청을 눌러 3C 로, 그다음 신청 내역에서 선택 취소
+{ const was = await page.evaluate(() => document.getElementById('tabPlan').getAttribute('aria-selected'));
+  await page.click('#tabPlan');
+  const w = await page.evaluate(() => [...document.querySelectorAll('#grid .pr em.wait')].map(e => e.closest('.pr').dataset.plan + ':' + e.textContent).sort().join());
+  if (await page.evaluate(() => document.querySelector('#grid .pr[data-plan="3C"]').getAttribute('aria-pressed')) !== 'true') await page.click('#grid .pr[data-plan="3C"]');
+  const free = await page.evaluate(() => [...document.querySelectorAll('#grid .room[data-room="3C"] .strip li')].map((li, i) => (li.querySelector('button[data-free]') ? i + 1 : '')).join(''));
+  await page.click('#grid .room[data-room="3C"] .strip li:nth-child(4) button');
+  const c = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
+  await page.click('#grid .putbox button[data-put]:not(.x)');
+  await page.waitForFunction(() => document.querySelector('#grid .room[data-room="3C"] .strip li:nth-child(4)').classList.contains('done'));
+  const m = await page.textContent('#msg');
+  ok('선생님이 직접 실을 고름: 배치도 빈 실에 "내 신청 1", 내 신청이 있는 4교시 칸만 눌리고, 누르면 3C 로 정해짐', w === '2D:내 신청 1,3B:내 신청 1,3C:내 신청 1' && free === '4' && c.length === 1 && c[0].startsWith('1신1 과학 성준혁') && m === '3C(으)로 정했습니다', { w, free, c, m });
+  await page.selectOption('#list select >> nth=1', ''); await page.waitForFunction(() => document.getElementById('msg').textContent === '실 선택을 취소했습니다');
+  await page.click('#grid .room[data-room="3C"] .more');
+  if (was !== 'true') await page.click('#tabTable'); }
 ok('내 시간표의 신청한 칸은 "신청됨"으로 바뀌고 다시 고를 수 없음', s.req.join() === '1신3신청됨,1신1신청됨', s);
 
 // 관리자 로그인: 빈 칸·틀린 비밀번호는 안내가 뜨고 관리자 화면이 열리지 않음, 맞으면 '관리자 로그인됨'
@@ -149,7 +164,7 @@ ok('맨 위에 "관리자 로그인" 단추가 있음', s.btn === '관리자 로
 await page.click('#login');
 ok('비밀번호 없이 누르면 "비밀번호를 입력해 주세요"', (await page.textContent('#adminMsg')) === '비밀번호를 입력해 주세요');
 await page.fill('#pw', '틀림'); await page.click('#login'); await page.waitForFunction(() => document.getElementById('adminMsg').textContent.includes('맞지'));
-ok('틀린 비밀번호: "비밀번호가 맞지 않습니다", 관리자 화면은 열리지 않음', (await page.locator('#list select').count()) === 0 && (await page.evaluate(() => document.getElementById('adminOn').hidden)));
+ok('틀린 비밀번호: "비밀번호가 맞지 않습니다", 관리자 화면은 열리지 않음', (await page.locator('#bulkDel').count()) === 0 && (await page.evaluate(() => document.getElementById('adminOn').hidden)));
 await login();
 s = await page.evaluate(() => ({ on: document.getElementById('adminOn').textContent, inHidden: !document.getElementById('adminIn').offsetParent && !document.getElementById('login').offsetParent && !!document.getElementById('logout').offsetParent, msg: document.getElementById('adminMsg').textContent, hint: document.getElementById('adminHint').hidden }));
 ok('맞는 비밀번호: "관리자 로그인됨"과 로그아웃 단추·관리자 안내가 보임', s.on.includes('관리자 로그인됨') && s.on.includes('로그아웃') && s.inHidden && !s.msg && !s.hint, s);
@@ -172,13 +187,13 @@ s = await page.evaluate(q => ({ code: '3B', t: document.querySelector(q).textCon
   w5: document.querySelector('#grid .room[data-room="3B"] .strip li:nth-child(5)').textContent }), cell3B);
 ok('관리자 화면: 3B 수4 빈 실 칸에 "대기 1건", 신청 없는 5교시 칸은 "빈 실"만', s.code === '3B' && s.t === '4빈 실대기 1건' && s.w5 === '5빈 실' && !s.hint, s);
 await page.click('#grid .room[data-room="3B"] .strip li:nth-child(5) button');
-ok('신청 없는 빈 실을 누르면 "기다리는 신청이 없습니다"', (await page.textContent('#grid .putbox')).includes('기다리는 신청이 없습니다'));
+ok('신청 없는 빈 실을 누르면 "실을 고르지 않은 신청이 없습니다"', (await page.textContent('#grid .putbox')).includes('실을 고르지 않은 신청이 없습니다'));
 await page.click(cell3B + ' button');
 s = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
 ok('빈 실을 누르면 그 시간에 기다리는 신청이 나옴 (1신1 과학 성준혁)', s.length === 1 && s[0].startsWith('1신1 과학 성준혁'), s);
 await page.click('#grid .putbox button[data-put]:not(.x)');
 await page.waitForFunction(q => document.querySelector(q).classList.contains('done'), cell3B);
-ok('신청을 누르면 그 실에 배정되고 목록이 닫힘', (await page.textContent('#msg')) === '3B에 배정했습니다' && !(await page.locator('#grid .putbox').count()));
+ok('신청을 누르면 그 실에 배정되고 목록이 닫힘', (await page.textContent('#msg')) === '3B(으)로 정했습니다' && !(await page.locator('#grid .putbox').count()));
 // 신청 내역의 목록으로도 실을 바꿀 수 있음: 3B → 2D
 await page.selectOption('#list tr.d tbody tr:nth-child(2) select', '2D');
 await page.waitForFunction(() => document.querySelector('#grid .room[data-room="2D"] li.done'));

@@ -278,9 +278,8 @@ async function winterApi(req, env, url) {
   }
 
   if (req.method !== 'PATCH' && req.method !== 'PUT') return json({ error: 'method' }, 405);
-  if (!admin) return json({ error: '관리자 비밀번호가 필요합니다' }, 401);
-
-  if (req.method === 'PUT') {   // 이용가능 실 목록
+  if (req.method === 'PUT') {
+    if (!admin) return json({ error: '관리자 비밀번호가 필요합니다' }, 401);   // 이용가능 실 목록
     const a = body.avail;
     if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(c => !W_CODES.has(c)) || Object.values(a).some(d => typeof d !== 'string' || !wIsDate(d)))
       return json({ error: '실 코드 또는 이용 시작일이 올바르지 않습니다' }, 400);
@@ -292,8 +291,10 @@ async function winterApi(req, env, url) {
   // 배정: 이용가능으로 표시된 실 중, 그 요일교시에 전공 수업도 다른 배정도 없는 실만.
   // 실의 이용 시작일이 신청 시작일보다 늦으면 화면이 실의 시작일부터 배정된 것으로 보여 준다
   const id = Number(body.id), room = String(body.room || '');
-  const row = Number.isInteger(id) ? await env.DG.prepare('SELECT slot FROM winter2 WHERE id = ?').bind(id).first() : null;
+  const row = Number.isInteger(id) ? await env.DG.prepare('SELECT slot, dev FROM winter2 WHERE id = ?').bind(id).first() : null;
   if (!row) return json({ error: '취소된 신청입니다' }, 404);
+  // 실은 신청한 선생님이 직접 고른다: 신청한 기기(또는 관리자)만 바꿀 수 있다 — 취소와 같은 규칙
+  if (!admin && !(dev && row.dev === dev)) return json({ error: '신청한 기기에서만 실을 고를 수 있습니다' }, 403);
   if (room) {
     if (!W_CODES.has(room)) return json({ error: '없는 실습실입니다' }, 400);
     if (typeof (await wAvail(env))[room] !== 'string') return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);

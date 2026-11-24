@@ -227,7 +227,7 @@
       <div id="adminMsg" class="err" role="alert"></div>
     </form>
   </div>
-  <p id="adminHint" class="fine" hidden>관리자 화면입니다. 배치도에서 실을 누르고(빨간 "대기"는 배정을 기다리는 신청이 있는 실), 노란 "빈 실" 칸을 누르면 그 시간에 기다리는 신청을 골라 배정할 수 있습니다. 실 이름 앞 체크는 보고 있는 날짜부터 이용가능으로 표시합니다.</p>
+  <p id="adminHint" class="fine" hidden>관리자 화면입니다. 배치도에서 실을 누르고(빨간 "대기"는 배정을 기다리는 신청이 있는 실), 노란 "빈 실" 칸을 누르면 그 시간에 기다리는 신청을 골라 배정할 수 있습니다(실은 신청한 선생님이 직접 고르며, 관리자는 대신 정하거나 바꿀 수 있습니다). 실 이름 앞 체크는 보고 있는 날짜부터 이용가능으로 표시합니다.</p>
 
   <div class="apply">
     <div class="step">
@@ -430,7 +430,7 @@ function render() {
   const iso = $('vdate').value, day = dayOf(iso), n = NP[day] || 0, admin = !!data.admin;
   $('adminIn').hidden = admin; $('adminOn').hidden = !admin;
   $('vday').textContent = iso ? md(iso) : '';
-  $('adminHint').hidden = !admin; if (!admin) openCell = '';
+  $('adminHint').hidden = !admin;
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
   // 실습실 시간표: 두 가지 보기(탭). '배치도형'(기본) = 층마다 배치도 그림(4층 → 1층), '목록형' = 층마다 표 하나(수업 불가 실은 한 줄로 접힘)
@@ -484,13 +484,13 @@ function render() {
     h += '<tr class="d"><td colspan="5"><table><tbody>';
     for (const r of g.rows) {
       let cell;
-      if (admin) {
+      if (admin || r.mine) {   // 실은 신청한 선생님이 직접 고른다(관리자도 가능)
         const opts = freeRooms(r.slot);
-        cell = `<select data-assign="${r.id}"><option value="">${r.room ? '배정 취소' : '대기 (실 선택)'}</option>`
+        cell = `<select data-assign="${r.id}"><option value="">${r.room ? '실 선택 취소' : '실 선택'}</option>`
           + (r.room ? `<option value="${r.room}" selected>${roomLabel(r, r.room)}</option>` : '')
           + opts.map(c => `<option value="${c}">${roomLabel(r, c)}</option>`).join('') + '</select>'
           + (!r.room && !opts.length ? ' <small class="err">빈 실 없음</small>' : '');
-      } else cell = r.room ? `<b class="ok">${roomLabel(r, r.room)}</b>` : '<span class="wait">배정 대기</span>';
+      } else cell = r.room ? `<b class="ok">${roomLabel(r, r.room)}</b>` : '<span class="wait">실 선택 전</span>';
       h += `<tr><td>${r.slot[0]} ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${md(r.from)}부터</td><td class="l">${cell}</td>`
         + `<td>${r.mine || admin ? `<button class="x" data-del="${r.id}">취소</button>` : ''}</td></tr>`;
     }
@@ -504,9 +504,9 @@ function planHtml(pl, iso, n, admin) {
   const cell = ([name, w, code]) => {
     if (!code) return `<div class="pc" style="flex:${w} 1 0"><span>${esc(name)}</span></div>`;
     const ok = availOn(code, iso), never = !ok && data.never.includes(code), from = data.avail[code];
-    let wait = 0;   // 관리자: 이 실이 비는 교시에 배정을 기다리는 신청 수(누르면 배정할 수 있다는 표시)
-    if (ok && admin) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += data.reqs.filter(r => !r.room && r.slot === sl).length; }
-    const st = ok ? (wait ? `대기 ${wait}` : '') : from ? md(from).split('(')[0] + '~' : '';
+    let wait = 0;   // 이 실이 비는 교시에 아직 실을 고르지 않은 내 신청 수(관리자는 모든 신청) — 누르면 고를 수 있다는 표시
+    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine)).length; }
+    const st = ok ? (wait ? `${admin ? '대기' : '내 신청'} ${wait}` : '') : from ? md(from).split('(')[0] + '~' : '';
     const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
     return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}${data.pc.includes(code) ? ' · PC 사용가능' : ''}"><b>${code}${data.pc.includes(code) ? PCMARK : ''}</b><span>${SHORT[code] || esc(roomName(code))}</span>${st ? `<em${ok ? ' class="wait"' : ''}>${st}</em>` : ''}</button>`;
   };
@@ -531,17 +531,17 @@ function roomHtml(code, iso, n, admin, inPlan) {
     if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
     else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}">${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}</small></li>`; }
     else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${esc(a.teacher)}</small></li>`;
-    else if (ok && admin) {   // 관리자: 누를 수 있는 빈 실 칸 + 그 시간에 기다리는 신청 수
-      const wait = data.reqs.filter(r => !r.room && r.slot === slot).length, key = code + '|' + slot;
-      h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>대기 ${wait}건</small>` : ''}</button></li>`;
+    else if (ok && (admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine))) {   // 누를 수 있는 빈 실 칸: 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
+      const wait = data.reqs.filter(r => !r.room && r.slot === slot && (admin || r.mine)).length, key = code + '|' + slot;
+      h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>${admin ? '대기' : '내 신청'} ${wait}건</small>` : ''}</button></li>`;
     }
     else h += ok ? `<li class="free">${no}<b>빈 실</b></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
   }
   h += '</ol>';
-  if (admin && openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 배정을 기다리는 신청 목록
-    const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl);
+  if (openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 실을 고르지 않은 내 신청(관리자는 모든 신청)
+    const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine));
     h += `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>`
-      + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 배정을 기다리는 신청이 없습니다.</span>')
+      + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 실을 고르지 않은 신청이 없습니다.</span>')
       + '<button type="button" class="x" data-put="">닫기</button></div>';
   }
   return h + '</section>';
@@ -559,7 +559,7 @@ $('send').addEventListener('click', async () => {
   $('send').disabled = true;
   const r = await api('POST', { teacher: me, from: $('from').value, slots });
   $('send').disabled = false;
-  if (r.ok) { say(`신청되었습니다: ${slots.map(k => k[0] + k[1]).join(', ')} — ${md($('from').value)}부터`, true); picked.clear(); }
+  if (r.ok) { say(`신청되었습니다: ${slots.map(k => k[0] + k[1]).join(', ')} — ${md($('from').value)}부터. 아래 배치도에서 "내 신청"이 표시된 빈 실을 눌러 수업할 실을 직접 고르세요.`, true); picked.clear(); }
   else say(r.error);
   load();
 });
@@ -590,7 +590,7 @@ $('list').addEventListener('change', async e => {
   const s = e.target.closest('select[data-assign]');
   if (!s) return;
   const r = await api('PATCH', { id: Number(s.dataset.assign), room: s.value });
-  say(r.ok ? (s.value ? `${s.value}에 배정했습니다` : '배정을 취소했습니다') : r.error, r.ok);
+  say(r.ok ? (s.value ? `${s.value}(으)로 정했습니다` : '실 선택을 취소했습니다') : r.error, r.ok);
   s.blur(); load();
 });
 $('grid').addEventListener('change', async e => {
@@ -617,7 +617,7 @@ $('grid').addEventListener('click', async e => {
   if (!p.dataset.put) { openCell = ''; render(); return; }
   const [id, room] = p.dataset.put.split('|');
   const r = await api('PATCH', { id: Number(id), room });
-  say(r.ok ? `${room}에 배정했습니다` : r.error, r.ok);
+  say(r.ok ? `${room}(으)로 정했습니다` : r.error, r.ok);
   openCell = ''; load();
 });
 // 관리자 로그인: 비밀번호를 서버에 확인받아 맞을 때만 관리자 화면으로

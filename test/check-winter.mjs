@@ -99,7 +99,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const idB = (await call('GET')).reqs.find(x => x.teacher === others[0]).id;
 
   // 배정: 관리자만, 이용가능 실만, 전공 수업·다른 배정이 없는 시간만
-  assert.equal((await call('PATCH', { id: id4, room: '2D' }, A)).status, 401, '비밀번호 없이 배정 불가');
+  assert.equal((await call('PATCH', { id: id4, room: '2D' }, B)).status, 403, '다른 기기는 남의 신청에 실을 고를 수 없음');
+  assert.equal((await call('PATCH', { id: id4, room: '2D' }, {})).status, 403, '기기 표시가 없으면 고를 수 없음');
+  assert.equal((await call('PATCH', { id: id4, room: '2A' }, A)).status, 400, '신청한 기기도 이용가능 표시가 없는 실은 못 고름');
+  assert.equal((await call('PATCH', { id: id4, room: '3C' }, A)).status, 200, '신청한 기기는 빈 실을 직접 고를 수 있음');
+  assert.equal((await call('PATCH', { id: idB, room: '3C' }, B)).status, 409, '다른 선생님이 먼저 고른 실은 못 고름');
+  assert.equal((await call('PATCH', { id: id4, room: '' }, A)).status, 200, '신청한 기기는 실 선택을 취소할 수 있음');
   assert.equal((await call('PATCH', { id: id4, room: '2A' }, PW)).status, 400, '이용가능 표시가 없는 실');
   assert.equal((await call('PATCH', { id: id4, room: '9Z' }, PW)).status, 400);
   r = await call('PATCH', { id: id3, room: '2D' }, PW);
