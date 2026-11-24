@@ -127,6 +127,14 @@ s = await page.evaluate(() => ({ btn: document.querySelectorAll('#mytt button[da
 ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 화7 HR 은 "HR · 창체" 회색(창체 시간은 실습실 불가)이라 고를 수 있는 칸이 없음', s.btn === 0 && s.lab.length === 19 && s.lab.filter(t => t.endsWith('음악 · 음악실')).length === 18 && s.lab.filter(t => t.endsWith('HR · 창체')).length === 1, s);
 
 // 성준혁 선택 → 내 시간표(과학 18칸), 칸을 눌러 고름
+// 안내 창은 이름을 고를 때마다(키보드 Enter 로 골라도) 뜨고, '더 이상 안 보기'를 누른 뒤에만 안 뜸
+await page.fill('#teacher', '김동후'); await page.press('#teacher', 'Enter'); await page.waitForTimeout(400);
+ok('Enter 로 이름을 골라도 안내 창이 닫히지 않고 떠 있음', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('teacher').value === '김동후'));
+await page.click('#noticeOk'); await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
+ok('"확인"으로 닫은 뒤 다른 이름을 고르면 다시 뜸', await page.evaluate(() => !document.getElementById('notice').hidden));
+await page.click('#noticeNever'); await page.fill('#teacher', '김동후'); await page.press('#teacher', 'Enter'); await page.waitForTimeout(300);
+ok('"더 이상 안 보기"를 누르면 그 뒤로는 이름을 골라도 안 뜸', await page.evaluate(() => document.getElementById('notice').hidden && localStorage.getItem('winterNoNotice') === '1' && !!document.getElementById('mytt').offsetParent));
+await page.evaluate(() => localStorage.removeItem('winterNoNotice'));   // 아래 점검은 안내 창이 뜨는 기본 상태로
 await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]'); await page.click('#noticeOk');
 s = await page.evaluate(() => ({ v: document.getElementById('teacher').value, btn: document.querySelectorAll('#mytt button[data-slot]').length, hidden: document.getElementById('tlist').hidden,
   w3: document.querySelector('#mytt button[data-slot="수3"]').textContent }));
