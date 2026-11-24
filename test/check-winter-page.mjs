@@ -23,13 +23,13 @@ await page.route('**/*', async r => {
   return r.fulfill({ status: res.status, contentType: 'application/json', body: await res.text() });
 });
 await page.goto('https://fake.test/winter');   /* https: 기기 표시(crypto.randomUUID)는 보안 주소에서만 만들어짐 */
-await page.waitForSelector('#grid table');
+await page.waitForSelector('#grid .room');
 const names = () => page.evaluate(() => document.getElementById('tlist').hidden ? [] : [...document.querySelectorAll('#tlist button')].map(b => b.textContent));
 const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [...document.querySelectorAll('#' + id + ', #' + id + ' .wrap')].some(w => w.scrollWidth > w.clientWidth + 1)).concat(document.documentElement.scrollWidth > innerWidth + 1 ? ['화면'] : []));
 
 // 첫 화면: 안내 문구 없음. 오늘(11/24)이 아니라 이동 시작일 11/25(수)부터 보이고, 그 앞 날짜로는 넘어가지 않음
-let s = await page.evaluate(() => ({ day: document.getElementById('vday').textContent, badges: [...document.querySelectorAll('#grid .badge')].map(b => b.textContent), free: document.querySelectorAll('#grid td.free').length,
-  rows: document.querySelectorAll('#grid tbody tr').length, from: document.getElementById('from').value, min: [document.getElementById('from').min, document.getElementById('vdate').min],
+let s = await page.evaluate(() => ({ day: document.getElementById('vday').textContent, badges: [...document.querySelectorAll('#grid .badge')].map(b => b.textContent), free: document.querySelectorAll('#grid li.free').length,
+  rows: document.querySelectorAll('#grid .room').length, from: document.getElementById('from').value, min: [document.getElementById('from').min, document.getElementById('vdate').min],
   note: document.getElementById('fromNote').textContent, text: document.body.textContent.includes('요 며칠'), old: !!document.querySelector('#cls, #subject, #periods') }));
 ok('첫 화면: 11/25(수), 실 24곳, 이용가능 3곳 + 음악실, 시작일 기본값·최솟값 11/25', s.day === '11/25(수)' && s.rows === 24 && s.badges.join() === '이용가능,이용가능,이용가능,음악실' && s.free === 12 && s.from === '2026-11-25' && s.min.join() === '2026-11-25,2026-11-25', s);
 ok('안내 문구와 학급·과목·교시 입력 칸은 없음', !s.text && !s.old, s);
@@ -40,13 +40,16 @@ await page.fill('#vdate', '2026-11-24'); await page.dispatchEvent('#vdate', 'cha
 ok('날짜 칸에 오늘을 직접 넣어도 11/25 로 돌아옴', (await page.textContent('#vday')) === '11/25(수)');
 
 // 수업 불가 실은 줄 전체가 회색으로 닫히고, 음악실(1층 프로젝트실)은 음악 수업이 들어 있음
-s = await page.evaluate(() => { const rows = [...document.querySelectorAll('#grid tbody tr')], code = tr => tr.querySelector('th').textContent.replace(/\s/g, '').slice(0, 2);
-  const p = rows.find(tr => code(tr) === '1P');
-  return { order: rows.slice(0, 4).map(code), closed: rows.filter(tr => tr.classList.contains('closed')).length, lab: rows.filter(tr => tr.querySelector('.shutlab')).length,
-    notShut: rows.filter(tr => tr.classList.contains('closed')).reduce((n, tr) => n + [...tr.querySelectorAll('td')].filter(td => !td.classList.contains('shut') && !td.classList.contains('out')).length, 0),
-    music: [...p.querySelectorAll('td')].map(td => td.textContent), pClosed: p.classList.contains('closed'), pName: p.querySelector('small').textContent }; });
+s = await page.evaluate(() => { const rows = [...document.querySelectorAll('#grid .room')], code = r => r.querySelector('.code').textContent;
+  const txt = li => [...li.querySelectorAll('b, small')].map(e => e.textContent).join('');   // 교시 번호는 빼고 학급·과목·교사만
+  const p = rows.find(r => code(r) === '1P'), d = rows.find(r => code(r) === '2D');
+  return { order: rows.slice(0, 4).map(code), closed: rows.filter(r => r.classList.contains('closed')).length, lab: rows.filter(r => r.querySelector('.shutlab')).length,
+    notShut: rows.filter(r => r.classList.contains('closed')).reduce((n, r) => n + [...r.querySelectorAll('.strip li')].filter(li => !li.classList.contains('shut') && !li.classList.contains('out')).length, 0),
+    music: [...p.querySelectorAll('.strip li')].map(txt), pClosed: p.classList.contains('closed'), pName: p.querySelector('.rname').textContent,
+    name: d.querySelector('.rname').textContent, size: parseFloat(getComputedStyle(d.querySelector('.rname')).fontSize), nos: [...d.querySelectorAll('.strip li i')].map(i => i.textContent).join('') }; });
+ok('실습실 이름이 전체 이름으로 크게(17px 이상) 나오고 칸마다 교시 번호가 있음', s.name === '송변전배전설비운영실습실' && s.size >= 17 && s.nos === '1234567', s);
 ok('이용가능 3곳 → 음악실 → 나머지 20곳은 "수업 불가"로 회색(칸 전체)', s.order.join() === '2D,3B,3C,1P' && s.closed === 20 && s.lab === 20 && s.notShut === 0, s);
-ok('음악실 줄: 프로젝트실(음악실), 11/25(수) 3·4·6·7교시 음악', !s.pClosed && s.pName === '프로젝트실(음악실)' && s.music.join('|') === '||1신2음악 신지은|1전1음악 신지은||1신1음악 신지은|1신1음악 신지은', s);
+ok('음악실 줄: 프로젝트실(음악실), 11/25(수) 3·4·6·7교시 음악', !s.pClosed && s.pName === '프로젝트실(음악실)' && s.music.join('|') === '||1신2음악신지은|1전1음악신지은||1신1음악신지은|1신1음악신지은', s);
 
 // 교사 찾기: 초성, 쓰는 도중의 글자, 이름 일부
 await page.fill('#teacher', 'ㄱㄷ'); s = await names();
@@ -85,18 +88,18 @@ await page.fill('#pw', 'pw');
 s = await page.evaluate(() => [...document.querySelectorAll('#list select')].map(x => [...x.options].map(o => o.value).join('/')));
 ok('배정 칸에는 그 요일교시에 빈 이용가능 실만 (수3: 없음, 수4: 2D·3B·3C)', s.join() === ',/2D/3B/3C' && (await page.textContent('#list tbody tr')).includes('빈 실 없음'), s);
 await page.selectOption('#list tbody tr:nth-child(2) select', '2D');
-await page.waitForFunction(() => document.querySelector('#grid td.done'));
-s = await page.evaluate(() => ({ cells: [...document.querySelector('#grid tbody tr').querySelectorAll('td')].map(td => td.className), cell: document.querySelector('#grid td.done').textContent,
+await page.waitForFunction(() => document.querySelector('#grid li.done'));
+s = await page.evaluate(() => ({ cells: [...document.querySelector('#grid .room').querySelectorAll('.strip li')].map(li => li.className), cell: [...document.querySelectorAll('#grid li.done b, #grid li.done small')].map(e => e.textContent).join(''),
   mine: [...document.querySelectorAll('#mytt td.req small')].map(e => e.textContent) }));
-ok('11/25(수) 2D: 1~3 전공 수업·4교시 배정(1신1 과학 성준혁)·5~7 빈 실, 내 시간표에도 "2D 배정"', s.cells.join() === 'busy,busy,busy,done,free,free,free' && s.cell === '1신1과학 성준혁' && s.mine.join() === '신청됨,2D 배정', s);
+ok('11/25(수) 2D: 1~3 전공 수업·4교시 배정(1신1 과학 성준혁)·5~7 빈 실, 내 시간표에도 "2D 배정"', s.cells.join() === 'busy,busy,busy,done,free,free,free' && s.cell === '1신1과학성준혁' && s.mine.join() === '신청됨,2D 배정', s);
 await page.click('#next');
-ok('11/26(목): 수요일 배정은 보이지 않음', (await page.textContent('#vday')) === '11/26(목)' && (await page.evaluate(() => document.querySelectorAll('#grid td.done').length)) === 0);
+ok('11/26(목): 수요일 배정은 보이지 않음', (await page.textContent('#vday')) === '11/26(목)' && (await page.evaluate(() => document.querySelectorAll('#grid li.done').length)) === 0);
 
 // 이용가능 표시: 3C 를 끄면 그 줄이 회색으로 닫히고, 2A 를 켜면 열림
 await page.uncheck('#grid input[data-avail="3C"]');
-await page.waitForFunction(() => document.querySelectorAll('#grid tr.closed').length === 21);
+await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 21);
 await page.check('#grid input[data-avail="2A"]');
-await page.waitForFunction(() => document.querySelectorAll('#grid tr.closed').length === 20);
+await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 20);
 ok('관리자가 이용가능 표시를 끄고 켜면 회색 닫힘이 바로 바뀜', true);
 
 // 비밀번호를 지우면(다른 선생님 화면) 배정 결과가 글자로 보임
@@ -104,7 +107,8 @@ await page.fill('#pw', '');
 s = await page.evaluate(() => document.querySelector('#list tbody tr:nth-child(2)').textContent);
 ok('선생님 화면에는 배정된 실습실 이름이 보임', s.includes('2D 송변전배전설비운영'), s);
 ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s = await over()).length, s);
-if (process.env.SHOT) { await page.click('#prev'); await page.screenshot({ path: process.env.SHOT + '-phone.png', fullPage: true }); }
+if (process.env.SHOT) { await page.click('#prev'); await page.screenshot({ path: process.env.SHOT + '-phone.png', fullPage: true });
+  await page.setViewportSize({ width: 1100, height: 900 }); await page.fill('#pw', 'pw'); await page.screenshot({ path: process.env.SHOT + '-pc.png', fullPage: true }); }
 
 await browser.close();
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');
