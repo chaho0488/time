@@ -41,7 +41,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   let r = await call('GET');
   assert.equal(r.status, 200);
   assert.equal(r.rooms.length, 23, '실습실 23곳');
-  assert.deepEqual(r.avail, ['2D', '3B', '3C'], '처음에는 2D·3B·3C 만 이용가능');
+  assert.deepEqual(r.avail, { '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' }, '처음에는 2D·3B·3C 가 11/25부터 이용가능');
   assert.equal(r.today, '2026-11-24');
   assert.equal(Object.values(r.base).reduce((n, v) => n + Object.keys(v).length, 0), 273, '전공 수업 칸 273개');
   assert.equal(r.base['2D']['수1'], '3전2 선택 이선영');
@@ -88,16 +88,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('PATCH', { id: id4, room: '' }, PW)).status, 200, '배정 취소');
   assert.equal((await call('GET')).reqs.find(x => x.id === id4).room, null);
 
+  // 이용 시작일 전 날짜에는 배정되지 않음: 오늘(11/24) 신청을 2D 에 배정 불가
+  await call('POST', req({ teacher: '최오늘', cls: '2신1', date: '2026-11-24', periods: [1] }), B);
+  const idT = (await call('GET')).reqs.find(x => x.date === '2026-11-24').id;
+  r = await call('PATCH', { id: idT, room: '2D' }, PW);
+  assert.equal(r.status, 400, '11/24 에는 2D 가 아직 이용가능이 아님');
+
   // 이용가능 실 바꾸기: 관리자만
-  assert.equal((await call('PUT', { avail: ['2A'] }, A)).status, 401);
-  assert.equal((await call('PUT', { avail: ['9Z'] }, PW)).status, 400);
-  r = await call('PUT', { avail: ['3C', '2A', '2D', '3B'] }, PW);
-  assert.deepEqual(r.avail, ['2A', '2D', '3B', '3C'], '실 순서대로 저장');
+  const D = '2026-11-25';
+  assert.equal((await call('PUT', { avail: { '2A': D } }, A)).status, 401);
+  assert.equal((await call('PUT', { avail: { '9Z': D } }, PW)).status, 400);
+  assert.equal((await call('PUT', { avail: { '2A': '내일' } }, PW)).status, 400);
+  assert.equal((await call('PUT', { avail: ['2A'] }, PW)).status, 400);
+  r = await call('PUT', { avail: { '3C': D, '2A': D, '2D': '2026-11-24', '3B': D } }, PW);
+  assert.deepEqual(Object.keys(r.avail), ['2A', '2D', '3B', '3C'], '실 순서대로 저장');
+  assert.equal((await call('PATCH', { id: idT, room: '2D' }, PW)).status, 200, '시작일을 11/24 로 당기면 그날도 배정됨');
   assert.equal((await call('PATCH', { id: id4, room: '2A' }, PW)).status, 409, '수4 2A 는 전공 수업(유압)');
   assert.equal((await call('PATCH', { id: id5, room: '2A' }, PW)).status, 200, '이용가능으로 바꾼 뒤에는 배정됨(수5 2A 는 빈 시간)');
 
   // 교시가 옮겨진 날(11/26 목): 3A 는 원래 목2·3 태양 → 그날은 3·4교시가 전공 수업, 2교시는 빈 시간
-  await call('PUT', { avail: ['3A'] }, PW);
+  await call('PUT', { avail: { '3A': '2026-11-25' } }, PW);
   await call('POST', req({ teacher: '박민수', cls: '2전2', date: '2026-11-26', periods: [2, 3] }), B);
   const sh = (await call('GET')).reqs.filter(x => x.date === '2026-11-26');
   assert.equal((await call('PATCH', { id: sh[0].id, room: '3A' }, PW)).status, 200, '11/26 2교시 3A 는 비어 있음');

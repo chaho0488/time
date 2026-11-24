@@ -24,11 +24,11 @@ await page.route('**/*', async r => {
 });
 await page.goto('https://fake.test/winter')   /* https: 기기 표시(crypto.randomUUID)는 보안 주소에서만 만들어짐 */; await page.waitForSelector('#grid table');
 
-// 첫 화면: 오늘(11/24 화) 시간표, 이용가능 3곳이 맨 위
+// 첫 화면: 오늘(11/24 화) 시간표 — 2D·3B·3C 는 11/25부터라 오늘은 이용가능으로 나오지 않음
 let s = await page.evaluate(() => ({ day: document.getElementById('vday').textContent, badges: [...document.querySelectorAll('#grid .badge')].length,
-  top: [...document.querySelectorAll('#grid tbody tr')].slice(0, 3).map(tr => tr.querySelector('th').textContent.slice(0, 2)), rows: document.querySelectorAll('#grid tbody tr').length,
+  soon: [...document.querySelectorAll('#grid .soon')].map(e => e.textContent), free: document.querySelectorAll('#grid td.free').length, rows: document.querySelectorAll('#grid tbody tr').length,
   over: document.documentElement.scrollWidth > innerWidth + 1 || document.getElementById('grid').scrollWidth > document.getElementById('grid').clientWidth + 1 }));
-ok('첫 화면: 11/24(화), 실 23곳, 이용가능 2D·3B·3C 가 맨 위', s.day === '11/24(화)' && s.rows === 23 && s.badges === 3 && s.top.join() === '2D,3B,3C', s);
+ok('첫 화면: 11/24(화), 실 23곳, 이용가능 배지·빈 실 표시 없음, 세 곳에 "11/25부터"', s.day === '11/24(화)' && s.rows === 23 && s.badges === 0 && s.free === 0 && s.soon.join() === '11/25부터,11/25부터,11/25부터', s);
 ok('폰 폭(390px)에서 화면도 실습실 시간표도 옆으로 넘치지 않음', !s.over, s);
 
 // 빈 칸으로 신청하면 안내만 뜨고 저장되지 않음
@@ -46,8 +46,9 @@ s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent
 ok('신청 2줄이 배정 대기로 보이고, 내 신청이라 취소 단추가 있으며, 시간표가 신청한 날로 바뀜', s.msg.startsWith('신청되었습니다') && s.rows.length === 2 && s.rows.every(t => t.includes('배정 대기')) && s.del === 2 && s.sel === 0 && s.day === '11/25(수)', s);
 
 // 11/25(수) 시간표: 2D 는 1~3교시 전공 수업, 4~7교시 빈 실
-s = await page.evaluate(() => [...document.querySelector('#grid tbody tr').querySelectorAll('td')].map(td => td.className));
-ok('11/25(수) 2D: 1~3교시 전공 수업, 4~7교시 빈 실', s.join() === 'busy,busy,busy,free,free,free,free', s);
+s = await page.evaluate(() => ({ cells: [...document.querySelector('#grid tbody tr').querySelectorAll('td')].map(td => td.className), badges: document.querySelectorAll('#grid .badge').length,
+  top: [...document.querySelectorAll('#grid tbody tr')].slice(0, 3).map(tr => tr.querySelector('th').textContent.slice(0, 2)) }));
+ok('11/25(수): 이용가능 2D·3B·3C 가 맨 위, 2D 는 1~3교시 전공 수업·4~7교시 빈 실', s.cells.join() === 'busy,busy,busy,free,free,free,free' && s.badges === 3 && s.top.join() === '2D,3B,3C', s);
 
 // 관리자: 비밀번호를 넣으면 배정 칸이 보이고, 빈 이용가능 실만 고를 수 있음 → 2D 배정
 await page.fill('#pw', 'pw');

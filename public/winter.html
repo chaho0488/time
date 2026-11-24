@@ -30,6 +30,7 @@
   #grid table { table-layout: fixed; }   /* 폰에서도 1~7교시가 옆으로 넘기지 않고 한 화면에 보이게 칸 너비를 고르게 나눔 */
   #grid th.r { width: 9.5em; text-align: left; position: sticky; left: 0; background: #ece8f7; z-index: 1; font-weight: 600; }
   #grid th.r small { display: block; font-weight: 400; color: #555; font-size: .72rem; overflow-wrap: anywhere; }
+  .soon { display: inline-block; font-size: .7rem; color: #777; margin-left: 4px; }   /* 이용 시작일 전: '11/25부터' */
   .badge { display: inline-block; font-size: .7rem; font-weight: 700; color: #fff; background: #1a7f37; border-radius: 4px; padding: 0 5px; margin-left: 4px; }
   td.busy { background: #e9e9ee; color: #444; }                 /* 전공 수업 */
   td.free { background: #fffbe0; color: #8a6d00; }              /* 이용가능 실의 빈 시간 */
@@ -88,7 +89,7 @@
   <h2>신청 내역</h2>
   <div class="wrap" id="list"></div>
 
-  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 실습실 배정·이용가능 표시·모든 신청 취소를 할 수 있습니다)</div>
+  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 실습실 배정·이용가능 표시·모든 신청 취소를 할 수 있습니다. 이용가능 체크는 보고 있는 날짜부터 적용됩니다)</div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -116,8 +117,10 @@ function baseAt(room, iso, p) {
   return (bp && data.base[room] && data.base[room][dayOf(iso) + bp]) || null;
 }
 const assigned = (room, iso, p) => data.reqs.find(r => r.room === room && r.date === iso && r.period === p);
-// 배정할 수 있는 실: 이용가능 표시가 있고, 그 시간에 전공 수업도 다른 배정도 없는 실
-const freeRooms = (iso, p) => data.avail.filter(c => !baseAt(c, iso, p) && !assigned(c, iso, p));
+// 이용가능 실은 이용 시작일부터만 이용가능 (서버의 wAvailOn 과 같은 규칙)
+const availOn = (room, iso) => typeof data.avail[room] === 'string' && iso >= data.avail[room];
+// 배정할 수 있는 실: 그 날짜에 이용가능하고, 그 시간에 전공 수업도 다른 배정도 없는 실
+const freeRooms = (iso, p) => data.rooms.map(r => r[0]).filter(c => availOn(c, iso) && !baseAt(c, iso, p) && !assigned(c, iso, p));
 
 async function load() {
   try {
@@ -151,10 +154,10 @@ function render() {
   if (!n) h = '<div style="padding:14px">수업이 없는 날입니다.</div>';
   else {
     h = '<table><thead><tr><th class="r">실습실</th>' + Array.from({ length: 7 }, (_, i) => `<th>${i + 1}</th>`).join('') + '</tr></thead><tbody>';
-    const rooms = [...data.rooms].sort((a, b) => data.avail.includes(b[0]) - data.avail.includes(a[0]));
+    const rooms = [...data.rooms].sort((a, b) => availOn(b[0], iso) - availOn(a[0], iso));
     for (const [code, name] of rooms) {
-      const ok = data.avail.includes(code);
-      h += `<tr><th class="r">${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능"> ` : ''}${code}${ok ? '<span class="badge">이용가능</span>' : ''}<small>${esc(name.replace('실습실', ''))}</small></th>`;
+      const ok = availOn(code, iso), from = data.avail[code];
+      h += `<tr><th class="r">${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능"> ` : ''}${code}${ok ? '<span class="badge">이용가능</span>' : from ? `<span class="soon">${md(from).split('(')[0]}부터</span>` : ''}<small>${esc(name.replace('실습실', ''))}</small></th>`;
       for (let p = 1; p <= 7; p++) {
         const b = p <= n && baseAt(code, iso, p), a = p <= n && assigned(code, iso, p);
         if (p > n) h += '<td class="out"></td>';
@@ -227,9 +230,11 @@ $('list').addEventListener('change', async e => {
 $('grid').addEventListener('change', async e => {
   const c = e.target.closest('input[data-avail]');
   if (!c) return;
-  const avail = data.avail.filter(x => x !== c.dataset.avail).concat(c.checked ? [c.dataset.avail] : []);
+  // 켜면 지금 보고 있는 날짜부터 이용가능, 끄면 표시를 아예 없앰
+  const avail = { ...data.avail }, iso = $('vdate').value;
+  if (c.checked) avail[c.dataset.avail] = iso; else delete avail[c.dataset.avail];
   const r = await api('PUT', { avail });
-  say(r.ok ? `${c.dataset.avail} 이용가능 표시를 ${c.checked ? '켰습니다' : '껐습니다'}` : r.error, r.ok);
+  say(r.ok ? (c.checked ? `${c.dataset.avail}: ${md(iso)}부터 이용가능으로 표시했습니다` : `${c.dataset.avail} 이용가능 표시를 껐습니다`) : r.error, r.ok);
   load();
 });
 $('pw').addEventListener('input', render);

@@ -117,7 +117,7 @@ async function dgApi(req, env, url) {
 //   POST   /api/winter       → 신청 {teacher, cls, subject, date, periods:[교시…]}          — 비밀번호 없음
 //   DELETE /api/winter?id=   → 신청 취소                                                    — 신청한 기기(X-Dev) 또는 비밀번호(X-Pw)
 //   PATCH  /api/winter       → 실습실 배정 {id, room} (room 이 '' 이면 배정 취소)           — 비밀번호(X-Pw)
-//   PUT    /api/winter       → 이용가능 실 목록 {avail:[실 코드…]}                          — 비밀번호(X-Pw)
+//   PUT    /api/winter       → 이용가능 실 목록 {avail:{실 코드: 이용 시작일}}                — 비밀번호(X-Pw)
 //   /winter                  → public/winter.html
 // 신청은 D1(DG)의 winter 표(처음 부를 때 자동 생성), 이용가능 실 목록은 KV(DATA)의 winterAvail.
 const W_ROOMS = [
@@ -159,7 +159,8 @@ const W_BASE = {
 };
 // 교시가 옮겨진 날: {그날 교시: 원래 교시}. public/index.html 의 DATE_DAY_OVERRIDES(periodMap)와 같게 둔다.
 const W_SHIFT = { '2026-11-26': { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6 } };
-const W_AVAIL_DEFAULT = ['2D', '3B', '3C'];   // 11/25부터 이용가능한 실(관리자가 화면에서 바꿀 수 있음)
+// 이용가능한 실 → 이용 시작일. 그 날짜부터만 이용가능으로 보이고 배정된다(관리자가 화면에서 바꿀 수 있음)
+const W_AVAIL_DEFAULT = { '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' };
 const W_CLASSES = ['1전1', '1전2', '1전3', '1신1', '1신2', '1신3', '2전1', '2전2', '2전3', '2신1', '2신2', '2신3', '3전1', '3전2', '3전3', '3신1', '3신2', '3신3'];
 const W_NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
 
@@ -177,9 +178,10 @@ function wBase(room, date, period) {
   return (p && W_BASE[room] && W_BASE[room][wDay(date) + p]) || null;
 }
 async function wAvail(env) {
-  try { const a = JSON.parse((await env.DATA.get('winterAvail')) || 'null'); if (Array.isArray(a)) return a.filter(c => W_CODES.has(c)); } catch {}
+  try { const a = JSON.parse((await env.DATA.get('winterAvail')) || 'null'); if (a && typeof a === 'object' && !Array.isArray(a)) return a; } catch {}
   return W_AVAIL_DEFAULT;
 }
+const wAvailOn = (avail, room, date) => typeof avail[room] === 'string' && date >= avail[room];
 // winter 표: 같은 날짜·교시에 같은 학급·같은 교사·같은 실은 한 번만
 let wReady = null;
 const wInit = env => wReady || (wReady = (async () => {
@@ -242,19 +244,21 @@ async function winterApi(req, env, url) {
   if (!admin) return json({ error: '관리자 비밀번호가 필요합니다' }, 401);
 
   if (req.method === 'PUT') {   // 이용가능 실 목록
-    if (!Array.isArray(body.avail) || body.avail.some(c => !W_CODES.has(c))) return json({ error: '실 코드가 올바르지 않습니다' }, 400);
-    const avail = W_ROOMS.map(r => r[0]).filter(c => body.avail.includes(c));
+    const a = body.avail;
+    if (!a || typeof a !== 'object' || Array.isArray(a) || Object.keys(a).some(c => !W_CODES.has(c)) || Object.values(a).some(d => typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)))
+      return json({ error: '실 코드 또는 이용 시작일이 올바르지 않습니다' }, 400);
+    const avail = Object.fromEntries(W_ROOMS.map(r => r[0]).filter(c => c in a).map(c => [c, a[c]]));
     await env.DATA.put('winterAvail', JSON.stringify(avail));
     return json({ ok: true, avail });
   }
 
-  // 배정: 이용가능으로 표시된 실 중, 그 시간에 전공 수업도 다른 배정도 없는 실만
+  // 배정: 그 날짜에 이용가능한 실 중, 그 시간에 전공 수업도 다른 배정도 없는 실만
   const id = Number(body.id), room = String(body.room || '');
   const row = Number.isInteger(id) ? await env.DG.prepare('SELECT date, period FROM winter WHERE id = ?').bind(id).first() : null;
   if (!row) return json({ error: '취소된 신청입니다' }, 404);
   if (room) {
     if (!W_CODES.has(room)) return json({ error: '없는 실습실입니다' }, 400);
-    if (!(await wAvail(env)).includes(room)) return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);
+    if (!wAvailOn(await wAvail(env), room, row.date)) return json({ error: `${room}은(는) 그 날짜에 이용가능으로 표시되지 않은 실입니다` }, 400);
     const busy = wBase(room, row.date, row.period);
     if (busy) return json({ error: `${room}은(는) 그 시간에 전공 수업이 있습니다 (${busy})` }, 409);
   }
