@@ -223,6 +223,15 @@ const wInit = env => wReady || (wReady = (async () => {
   await env.DG.prepare('CREATE UNIQUE INDEX IF NOT EXISTS winter2_room ON winter2(slot, room) WHERE room IS NOT NULL').run();
 })().catch(e => { wReady = null; throw e; }));
 
+// 고른 실을 쓸 수 있는지: 있는 실 · 이용가능 표시 · 그 요일교시에 전공 수업 없음 (다른 신청과 겹치는지는 DB 의 UNIQUE 가 막는다)
+async function wRoomBad(env, room, slot) {
+  if (!W_CODES.has(room)) return json({ error: '없는 실습실입니다' }, 400);
+  if (typeof (await wAvail(env))[room] !== 'string') return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);
+  const busy = W_BASE[room] && W_BASE[room][slot];
+  if (busy) return json({ error: `${room}은(는) 그 시간에 전공 수업이 있습니다 (${busy})` }, 409);
+  return null;
+}
+
 async function winterApi(req, env, url) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (!env.DG) return json({ error: 'D1(DG)이 연결되지 않았습니다' }, 503);
@@ -260,6 +269,13 @@ async function winterApi(req, env, url) {
     if (from > new Date(Date.parse(today) + 60 * 864e5).toISOString().slice(0, 10)) return json({ error: '60일 안의 날짜만 고를 수 있습니다' }, 400);
     const slots = [...new Set(Array.isArray(body.slots) ? body.slots.map(String) : [])];
     if (!slots.length) return json({ error: '시간표에서 옮기고 싶은 수업을 골라 주세요' }, 400);
+    // room = 신청하면서 바로 고른 실(수업 한 칸을 눌러 실을 고르는 화면). 한 칸 신청일 때만 받는다
+    const room = String(body.room || '');
+    if (room) {
+      if (slots.length !== 1) return json({ error: '실습실은 수업 한 칸씩 골라 주세요' }, 400);
+      const bad = await wRoomBad(env, room, slots[0]); if (bad) return bad;
+      if (await env.DG.prepare('SELECT 1 FROM winter2 WHERE slot = ? AND room = ?').bind(slots[0], room).first()) return json({ error: `${room}은(는) 그 시간에 방금 다른 수업이 들어왔습니다. 다른 실을 골라 주세요` }, 409);
+    }
     const rows = [];
     for (const k of slots) {
       if (!Object.hasOwn(sc, k)) return json({ error: `${teacher} 선생님 시간표에 없는 시간입니다 (${k})` }, 400);
@@ -272,7 +288,7 @@ async function winterApi(req, env, url) {
     }
     const at = new Date(Date.now() + 9 * 3600e3).toISOString().slice(5, 16).replace('T', ' ');   // 한국 시각 MM-DD hh:mm
     try {   // batch = 한 묶음(전부 저장되거나 전부 안 됨)
-      await env.DG.batch(rows.map(r => env.DG.prepare('INSERT INTO winter2 (slot, from_date, teacher, cls, subject, at, dev) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(...r, at, dev)));
+      await env.DG.batch(rows.map(r => env.DG.prepare('INSERT INTO winter2 (slot, from_date, teacher, cls, subject, at, dev, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(...r, at, dev, room || null)));
     } catch { return json({ error: '방금 같은 수업에 다른 신청이 들어왔습니다. 화면을 확인하고 다시 신청해 주세요' }, 409); }
     return json({ ok: true, count: rows.length });
   }
@@ -295,12 +311,7 @@ async function winterApi(req, env, url) {
   if (!row) return json({ error: '취소된 신청입니다' }, 404);
   // 실은 신청한 선생님이 직접 고른다: 신청한 기기(또는 관리자)만 바꿀 수 있다 — 취소와 같은 규칙
   if (!admin && !(dev && row.dev === dev)) return json({ error: '신청한 기기에서만 실을 고를 수 있습니다' }, 403);
-  if (room) {
-    if (!W_CODES.has(room)) return json({ error: '없는 실습실입니다' }, 400);
-    if (typeof (await wAvail(env))[room] !== 'string') return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);
-    const busy = W_BASE[room] && W_BASE[room][row.slot];
-    if (busy) return json({ error: `${room}은(는) 그 시간에 전공 수업이 있습니다 (${busy})` }, 409);
-  }
+  if (room) { const bad = await wRoomBad(env, room, row.slot); if (bad) return bad; }
   try {
     await env.DG.prepare('UPDATE winter2 SET room = ? WHERE id = ?').bind(room || null, id).run();
   } catch { return json({ error: `${room}은(는) 그 시간에 이미 다른 수업이 배정되어 있습니다` }, 409); }

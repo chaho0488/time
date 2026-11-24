@@ -98,7 +98,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('POST', { teacher: others[0], from: D, slots: ['수4'] }, B)).status, 200);
   const idB = (await call('GET')).reqs.find(x => x.teacher === others[0]).id;
 
-  // 배정: 관리자만, 이용가능 실만, 전공 수업·다른 배정이 없는 시간만
+  // 신청하면서 바로 실 고르기: 한 칸만, 쓸 수 있는 실만, 이미 누가 고른 실은 안 됨
+  { const t2 = others[1], C = { 'X-Dev': 'c'.repeat(20) }, k2 = Object.keys(r.tt[t2]).find(k => k !== '수4' && r.tt[t2][k].endsWith('|'));
+    assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4', k2], room: '3C' }, C)).status, 400, '실을 고를 때는 한 칸씩');
+    assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4'], room: '2A' }, C)).status, 400, '이용가능 표시가 없는 실');
+    assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4'], room: '3C' }, C)).status, 200, '신청과 실 선택을 한 번에');
+    const made = (await call('GET')).reqs.find(x => x.teacher === t2);
+    assert.equal(made.room, '3C');
+    assert.equal((await call('PATCH', { id: id4, room: '3C' }, A)).status, 409, '다른 선생님이 고른 실은 못 고름');
+    assert.equal((await call('DELETE', null, C, '?id=' + made.id)).status, 200); }
+
+  // 실 고르기·배정: 신청한 기기 또는 관리자만, 이용가능 실만, 전공 수업·다른 배정이 없는 시간만
   assert.equal((await call('PATCH', { id: id4, room: '2D' }, B)).status, 403, '다른 기기는 남의 신청에 실을 고를 수 없음');
   assert.equal((await call('PATCH', { id: id4, room: '2D' }, {})).status, 403, '기기 표시가 없으면 고를 수 없음');
   assert.equal((await call('PATCH', { id: id4, room: '2A' }, A)).status, 400, '신청한 기기도 이용가능 표시가 없는 실은 못 고름');
