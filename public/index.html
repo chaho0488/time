@@ -4571,6 +4571,72 @@ function xlImportNotice(res){
   if(res.skipped.length) parts.push(`<div style="margin-top:6px"><b style="color:#b45309">건너뜀 ${res.skipped.length}건</b><br>${line(res.skipped)}</div>`);
   if(typeof syncPopup==='function') syncPopup({icon:'📗', title:'엑셀에서 가져온 기록', html:`${XL_FILE}에 손으로 적은 내용을 앱 기록에 반영했습니다.<div style="max-height:240px;overflow:auto;font-size:12px;">${parts.join('')}</div><div style="margin-top:8px;font-size:11.5px;color:#8892b8;">엑셀에서 지운 행은 가져오지 않습니다. 기록 삭제는 앱에서 해 주세요.</div>`});
 }
+/* ── 수업 장소 변경(/winter) 내역 → 드라이브 폴더의 엑셀 ──
+   결보강 엑셀과 같은 폴더에 '수업장소변경 내역.xlsx'를 1분마다 확인해, 신청이 바뀐 때만 통째로 다시 쓴다.
+   취소된 신청은 빠진다. 엑셀에서 파일을 열어 둔 동안에는 못 쓰므로 다음 차례에 다시 시도한다. */
+const WX_FILE='수업장소변경 내역.xlsx';
+let wxLast=null, wxBusy=false;
+function wxXlsxBytes(rows) {
+  const x = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const wide = v => [...String(v)].reduce((t, ch) => t + (ch.charCodeAt(0) > 0x2E7F ? 2 : 1.1), 0);   // 한글은 두 칸 너비
+  const col = i => String.fromCharCode(65 + i);
+  const cols = rows[0].map((_, i) => `<col min="${i + 1}" max="${i + 1}" width="${(Math.max(...rows.map(r => wide(r[i]))) + 2).toFixed(1)}" customWidth="1"/>`).join('');
+  const body = rows.map((r, ri) => `<row r="${ri + 1}">${r.map((v, ci) => `<c r="${col(ci)}${ri + 1}" t="inlineStr" s="${ri ? 2 : 1}"><is><t>${x(v)}</t></is></c>`).join('')}</row>`).join('');   // 글자로 넣어 '11/25'가 날짜로 바뀌지 않게
+  const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const files = [
+    ['[Content_Types].xml', `${head}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+    ['_rels/.rels', `${head}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${rel}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml', `${head}<workbook xmlns="${ns}" xmlns:r="${rel}"><sheets><sheet name="수업 장소" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels', `${head}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${rel}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${rel}/styles" Target="styles.xml"/></Relationships>`],
+    // 모양: 0 기본, 1 제목 줄(굵게·회색·테두리·가운데), 2 내용(테두리·가운데)
+    ['xl/styles.xml', `${head}<styleSheet xmlns="${ns}"><fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE9EEF5"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`],
+    ['xl/worksheets/sheet1.xml', `${head}<worksheet xmlns="${ns}"><cols>${cols}</cols><sheetData>${body}</sheetData></worksheet>`],
+  ];
+  // zip(저장만): 파일마다 [머리 + 내용], 끝에 목록(central directory)
+  const T = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = b => { let c = ~0; for (const v of b) c = T[(c ^ v) & 255] ^ (c >>> 8); return ~c >>> 0; };
+  const enc = new TextEncoder(), parts = [], dir = []; let off = 0;
+  const hdr = (sig, extra, name, data, tail) => { const h = new DataView(new ArrayBuffer(extra + 26 + tail)); let o = 0;
+    h.setUint32(o, sig, true); o += 4; if (extra > 4) { h.setUint16(o, 20, true); o += 2; }
+    h.setUint16(o, 20, true); h.setUint16(o + 2, 0x800, true); h.setUint16(o + 4, 0, true); h.setUint32(o + 6, 0x5C210000, true);   // 이름은 UTF-8, 압축 없음, 고정 날짜
+    h.setUint32(o + 10, crc(data), true); h.setUint32(o + 14, data.length, true); h.setUint32(o + 18, data.length, true); h.setUint16(o + 22, name.length, true);
+    return h; };
+  for (const [n, text] of files) {
+    const name = enc.encode(n), data = enc.encode(text);
+    const lh = hdr(0x04034B50, 4, name, data, 0); parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = hdr(0x02014B50, 6, name, data, 14); ch.setUint32(42, off, true); dir.push(new Uint8Array(ch.buffer), name);
+    off += 30 + name.length + data.length;
+  }
+  const dlen = dir.reduce((t, b) => t + b.length, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054B50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, dlen, true); end.setUint32(16, off, true);
+  const all = [...parts, ...dir, new Uint8Array(end.buffer)], out = new Uint8Array(all.reduce((t, b) => t + b.length, 0)); let p = 0;
+  for (const b of all) { out.set(b, p); p += b.length; }
+  return out;
+}
+function wxRows(d){
+  const DAYS='월화수목금', ord=k=>DAYS.indexOf(k[0])*10+Number(k[1]);
+  const name=c=>(d.rooms.find(r=>r[0]===c)||['',''])[1];
+  const md=iso=>Number(iso.slice(5,7))+'/'+Number(iso.slice(8,10));
+  const start=r=>(r.room&&d.avail[r.room]&&d.avail[r.room]>r.from?d.avail[r.room]:r.from);   // 실의 이용 시작일이 더 늦으면 그날부터
+  const rs=[...d.reqs].sort((a,b)=>a.teacher.localeCompare(b.teacher,'ko')||ord(a.slot)-ord(b.slot));
+  return [['교사','요일','교시','학급','과목','실습실 코드','실습실 이름','층','시작일','신청 시각']]
+    .concat(rs.map(r=>[r.teacher,r.slot[0],r.slot[1],r.cls,r.subject,r.room||'',r.room?name(r.room):'(실 선택 전)',r.room?r.room[0]+'층':'',md(start(r)),r.at||'']));
+}
+async function wxSync(){
+  if(wxBusy||!FS.connected||!FS.dirHandle||!/^https?:$/.test(location.protocol)) return;
+  wxBusy=true;
+  try{
+    const res=await fetch('/api/winter',{cache:'no-store'}); if(!res.ok) return;
+    const rows=wxRows(await res.json()), sig=JSON.stringify(rows);
+    if(wxLast===null){ try{ await FS.dirHandle.getFileHandle(WX_FILE); }catch(e){ wxLast=''; } }   // 파일이 없으면 신청이 0건이어도 한 번 만든다
+    if(sig===wxLast) return;
+    if(wxLast===null && rows.length===1){ wxLast=sig; return; }   // 처음 확인인데 신청이 없으면 있던 파일을 건드리지 않음
+    const fh=await FS.dirHandle.getFileHandle(WX_FILE,{create:true});
+    const w=await fh.createWritable(); await w.write(wxXlsxBytes(rows)); await w.close();
+    wxLast=sig;
+  }catch(e){}   // 엑셀에서 열려 있음·오프라인 등: 1분 뒤 다시
+  finally{ wxBusy=false; }
+}
 /* 엑셀 파일이 다른 곳(엑셀 프로그램·다른 기기)에서 바뀌었는지 10초마다 확인 */
 async function xlPollExcel(){
   if(!FS.connected||!FS.dirHandle||XL.busy) return;
@@ -4705,7 +4771,7 @@ async function fsPoll(){
     else fsSaveStatus('synced');
   }catch(e){}
 }
-function fsStartPoll(){ clearInterval(FS.pollTimer); FS.pollTimer=setInterval(fsPoll, 5000); clearInterval(FS.inboxTimer); FS.inboxTimer=setInterval(fsApplyInbox, 30000); clearInterval(FS.xlTimer); FS.xlTimer=setInterval(()=>{ try{ xlPollExcel(); }catch(e){} }, 10000); }
+function fsStartPoll(){ clearInterval(FS.pollTimer); FS.pollTimer=setInterval(fsPoll, 5000); clearInterval(FS.inboxTimer); FS.inboxTimer=setInterval(fsApplyInbox, 30000); clearInterval(FS.xlTimer); FS.xlTimer=setInterval(()=>{ try{ xlPollExcel(); }catch(e){} }, 10000); clearInterval(FS.wxTimer); FS.wxTimer=setInterval(wxSync, 60000); setTimeout(wxSync, 3000); }
 
 /* ══ 받은변경 (노트북이 꺼져 있을 때 Claude가 구글 드라이브에 넣어 둔 변경) ══
    동기화 폴더(G:) 안의 '받은변경' 폴더에서 *.json 을 읽어 아직 반영하지 않은 것을 순서대로 반영한다.
