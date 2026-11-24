@@ -42,8 +42,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   let r = await call('GET');
   assert.equal(r.status, 200);
-  assert.equal(r.rooms.length, 24, '실습실 23곳 + 1층 프로젝트실(음악실)');
-  assert.deepEqual([r.start, r.fixed], [D, { '1P': '음악실' }]);
+  assert.equal(r.rooms.length, 23, '실습실 23곳(음악실은 목록에 없음)');
+  assert.ok(r.start === D && !('fixed' in r) && !r.rooms.some(x => x[0] === '1P' || x[1].includes('음악')));
   assert.deepEqual(r.avail, { '2D': D, '3B': D, '3C': D }, '점검용 고정값: 2D·3B·3C 가 11/25부터 이용가능');
   // 저장된 값이 없을 때의 기본값 = 2026-11-24 실습실 현황표의 가능 시작일
   const def = (await (await worker.fetch(new Request('https://x/api/winter'), { ...env, DATA: { get: async () => null, put: async () => {} } })).json()).avail;   // 같은 표, 빈 KV
@@ -58,12 +58,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal(Object.keys(r.tt).length, 43, '교사 43명');
   assert.equal(r.tt['성준혁']['수3'], '1신3|과학|');
   assert.equal(r.tt['성준혁']['수4'], '1신1|과학|');
-  assert.equal(r.tt['신지은']['수3'], '1신2|음악|1P', '음악은 1층 프로젝트실');
+  assert.equal(r.tt['신지은']['수3'], '1신2|음악|음악실', '음악 칸은 음악실로 표시(신청 대상 아님)');
   assert.equal(r.tt['신지은']['화7'], '2신2|HR|', '음악 선생님의 HR 은 그대로');
-  assert.equal(Object.keys(r.base['1P']).length, 18, '음악 18시간이 프로젝트실에');
-  assert.equal(r.base['1P']['수4'], '1전1 음악 신지은');
+  assert.ok(!('1P' in r.base) && !('음악실' in r.base), '음악실은 실습실 시간표에 없음');
   assert.equal(r.tt['김동후']['목4'], '1신1|자동|4C');
-  assert.equal(Object.values(r.base).reduce((n, v) => n + Object.keys(v).length, 0), 273 + 18, '전공 수업 칸 273개 + 음악 18개');
+  assert.equal(Object.values(r.base).reduce((n, v) => n + Object.keys(v).length, 0), 273, '전공 수업 칸 273개');
   assert.equal(r.base['2D']['수1'], '3전2 선택 이선영');
   assert.equal(r.base['1B']['목1'], '3전3·3신1 배관 박은선·정재정', '두 반이 같이 쓰는 칸');
   for (const c of ['2D', '3B', '3C']) assert.deepEqual(Object.keys(r.base[c]).sort(), ['화3', '화4', '화5', '화6', '수1', '수2', '수3', '금1', '금2', '금3', '금4', '금5'].sort(), c + ' 전공 수업은 화3~6·수1~3·금1~5');
@@ -81,7 +80,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('POST', req({ slots: [] }), A)).status, 400);
   assert.equal((await call('POST', req({ from: '2026-11-24' }), A)).status, 400, '11/25 앞 날짜(오늘)는 신청 불가');
   assert.equal((await call('POST', req({ slots: ['월2'] }), A)).status, 400, '성준혁 선생님은 월2 수업이 없음');
-  assert.equal((await call('POST', { teacher: '신지은', from: D, slots: ['수3'] }, A)).status, 400, '음악은 이미 프로젝트실에서 하므로 신청 불가');
+  assert.equal((await call('POST', { teacher: '신지은', from: D, slots: ['수3'] }, A)).status, 400, '음악은 이미 음악실에서 하므로 신청 불가');
   r = await call('POST', req({ teacher: '김동후', slots: ['목4'] }), A);
   assert.equal(r.status, 400, '이미 실습실(4C)에서 하는 수업은 신청 불가');
   assert.equal((await call('GET')).reqs.length, 0);
@@ -108,7 +107,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('PATCH', { id: id4, room: '2D' }, PW)).status, 200);
   assert.equal((await call('PATCH', { id: idB, room: '2D' }, PW)).status, 409, '같은 요일교시 같은 실에 두 번 배정 불가');
   assert.equal((await call('PATCH', { id: idB, room: '3B' }, PW)).status, 200);
-  assert.equal((await call('PATCH', { id: id4, room: '1P' }, PW)).status, 400, '음악실은 배정 대상이 아님');
+  assert.equal((await call('PATCH', { id: id4, room: '1P' }, PW)).status, 400, '없는 실(음악실)에는 배정 불가');
   assert.equal((await call('PATCH', { id: id4, room: '' }, PW)).status, 200, '배정 취소');
   assert.equal((await call('GET')).reqs.find(x => x.id === id4).room, null);
 

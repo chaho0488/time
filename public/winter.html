@@ -68,20 +68,22 @@
   .legend span::before { content: ""; display: inline-block; width: .9em; height: .9em; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); border: 1px solid var(--line); }
   .fine { font-size: .82rem; color: var(--sub); margin: 0 0 12px; }
   #note { font-weight: 700; margin-bottom: 8px; }
-  #grid { display: grid; gap: 8px; }
+  #grid { display: block; }
+  /* 같은 층의 실은 표 하나로 묶는다: 바깥 테두리 하나, 실 사이는 가는 줄 */
+  .ftable { background: var(--card); border: 1.5px solid var(--ink); border-radius: 12px; overflow: hidden; }
   /* 층별 묶음 제목 */
-  .floor { display: flex; align-items: center; gap: 10px; font-size: 1.1rem; font-weight: 800; margin: 18px 0 2px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+  .floor { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; font-weight: 800; margin: 22px 0 8px; }
   .floor:first-child { margin-top: 4px; }
   .floor span { font-size: .82rem; font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 999px; padding: 2px 10px; }
   .more { margin-left: auto; font-size: .82rem; font-weight: 700; color: var(--frost-ink); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; }
-  .room { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 14px; }
-  .room.open { border: 2px solid var(--warm); }
+  .room { background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 14px 14px; }
+  .room:last-child { border-bottom: 0; }
+  .room.open { box-shadow: inset 5px 0 0 var(--warm); }   /* 이용가능 실: 왼쪽 호박색 띠 */
   .room header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .room header input { width: 1.25em; height: 1.25em; margin: 0; accent-color: var(--ink); }
   .code { font-size: .95rem; font-weight: 800; background: var(--ink); color: #fff; border-radius: 6px; padding: 2px 8px; }
   .rname { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
   .badge { font-size: .82rem; font-weight: 700; color: var(--ink); background: var(--warm); border-radius: 999px; padding: 2px 10px; }
-  .badge.fix { background: none; border: 1.5px solid var(--ink); }
   .shutlab { font-size: .82rem; font-weight: 700; color: var(--frost-ink); border: 1.5px solid var(--frost-ink); border-radius: 999px; padding: 1px 9px; }
   .strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
   .strip li { position: relative; min-height: 3.6em; border-radius: 6px; padding: 14px 2px 4px; text-align: center; background: var(--paper); overflow-wrap: anywhere; }
@@ -95,15 +97,15 @@
   .strip li.done small { color: var(--pine); }
   .strip li.out { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }       /* 그 요일에 없는 교시 */
   /* 수업 불가 실: 줄 전체를 회색으로 닫고 낮게 */
-  .room.closed { background: var(--frost); border-color: var(--frost); padding: 9px 14px 10px; }
+  .room.closed { background: var(--frost); border-bottom-color: #CFD6E0; padding: 9px 14px 10px; }
   .room.closed header { margin-bottom: 0; }
   .room.closed .strip { margin-top: 8px; }
   .room.closed .code { background: var(--frost-ink); }
   .room.closed .rname { color: var(--frost-ink); font-size: 1rem; }
   .room.closed .strip li { background: #D8DEE7; min-height: 2.9em; color: var(--frost-ink); }
   .room.closed .strip li small { color: var(--frost-ink); }
-  /* 교실 이용불가 실습실(현황표 X)과 음악실: 더 어두운 음영 */
-  .room.never { background: #B4BCC9; border-color: #B4BCC9; }
+  /* 교실 이용불가 실습실(현황표 X): 더 어두운 음영 */
+  .room.never { background: #B4BCC9; border-bottom-color: #A3ACBA; }
   .room.never .code { background: #5E6878; }
   .room.never .rname, .room.never .more { color: #4E5766; }
   .room.never .shutlab { color: #4E5766; border-color: #4E5766; }
@@ -190,7 +192,7 @@
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
   </div>
-  <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가·음악실</span></div>
+  <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
   <p class="fine">확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</p>
   <div id="note" class="err"></div>
   <div id="grid"></div>
@@ -340,7 +342,7 @@ function render() {
   $('adminHint').hidden = !admin; if (!admin) openCell = '';
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
-  // 실습실 시간표: 층별로 묶고, 실마다 이름 한 줄 + 1~7교시 한 줄. 수업 불가 실은 이름 한 줄로 접어 두고 누르면 펼침
+  // 실습실 시간표: 층마다 표 하나. 그 안에 실마다 이름 한 줄 + 1~7교시 한 줄. 수업 불가 실은 이름 한 줄로 접어 두고 누르면 펼침
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
   else {
@@ -349,11 +351,11 @@ function render() {
       if (code[0] !== floor) {
         floor = code[0];
         const cnt = data.rooms.filter(r => r[0][0] === floor && availOn(r[0], iso)).length;
-        h += `<h3 class="floor">${floor}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3>`;
+        h += `${h ? '</div>' : ''}<h3 class="floor">${floor}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3><div class="ftable">`;
       }
-      const ok = availOn(code, iso), from = data.avail[code], fix = data.fixed[code], shut = !ok && !fix;
-      const never = !ok && (fix || data.never.includes(code));   // 교실 이용불가 실·음악실: 더 어둡게
-      const tag = ok ? '<span class="badge">이용가능</span>' : fix ? `<span class="badge fix">${esc(fix)}</span>` : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
+      const ok = availOn(code, iso), from = data.avail[code], shut = !ok;
+      const never = shut && data.never.includes(code);   // 교실 이용불가 실: 더 어둡게
+      const tag = ok ? '<span class="badge">이용가능</span>' : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
       h += `<section class="room${shut ? ' closed' : ok ? ' open' : ''}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
       if (shut && !shown.has(code)) { h += '</section>'; continue; }   // 접힌 수업 불가 실
       h += '<ol class="strip">';
@@ -379,6 +381,7 @@ function render() {
       }
       h += '</section>';
     }
+    h += '</div>';
   }
   $('grid').innerHTML = h;
 
@@ -435,8 +438,8 @@ $('list').addEventListener('change', async e => {
 $('grid').addEventListener('change', async e => {
   const c = e.target.closest('input[data-avail]');
   if (!c) return;
-  // 교실 이용불가 실습실·음악실을 이용가능으로 풀려 하면 한 번 더 묻는다
-  const code0 = c.dataset.avail, why = data.fixed[code0] ? '음악실로 쓰는 실' : data.never.includes(code0) ? '교실 이용불가 실습실' : '';
+  // 교실 이용불가 실습실을 이용가능으로 풀려 하면 한 번 더 묻는다
+  const code0 = c.dataset.avail, why = data.never.includes(code0) ? '교실 이용불가 실습실' : '';
   if (c.checked && why && !confirm(`${code0} ${roomName(code0)}은(는) ${why}입니다.\n이용가능으로 해제하시겠습니까?`)) { c.checked = false; return; }
   // 켜면 지금 보고 있는 날짜부터 이용가능, 끄면 표시를 아예 없앰
   const avail = { ...data.avail }, iso = $('vdate').value;

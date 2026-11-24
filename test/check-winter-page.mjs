@@ -33,7 +33,7 @@ const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [..
 let s = await page.evaluate(() => ({ day: document.getElementById('vday').textContent, badges: [...document.querySelectorAll('#grid .badge')].map(b => b.textContent), free: document.querySelectorAll('#grid li.free').length,
   rows: document.querySelectorAll('#grid .room').length, from: document.getElementById('from').value, min: [document.getElementById('from').min, document.getElementById('vdate').min],
   note: document.getElementById('fromNote').textContent, pwTop: !!(document.getElementById('pw').compareDocumentPosition(document.getElementById('teacher')) & 4), hint: document.getElementById('adminHint').hidden, text: document.body.textContent.includes('요 며칠'), old: !!document.querySelector('#cls, #subject, #periods') }));
-ok('첫 화면: 11/25(수), 실 24곳, 이용가능 3곳 + 음악실, 시작일 기본값·최솟값 11/25', s.day === '11/25(수)' && s.rows === 24 && s.badges.join() === '음악실,이용가능,이용가능,이용가능' && s.free === 12 && s.from === '2026-11-25' && s.min.join() === '2026-11-25,2026-11-25', s);
+ok('첫 화면: 11/25(수), 실 23곳, 이용가능 3곳, 시작일 기본값·최솟값 11/25', s.day === '11/25(수)' && s.rows === 23 && s.badges.join() === '이용가능,이용가능,이용가능' && s.free === 12 && s.from === '2026-11-25' && s.min.join() === '2026-11-25,2026-11-25', s);
 ok('안내 문구와 학급·과목·교시 입력 칸은 없음', !s.text && !s.old, s);
 ok('관리자 비밀번호 칸이 맨 위(교사명 칸보다 앞)에 있고, 비밀번호 전에는 관리자 안내·빈 실 단추가 없음', s.pwTop && s.hint && !(await page.locator('#grid button[data-free]').count()), s);
 ok('시작일 옆에 "11/25부터 일부 실습실 이용가능"', s.note === '11/25부터 일부 실습실 이용가능', s);
@@ -42,22 +42,21 @@ ok('◀ 를 눌러도 11/25 앞(오늘)으로는 가지 않음', (await page.tex
 await page.fill('#vdate', '2026-11-24'); await page.dispatchEvent('#vdate', 'change');
 ok('날짜 칸에 오늘을 직접 넣어도 11/25 로 돌아옴', (await page.textContent('#vday')) === '11/25(수)');
 
-// 수업 불가 실은 줄 전체가 회색으로 닫히고, 음악실(1층 프로젝트실)은 음악 수업이 들어 있음
+// 층마다 표 하나로 묶이고, 수업 불가 실은 줄 전체가 회색으로 닫힘. 음악실(프로젝트실)은 없음
 s = await page.evaluate(() => { const rows = [...document.querySelectorAll('#grid .room')], code = r => r.querySelector('.code').textContent;
   const txt = li => [...li.querySelectorAll('b, small')].map(e => e.textContent).join('');   // 교시 번호는 빼고 학급·과목·교사만
-  const p = rows.find(r => code(r) === '1P'), d = rows.find(r => code(r) === '2D');
+  const d = rows.find(r => code(r) === '2D');
   return { order: rows.map(code).join(' '), floors: [...document.querySelectorAll('#grid .floor')].map(f => f.textContent), closed: rows.filter(r => r.classList.contains('closed')).length, lab: rows.filter(r => r.querySelector('.shutlab')).length,
     folded: rows.filter(r => r.classList.contains('closed') && !r.querySelector('.strip') && r.querySelector('.more')).length,
-    music: [...p.querySelectorAll('.strip li')].map(txt), pClosed: p.classList.contains('closed'), pName: p.querySelector('.rname').textContent,
+    tables: [...document.querySelectorAll('#grid .ftable')].map(t => t.querySelectorAll('.room').length).join(), loose: document.querySelectorAll('#grid > .room').length, music: document.getElementById('grid').textContent.includes('음악') || document.getElementById('grid').textContent.includes('프로젝트'),
     name: d.querySelector('.rname').textContent, size: parseFloat(getComputedStyle(d.querySelector('.rname')).fontSize), nos: [...d.querySelectorAll('.strip li i')].map(i => i.textContent).join('') }; });
 ok('실습실 이름이 전체 이름으로 크게(17px 이상) 나오고 칸마다 교시 번호가 있음', s.name === '송변전배전설비운영실습실' && s.size >= 17 && s.nos === '1234567', s);
-ok('층별로 묶임: 1층~4층 제목과 이용가능 수, 실은 코드 순', s.floors.join() === '1층,2층이용가능 1곳,3층이용가능 2곳,4층' && s.order === '1A 1B 1C 1D 1P 2A 2B 2C 2D 2E 2F 2G 2X 2Y 3A 3B 3C 3D 3E 3F 4A 4B 4C 4D', s);
+ok('층마다 표 하나(1층 4·2층 9·3층 6·4층 4실)로 묶이고 음악실은 없음, 실은 코드 순', s.floors.join() === '1층,2층이용가능 1곳,3층이용가능 2곳,4층' && s.tables === '4,9,6,4' && !s.loose && !s.music && s.order === '1A 1B 1C 1D 2A 2B 2C 2D 2E 2F 2G 2X 2Y 3A 3B 3C 3D 3E 3F 4A 4B 4C 4D', s);
 ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && s.lab === 20 && s.folded === 20, s);
 { const d = await page.evaluate(() => { const bg = c => getComputedStyle(document.querySelector(`#grid .room[data-room="${c}"]`)).backgroundColor;
     return { never: [...document.querySelectorAll('#grid .room.never')].map(r => r.dataset.room).join(), labs: [...document.querySelectorAll('#grid .room.never .shutlab')].map(e => e.textContent).join(),
-      dark: bg('1C'), music: bg('1P'), plain: bg('1A'), plainLab: document.querySelector('#grid .room[data-room="1A"] .shutlab').textContent }; });
-  ok('교실 이용불가 6곳(1C·1D·2E·2X·2Y·4A)과 음악실(1P)은 다른 닫힌 실보다 어두운 음영, 표시는 "교실 이용불가"', d.never === '1C,1D,1P,2E,2X,2Y,4A' && d.labs === Array(6).fill('교실 이용불가').join() && d.dark === d.music && d.dark !== d.plain && d.plainLab === '수업 불가', d); }
-ok('음악실 줄: 프로젝트실(음악실), 11/25(수) 3·4·6·7교시 음악', !s.pClosed && s.pName === '프로젝트실(음악실)' && s.music.join('|') === '||1신2음악신지은|1전1음악신지은||1신1음악신지은|1신1음악신지은', s);
+      dark: bg('1C'), plain: bg('1A'), plainLab: document.querySelector('#grid .room[data-room="1A"] .shutlab').textContent }; });
+  ok('교실 이용불가 6곳(1C·1D·2E·2X·2Y·4A)은 다른 닫힌 실보다 어두운 음영, 표시는 "교실 이용불가"', d.never === '1C,1D,2E,2X,2Y,4A' && d.labs === Array(6).fill('교실 이용불가').join() && d.dark !== d.plain && d.plainLab === '수업 불가', d); }
 await page.click('#grid .room[data-room="1A"] .more');
 let s2 = await page.evaluate(() => { const r = document.querySelector('#grid .room[data-room="1A"]'); return { cells: [...r.querySelectorAll('.strip li')].map(li => li.className).join(), w4: r.querySelector('.strip li:nth-child(4) b').textContent, btn: r.querySelector('.more').textContent }; });
 ok('"보기"를 누르면 그 실의 시간표가 회색으로 펼쳐짐 (1A 수4 = 3신1)', s2.cells === 'shut,shut,shut,shut,shut,shut,shut' && s2.w4 === '3신1' && s2.btn === '접기', s2);
@@ -71,12 +70,12 @@ ok('쓰는 도중(김도) → 김동현·김동후', s.join() === '김동현,김
 await page.fill('#teacher', 'ㅋㅋ'); ok('맞는 이름이 없으면 목록이 뜨지 않음', (await names()).length === 0);
 await page.click('#send'); ok('교사를 고르지 않으면 신청이 막힘', (await page.textContent('#msg')).includes('교사명'));
 
-// 음악 선생님: 음악 18칸은 이미 프로젝트실(1P)이라 고를 수 없고 HR 한 칸만 고를 수 있음
+// 음악 선생님: 음악 18칸은 이미 음악실에서 하므로 고를 수 없고 HR 한 칸만 고를 수 있음
 await page.fill('#teacher', 'ㅅㅈㅇ'); s = await names();
 ok('초성 ㅅㅈㅇ → 신지은 포함', s.includes('신지은'), s);
 await page.click('#tlist button[data-name="신지은"]');
 s = await page.evaluate(() => ({ btn: document.querySelectorAll('#mytt button[data-slot]').length, lab: [...document.querySelectorAll('#mytt td.lab')].map(td => td.textContent) }));
-ok('신지은: 음악 18칸은 "음악 · 1P" 회색, 고를 수 있는 칸은 HR 1칸', s.btn === 1 && s.lab.length === 18 && s.lab.every(t => t.endsWith('음악 · 1P')), s);
+ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 고를 수 있는 칸은 HR 1칸', s.btn === 1 && s.lab.length === 18 && s.lab.every(t => t.endsWith('음악 · 음악실')), s);
 
 // 성준혁 선택 → 내 시간표(과학 18칸), 칸을 눌러 고름
 await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
@@ -145,8 +144,6 @@ ok('보통 실은 이용가능으로 바꿀 때 확인 창이 뜨지 않음', !a
 answer = false; await page.click('#grid input[data-avail="1C"]');
 let n1 = await page.evaluate(() => ({ on: document.querySelector('#grid input[data-avail="1C"]').checked, never: document.querySelector('#grid .room[data-room="1C"]').classList.contains('never') }));
 ok('이용불가 실 체크 → "교실 이용불가 실습실입니다 … 해제하시겠습니까?" 확인 창, 취소하면 그대로', asked.at(-1).includes('1C') && asked.at(-1).includes('교실 이용불가 실습실입니다') && asked.at(-1).includes('해제하시겠습니까') && !n1.on && n1.never, { asked, n1 });
-await page.click('#grid input[data-avail="1P"]');
-ok('음악실 체크 → "음악실로 쓰는 실입니다" 확인 창', asked.at(-1).includes('음악실로 쓰는 실입니다'), asked);
 answer = true; await page.click('#grid input[data-avail="1C"]');
 await page.waitForFunction(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('open'));
 ok('확인하면 이용가능으로 풀리고 어두운 음영이 없어짐', !(await page.evaluate(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('never'))));

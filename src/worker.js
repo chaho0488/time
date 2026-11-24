@@ -123,7 +123,7 @@ async function dgApi(req, env, url) {
 // 신청은 D1(DG)의 winter2 표(처음 부를 때 자동 생성), 이용가능 실 목록은 KV(DATA)의 winterAvail2(없으면 W_AVAIL_DEFAULT).
 const W_ROOMS = [
   ['1A', '공유압실습실_01'], ['1B', '내선공사실습실_01'], ['1C', '내선공사실습실_02'],
-  ['1D', '설비보전실습실'], ['1P', '프로젝트실(음악실)'], ['2A', '공유압실습실_02'], ['2B', '동력설비공사실습실'],
+  ['1D', '설비보전실습실'], ['2A', '공유압실습실_02'], ['2B', '동력설비공사실습실'],
   ['2C', '반도체장비전장조립실습실'], ['2D', '송변전배전설비운영실습실'], ['2E', '자동제어시스템운영실습실'],
   ['2F', '전기기기실습실'], ['2G', '전기CAD실습실_01'], ['2X', '생산자동화실습실_01'],
   ['2Y', '생산자동화실습실_02'], ['3A', '신재생에너지실무실습실'], ['3B', '자동제어기기제작실습실'],
@@ -179,17 +179,17 @@ const W_TT = {
   '이숙미': {"수4":"2신2|체육|","수5":"2전3|체육|","수6":"2전1|체육|","수7":"2전2|체육|"},
   '정영옥': {"월2":"1신2|진로|","화1":"3신2|진로|","화2":"3신1|진로|","화5":"1전2|진로|","수5":"1신1|진로|","수7":"1전3|진로|","목3":"1전1|진로|","목5":"3전2|진로|","금5":"1신3|진로|"},
 };
-// 음악 수업은 11/24부터 1층 프로젝트실(1P)에서 한다 — 시간표에는 실이 비어 있어 여기서 채운다(그래서 음악은 이동 신청 대상이 아님)
-const W_FIXED = { '1P': '음악실' };   // 배정 대상이 아닌 전용실: 화면에서 '수업 불가'로 닫지 않고 이름표만 붙인다
+// 음악 수업은 11/24부터 따로 마련한 음악실(1층 프로젝트실)에서 한다 — 그래서 음악 칸은 이동 신청 대상이 아니다.
+// 음악실은 실습실 시간표에는 넣지 않는다(실 목록 W_ROOMS 에 없음). 교사 시간표에서 음악 칸을 '음악실'로만 표시한다.
 for (const sc of Object.values(W_TT)) for (const k of Object.keys(sc)) {
   const [c, s, room] = sc[k].split('|');
-  if (s === '음악' && !room) sc[k] = `${c}|${s}|1P`;
+  if (s === '음악' && !room) sc[k] = `${c}|${s}|음악실`;
 }
 // 실습실별 전공 수업(실 → 요일교시 → '학급 과목 교사'): 위 표에서 실습실이 적힌 칸. 두 반이 같이 쓰는 칸은 '·'로 잇는다
 const W_BASE = {};
 for (const [t, sc] of Object.entries(W_TT)) for (const [k, v] of Object.entries(sc)) {
   const [c, s, room] = v.split('|');
-  if (!room) continue;
+  if (!W_CODES.has(room)) continue;   // 실습실 목록에 있는 실만(음악실 제외)
   const b = W_BASE[room] || (W_BASE[room] = {});
   if (b[k]) { const [c0, s0, t0] = b[k].split(' '); b[k] = `${c0}·${c} ${s0} ${t0}·${t}`; } else b[k] = `${c} ${s} ${t}`;
 }
@@ -230,7 +230,7 @@ async function winterApi(req, env, url) {
 
   if (req.method === 'GET') {
     const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, fixed: W_FIXED, never: W_NEVER, start: W_START, avail: await wAvail(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, never: W_NEVER, start: W_START, avail: await wAvail(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
