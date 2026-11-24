@@ -14,7 +14,8 @@
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
   main { max-width: 880px; margin: 0 auto; padding: 28px 20px 48px; }
-  h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; margin: 0 0 20px; }
+  h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 20px; }
   h2 { font-size: 1.2rem; font-weight: 800; letter-spacing: -.01em; margin: 40px 0 12px; }
   button, input, select { font: inherit; color: inherit; }
   :focus-visible { outline: 3px solid var(--warm); outline-offset: 2px; }
@@ -106,8 +107,17 @@
   #list .empty { padding: 18px; color: var(--sub); }
   .x { font-size: .85rem; font-weight: 700; color: var(--red); background: none; border: 1.5px solid var(--red); border-radius: 6px; cursor: pointer; padding: 3px 9px; }
   .wait { color: var(--warm-ink); font-weight: 700; }
-  .admin { margin-top: 28px; font-size: .85rem; color: var(--sub); }
-  .admin input { width: 9em; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  .admin { font-size: .85rem; color: var(--sub); white-space: nowrap; }
+  .admin input { width: 8em; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; margin-left: 4px; }
+  #adminHint { margin: -8px 0 16px; }
+  /* 관리자: 빈 실 칸을 누르면 그 시간에 기다리는 신청을 골라 배정 */
+  .strip li button { display: block; width: 100%; min-height: 2.2em; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
+  .strip li.free:has(button) { box-shadow: inset 0 0 0 1.5px var(--warm); }
+  .strip li.free:has(button[aria-expanded=true]) { box-shadow: inset 0 0 0 2.5px var(--ink); }
+  .strip li.free small { color: var(--warm-ink); font-weight: 700; }
+  .putbox { margin-top: 10px; padding: 10px 12px; background: var(--warm-bg); border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
+  .putbox button small { font-weight: 500; color: var(--sub); }
   @media (max-width: 600px) {
     main { padding: 20px 12px 40px; }
     h1 { font-size: 1.35rem; }
@@ -123,7 +133,11 @@
 </head>
 <body>
 <main>
-  <h1>한파 관련 수업 장소 이동 신청</h1>
+  <div class="top">
+    <h1>한파 관련 수업 장소 이동 신청</h1>
+    <label class="admin">관리자 <input id="pw" type="password" placeholder="비밀번호" autocomplete="off"></label>
+  </div>
+  <p id="adminHint" class="fine" hidden>관리자 화면입니다. 실습실 시간표의 노란 "빈 실" 칸을 누르면 그 시간에 기다리는 신청을 골라 배정할 수 있습니다. 실 이름 앞 체크는 보고 있는 날짜부터 이용가능으로 표시합니다.</p>
 
   <div class="apply">
     <div class="step">
@@ -160,13 +174,13 @@
   <h2>신청 내역</h2>
   <div class="wrap" id="list"></div>
 
-  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 실습실 배정·이용가능 표시·모든 신청 취소를 할 수 있습니다. 이용가능 체크는 보고 있는 날짜부터 적용됩니다)</div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const DAYS = ['월', '화', '수', '목', '금'], NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
 let data = null, me = '';          // me = 고른 교사
+let openCell = '';                 // 관리자가 누른 빈 실 칸('실|요일교시')
 const picked = new Set();          // 내 시간표에서 고른 칸(요일교시)
 
 // 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
@@ -278,6 +292,7 @@ function render() {
   if (!data) return;
   const iso = $('vdate').value, day = dayOf(iso), n = NP[day] || 0, admin = $('pw').value !== '';
   $('vday').textContent = iso ? md(iso) : '';
+  $('adminHint').hidden = !admin; if (!admin) openCell = '';
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
   // 실습실 시간표: 실마다 이름 한 줄 + 1~7교시 한 줄. 이용가능 실 → 전용실(음악실) → 수업 불가 실 순서
@@ -297,9 +312,20 @@ function render() {
         if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
         else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}">${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}</small></li>`; }
         else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${esc(a.teacher)}</small></li>`;
+        else if (ok && admin) {   // 관리자: 누를 수 있는 빈 실 칸 + 그 시간에 기다리는 신청 수
+          const wait = data.reqs.filter(r => !r.room && r.slot === slot).length, key = code + '|' + slot;
+          h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>대기 ${wait}건</small>` : ''}</button></li>`;
+        }
         else h += ok ? `<li class="free">${no}<b>빈 실</b></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
       }
-      h += '</ol></section>';
+      h += '</ol>';
+      if (admin && openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 배정을 기다리는 신청 목록
+        const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl);
+        h += `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>`
+          + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 배정을 기다리는 신청이 없습니다.</span>')
+          + '<button type="button" class="x" data-put="">닫기</button></div>';
+      }
+      h += '</section>';
     }
   }
   $('grid').innerHTML = h;
@@ -363,6 +389,17 @@ $('grid').addEventListener('change', async e => {
   const r = await api('PUT', { avail });
   say(r.ok ? (c.checked ? `${c.dataset.avail}: ${md(iso)}부터 이용가능으로 표시했습니다` : `${c.dataset.avail} 이용가능 표시를 껐습니다`) : r.error, r.ok);
   load();
+});
+// 관리자: 빈 실 칸을 누르면 아래에 신청 목록, 신청을 누르면 그 실에 배정
+$('grid').addEventListener('click', async e => {
+  const f = e.target.closest('button[data-free]'), p = e.target.closest('button[data-put]');
+  if (f) { openCell = openCell === f.dataset.free ? '' : f.dataset.free; render(); return; }
+  if (!p) return;
+  if (!p.dataset.put) { openCell = ''; render(); return; }
+  const [id, room] = p.dataset.put.split('|');
+  const r = await api('PATCH', { id: Number(id), room });
+  say(r.ok ? `${room}에 배정했습니다` : r.error, r.ok);
+  openCell = ''; load();
 });
 $('pw').addEventListener('input', render);
 $('vdate').addEventListener('change', () => { if (data && $('vdate').value < minDate()) $('vdate').value = minDate(); render(); });

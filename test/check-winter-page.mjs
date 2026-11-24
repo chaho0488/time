@@ -30,9 +30,10 @@ const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [..
 // 첫 화면: 안내 문구 없음. 오늘(11/24)이 아니라 이동 시작일 11/25(수)부터 보이고, 그 앞 날짜로는 넘어가지 않음
 let s = await page.evaluate(() => ({ day: document.getElementById('vday').textContent, badges: [...document.querySelectorAll('#grid .badge')].map(b => b.textContent), free: document.querySelectorAll('#grid li.free').length,
   rows: document.querySelectorAll('#grid .room').length, from: document.getElementById('from').value, min: [document.getElementById('from').min, document.getElementById('vdate').min],
-  note: document.getElementById('fromNote').textContent, text: document.body.textContent.includes('요 며칠'), old: !!document.querySelector('#cls, #subject, #periods') }));
+  note: document.getElementById('fromNote').textContent, pwTop: !!(document.getElementById('pw').compareDocumentPosition(document.getElementById('teacher')) & 4), hint: document.getElementById('adminHint').hidden, text: document.body.textContent.includes('요 며칠'), old: !!document.querySelector('#cls, #subject, #periods') }));
 ok('첫 화면: 11/25(수), 실 24곳, 이용가능 3곳 + 음악실, 시작일 기본값·최솟값 11/25', s.day === '11/25(수)' && s.rows === 24 && s.badges.join() === '이용가능,이용가능,이용가능,음악실' && s.free === 12 && s.from === '2026-11-25' && s.min.join() === '2026-11-25,2026-11-25', s);
 ok('안내 문구와 학급·과목·교시 입력 칸은 없음', !s.text && !s.old, s);
+ok('관리자 비밀번호 칸이 맨 위(교사명 칸보다 앞)에 있고, 비밀번호 전에는 관리자 안내·빈 실 단추가 없음', s.pwTop && s.hint && !(await page.locator('#grid button[data-free]').count()), s);
 ok('시작일 옆에 "11/25부터 일부 실습실 이용가능"', s.note === '11/25부터 일부 실습실 이용가능', s);
 await page.click('#prev');
 ok('◀ 를 눌러도 11/25 앞(오늘)으로는 가지 않음', (await page.textContent('#vday')) === '11/25(수)');
@@ -87,8 +88,22 @@ ok('내 시간표의 신청한 칸은 "신청됨"으로 바뀌고 다시 고를 
 await page.fill('#pw', 'pw');
 s = await page.evaluate(() => [...document.querySelectorAll('#list select')].map(x => [...x.options].map(o => o.value).join('/')));
 ok('배정 칸에는 그 요일교시에 빈 이용가능 실만 (수3: 없음, 수4: 2D·3B·3C)', s.join() === ',/2D/3B/3C' && (await page.textContent('#list tbody tr')).includes('빈 실 없음'), s);
+// 빈 실 칸을 눌러 배정: 3B 수4 칸에 '대기 1건' → 누르면 그 시간 신청 목록 → 신청을 누르면 3B 에 배정
+const cell3B = '#grid .room:nth-child(2) .strip li:nth-child(4)';
+s = await page.evaluate(q => ({ code: document.querySelector('#grid .room:nth-child(2) .code').textContent, t: document.querySelector(q).textContent, hint: document.getElementById('adminHint').hidden,
+  w5: document.querySelector('#grid .room:nth-child(2) .strip li:nth-child(5)').textContent }), cell3B);
+ok('관리자 화면: 3B 수4 빈 실 칸에 "대기 1건", 신청 없는 5교시 칸은 "빈 실"만', s.code === '3B' && s.t === '4빈 실대기 1건' && s.w5 === '5빈 실' && !s.hint, s);
+await page.click('#grid .room:nth-child(2) .strip li:nth-child(5) button');
+ok('신청 없는 빈 실을 누르면 "기다리는 신청이 없습니다"', (await page.textContent('#grid .putbox')).includes('기다리는 신청이 없습니다'));
+await page.click(cell3B + ' button');
+s = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
+ok('빈 실을 누르면 그 시간에 기다리는 신청이 나옴 (1신1 과학 성준혁)', s.length === 1 && s[0].startsWith('1신1 과학 성준혁'), s);
+await page.click('#grid .putbox button[data-put]:not(.x)');
+await page.waitForFunction(q => document.querySelector(q).classList.contains('done'), cell3B);
+ok('신청을 누르면 그 실에 배정되고 목록이 닫힘', (await page.textContent('#msg')) === '3B에 배정했습니다' && !(await page.locator('#grid .putbox').count()));
+// 신청 내역의 목록으로도 실을 바꿀 수 있음: 3B → 2D
 await page.selectOption('#list tbody tr:nth-child(2) select', '2D');
-await page.waitForFunction(() => document.querySelector('#grid li.done'));
+await page.waitForFunction(() => document.querySelector('#grid .room li.done') && document.querySelector('#grid .room').querySelector('li.done'));
 s = await page.evaluate(() => ({ cells: [...document.querySelector('#grid .room').querySelectorAll('.strip li')].map(li => li.className), cell: [...document.querySelectorAll('#grid li.done b, #grid li.done small')].map(e => e.textContent).join(''),
   mine: [...document.querySelectorAll('#mytt td.req small')].map(e => e.textContent) }));
 ok('11/25(수) 2D: 1~3 전공 수업·4교시 배정(1신1 과학 성준혁)·5~7 빈 실, 내 시간표에도 "2D 배정"', s.cells.join() === 'busy,busy,busy,done,free,free,free' && s.cell === '1신1과학성준혁' && s.mine.join() === '신청됨,2D 배정', s);
