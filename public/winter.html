@@ -102,6 +102,13 @@
   .room.closed .rname { color: var(--frost-ink); font-size: 1rem; }
   .room.closed .strip li { background: #D8DEE7; min-height: 2.9em; color: var(--frost-ink); }
   .room.closed .strip li small { color: var(--frost-ink); }
+  /* 교실 이용불가 실습실(현황표 X)과 음악실: 더 어두운 음영 */
+  .room.never { background: #B4BCC9; border-color: #B4BCC9; }
+  .room.never .code { background: #5E6878; }
+  .room.never .rname, .room.never .more { color: #4E5766; }
+  .room.never .shutlab { color: #4E5766; border-color: #4E5766; }
+  .room.never .strip li { background: #C9D0DA; color: #4E5766; }
+  .room.never .strip li small, .room.never .strip li i { color: #5E6878; }
 
   /* 신청 내역 */
   #list { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
@@ -183,7 +190,7 @@
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
   </div>
-  <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span></div>
+  <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가·음악실</span></div>
   <p class="fine">확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</p>
   <div id="note" class="err"></div>
   <div id="grid"></div>
@@ -345,8 +352,9 @@ function render() {
         h += `<h3 class="floor">${floor}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3>`;
       }
       const ok = availOn(code, iso), from = data.avail[code], fix = data.fixed[code], shut = !ok && !fix;
-      const tag = ok ? '<span class="badge">이용가능</span>' : fix ? `<span class="badge fix">${esc(fix)}</span>` : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : '수업 불가'}</span>`;
-      h += `<section class="room${shut ? ' closed' : ok ? ' open' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
+      const never = !ok && (fix || data.never.includes(code));   // 교실 이용불가 실·음악실: 더 어둡게
+      const tag = ok ? '<span class="badge">이용가능</span>' : fix ? `<span class="badge fix">${esc(fix)}</span>` : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
+      h += `<section class="room${shut ? ' closed' : ok ? ' open' : ''}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
       if (shut && !shown.has(code)) { h += '</section>'; continue; }   // 접힌 수업 불가 실
       h += '<ol class="strip">';
       for (let p = 1; p <= 7; p++) {
@@ -427,6 +435,9 @@ $('list').addEventListener('change', async e => {
 $('grid').addEventListener('change', async e => {
   const c = e.target.closest('input[data-avail]');
   if (!c) return;
+  // 교실 이용불가 실습실·음악실을 이용가능으로 풀려 하면 한 번 더 묻는다
+  const code0 = c.dataset.avail, why = data.fixed[code0] ? '음악실로 쓰는 실' : data.never.includes(code0) ? '교실 이용불가 실습실' : '';
+  if (c.checked && why && !confirm(`${code0} ${roomName(code0)}은(는) ${why}입니다.\n이용가능으로 해제하시겠습니까?`)) { c.checked = false; return; }
   // 켜면 지금 보고 있는 날짜부터 이용가능, 끄면 표시를 아예 없앰
   const avail = { ...data.avail }, iso = $('vdate').value;
   if (c.checked) avail[c.dataset.avail] = iso; else delete avail[c.dataset.avail];

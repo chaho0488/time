@@ -14,7 +14,8 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined, args: ['--no-sandbox'] });
 const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
 page.on('pageerror', e => { console.log('❌ 페이지 오류', e.message); fail++; });
-page.on('dialog', d => d.accept());
+const asked = []; let answer = true;   // 확인 창: 뜬 문구를 모으고, answer 가 false 면 '취소'를 누른다
+page.on('dialog', d => { asked.push(d.message()); return answer ? d.accept() : d.dismiss(); });
 await page.route('**/*', async r => {
   const q = r.request(), u = new URL(q.url());
   if (u.pathname === '/winter') return r.fulfill({ contentType: 'text/html', body: HTML });
@@ -52,6 +53,10 @@ s = await page.evaluate(() => { const rows = [...document.querySelectorAll('#gri
 ok('실습실 이름이 전체 이름으로 크게(17px 이상) 나오고 칸마다 교시 번호가 있음', s.name === '송변전배전설비운영실습실' && s.size >= 17 && s.nos === '1234567', s);
 ok('층별로 묶임: 1층~4층 제목과 이용가능 수, 실은 코드 순', s.floors.join() === '1층,2층이용가능 1곳,3층이용가능 2곳,4층' && s.order === '1A 1B 1C 1D 1P 2A 2B 2C 2D 2E 2F 2G 2X 2Y 3A 3B 3C 3D 3E 3F 4A 4B 4C 4D', s);
 ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && s.lab === 20 && s.folded === 20, s);
+{ const d = await page.evaluate(() => { const bg = c => getComputedStyle(document.querySelector(`#grid .room[data-room="${c}"]`)).backgroundColor;
+    return { never: [...document.querySelectorAll('#grid .room.never')].map(r => r.dataset.room).join(), labs: [...document.querySelectorAll('#grid .room.never .shutlab')].map(e => e.textContent).join(),
+      dark: bg('1C'), music: bg('1P'), plain: bg('1A'), plainLab: document.querySelector('#grid .room[data-room="1A"] .shutlab').textContent }; });
+  ok('교실 이용불가 6곳(1C·1D·2E·2X·2Y·4A)과 음악실(1P)은 다른 닫힌 실보다 어두운 음영, 표시는 "교실 이용불가"', d.never === '1C,1D,1P,2E,2X,2Y,4A' && d.labs === Array(6).fill('교실 이용불가').join() && d.dark === d.music && d.dark !== d.plain && d.plainLab === '수업 불가', d); }
 ok('음악실 줄: 프로젝트실(음악실), 11/25(수) 3·4·6·7교시 음악', !s.pClosed && s.pName === '프로젝트실(음악실)' && s.music.join('|') === '||1신2음악신지은|1전1음악신지은||1신1음악신지은|1신1음악신지은', s);
 await page.click('#grid .room[data-room="1A"] .more');
 let s2 = await page.evaluate(() => { const r = document.querySelector('#grid .room[data-room="1A"]'); return { cells: [...r.querySelectorAll('.strip li')].map(li => li.className).join(), w4: r.querySelector('.strip li:nth-child(4) b').textContent, btn: r.querySelector('.more').textContent }; });
@@ -135,6 +140,18 @@ await page.uncheck('#grid input[data-avail="3C"]');
 await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 21);
 await page.check('#grid input[data-avail="2A"]');
 await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 20);
+ok('보통 실은 이용가능으로 바꿀 때 확인 창이 뜨지 않음', !asked.some(m => m.includes('해제')), asked);
+// 교실 이용불가 실을 풀려 하면 확인 창: 취소하면 그대로, 확인하면 이용가능으로
+answer = false; await page.click('#grid input[data-avail="1C"]');
+let n1 = await page.evaluate(() => ({ on: document.querySelector('#grid input[data-avail="1C"]').checked, never: document.querySelector('#grid .room[data-room="1C"]').classList.contains('never') }));
+ok('이용불가 실 체크 → "교실 이용불가 실습실입니다 … 해제하시겠습니까?" 확인 창, 취소하면 그대로', asked.at(-1).includes('1C') && asked.at(-1).includes('교실 이용불가 실습실입니다') && asked.at(-1).includes('해제하시겠습니까') && !n1.on && n1.never, { asked, n1 });
+await page.click('#grid input[data-avail="1P"]');
+ok('음악실 체크 → "음악실로 쓰는 실입니다" 확인 창', asked.at(-1).includes('음악실로 쓰는 실입니다'), asked);
+answer = true; await page.click('#grid input[data-avail="1C"]');
+await page.waitForFunction(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('open'));
+ok('확인하면 이용가능으로 풀리고 어두운 음영이 없어짐', !(await page.evaluate(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('never'))));
+await page.uncheck('#grid input[data-avail="1C"]');
+await page.waitForFunction(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('never'));
 ok('관리자가 이용가능 표시를 끄고 켜면 회색 닫힘이 바로 바뀜', true);
 
 // 로그아웃하면(다른 선생님 화면) 배정 결과가 글자로 보임
