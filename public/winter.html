@@ -146,6 +146,9 @@
   .tabs { display: inline-flex; margin: 0; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
   .tabs button { padding: 6px 14px; font-size: .9rem; border: 0; background: #fff; font-weight: 700; cursor: pointer; }
   .tabs button[aria-selected=true] { background: var(--ink); color: #fff; }
+  /* 신청내역 확인: 보기 탭과 따로, 초록색 단추(눌러 둔 동안은 진한 초록) */
+  .nav > #tabList { width: auto; height: auto; padding: 6px 14px; margin-left: 6px; font-size: .9rem; font-weight: 800; border: 1.5px solid var(--pine); border-radius: 8px; background: var(--pine-bg); color: var(--pine); cursor: pointer; }
+  .nav > #tabList[aria-pressed=true] { background: var(--pine); color: #fff; }
   /* 층별 배치도: 층 이름은 왼쪽, 그림은 오른쪽 — 4층~2층이 PC 한 화면에 들어오도록 칸을 낮게 */
   .frow { display: grid; grid-template-columns: 5.2em 1fr; gap: 0 6px; align-items: start; margin-bottom: 8px; }
   .frow > .floor { margin: 4px 0 0; flex-direction: column; align-items: flex-start; gap: 3px; }
@@ -318,7 +321,8 @@
     <input id="vdate" type="date" aria-label="볼 날짜">
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
-    <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabPlan">배치도형</button><button type="button" role="tab" id="tabTable">목록형</button><button type="button" role="tab" id="tabList">신청 내역</button></div>
+    <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabPlan">배치도형</button><button type="button" role="tab" id="tabTable">목록형</button></div>
+    <button type="button" id="tabList" aria-pressed="false">신청내역 확인</button>
   </div>
   <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
   <div id="note" class="err"></div>
@@ -685,8 +689,8 @@ function render() {
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
   // 실습실 시간표: 두 가지 보기(탭). '배치도형'(기본) = 층마다 배치도 그림(4층 → 1층), '목록형' = 층마다 표 하나(수업 불가 실은 한 줄로 접힘)
-  for (const [id, v] of [['tabPlan', 'plan'], ['tabTable', 'table'], ['tabList', 'list']]) $(id).setAttribute('aria-selected', view === v);
-  $('tabList').textContent = `신청 내역${data.reqs.length ? ` (${data.reqs.length})` : ''}`;
+  for (const [id, v] of [['tabPlan', 'plan'], ['tabTable', 'table']]) $(id).setAttribute('aria-selected', view === v);
+  $('tabList').setAttribute('aria-pressed', view === 'list'); $('tabList').textContent = `신청내역 확인${data.reqs.length ? ` (${data.reqs.length})` : ''}`;
   const isList = view === 'list';   // 신청 내역 탭: 실습실 시간표 대신 신청 내역만
   $('grid').hidden = isList; $('list').hidden = !isList; document.querySelector('.legend').hidden = isList; $('note').hidden = isList;
   let h = '';

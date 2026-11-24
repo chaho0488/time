@@ -32,7 +32,7 @@ await showGrid(); await page.waitForSelector('#grid .plan');
     return { name: document.getElementById('teacher').value, steps: ['mytt', 'from'].filter(vis).join(), order: y('teacher') < y('vdate') && y('vdate') < y('grid'), gap: Math.round(document.querySelector('main h2').getBoundingClientRect().top - document.querySelector('.apply').getBoundingClientRect().bottom) }; });
   ok('첫 화면: 교사명 칸(비어 있음)만 있고 바로 아래가 실습실 시간표', f.name === '' && f.steps === '' && f.order && f.gap < 60, f); }
 { const t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length, rooms: document.querySelectorAll('#grid .room').length }));
-  ok('처음 화면은 배치도형(탭: 배치도형·목록형)', t.tabs === '배치도형:true,목록형:false,신청 내역:false' && t.plans === 5 && t.rooms === 0, t); }
+  ok('처음 화면은 배치도형(탭: 배치도형·목록형)', t.tabs === '배치도형:true,목록형:false' && t.plans === 5 && t.rooms === 0, t); }
 await page.click('#tabTable'); await showGrid(); await page.waitForSelector('#grid .ftable .room');   // 아래 점검은 목록형부터
 const login = async () => { await page.fill('#pw', 'pw'); await page.click('#login'); await page.waitForSelector('#adminOn:not([hidden])'); };
 const names = () => page.evaluate(() => document.getElementById('tlist').hidden ? [] : [...document.querySelectorAll('#tlist button')].map(b => b.textContent));
@@ -65,7 +65,7 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
 
 // 배치도 탭: 기존 층별 표는 그대로 두고, 탭을 누르면 층마다 배치도 그림이 나옴. 이용가능 실만 눌림
 { let t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length }));
-  ok('목록형 탭에서는 배치도가 없음', t.tabs === '배치도형:false,목록형:true,신청 내역:false' && t.plans === 0, t);
+  ok('목록형 탭에서는 배치도가 없음', t.tabs === '배치도형:false,목록형:true' && t.plans === 0, t);
   await page.click('#tabPlan');
   t = await page.evaluate(() => { const rs = [...document.querySelectorAll('#grid .pr')];
     return { plans: document.querySelectorAll('#grid .plan').length, floors: [...document.querySelectorAll('#grid .floor')].map(f => f.textContent).join(), rooms: rs.map(b => b.dataset.plan).sort().join(' '),
@@ -173,8 +173,8 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   v = { msg: await page.textContent('#msg'), open: (await popState()).open, cells: [await cellText(two[0]), await cellText(two[1])], mine: await page.evaluate(() => document.querySelector('#mytt .mine').textContent) };
   ok('고른 2건이 같은 실(3C)로 함께 신청되고 창이 닫힘, 시간표 아래에 "실습실에서 하는 수업 3건"과 인쇄·엑셀 단추', v.msg === '2건을 3C(으)로 함께 신청했습니다' && !v.open && v.cells.every(c => c.endsWith('3C/req')) && v.mine.includes('실습실에서 하는 수업 3건') && v.mine.includes('3C 자동화설비실습실 (3층, 11/25(수)부터)') && v.mine.includes('교실 안내용 인쇄') && v.mine.includes('엑셀로 받기'), v);
   // 인쇄(교실 안내)·엑셀(CSV)
-  { await page.click('#tabList'); const t = await page.evaluate(() => ({ tab: document.getElementById('tabList').textContent + ':' + document.getElementById('tabList').getAttribute('aria-selected'), list: !!document.getElementById('list').offsetParent, grid: !!document.getElementById('grid').offsetParent, rows: document.querySelectorAll('#list tr.g').length, h2: [...document.querySelectorAll('main h2')].map(h => h.textContent).join() }));
-    ok('"신청 내역 (3)" 탭을 누르면 실습실 시간표 자리에 신청 내역만 보임(맨 아래 신청 내역 제목은 없음)', t.tab === '신청 내역 (3):true' && t.list && !t.grid && t.rows === 1 && t.h2 === '실습실 시간표', t);
+  { await page.click('#tabList'); const t = await page.evaluate(() => ({ tab: document.getElementById('tabList').textContent + ':' + document.getElementById('tabList').getAttribute('aria-pressed'), apart: !document.getElementById('tabList').closest('.tabs'), bg: getComputedStyle(document.getElementById('tabList')).backgroundColor, tabBg: getComputedStyle(document.getElementById('tabPlan')).backgroundColor, list: !!document.getElementById('list').offsetParent, grid: !!document.getElementById('grid').offsetParent, rows: document.querySelectorAll('#list tr.g').length, h2: [...document.querySelectorAll('main h2')].map(h => h.textContent).join() }));
+    ok('"신청내역 확인 (3)" 단추(보기 탭과 따로, 초록색)를 누르면 실습실 시간표 자리에 신청 내역만 보임', t.tab === '신청내역 확인 (3):true' && t.apart && t.bg === 'rgb(31, 122, 92)' && t.bg !== t.tabBg && t.list && !t.grid && t.rows === 1 && t.h2 === '실습실 시간표', t);
     await page.click('#tabPlan'); ok('배치도형 탭으로 돌아오면 신청 내역은 숨음', await page.evaluate(() => !document.getElementById('list').offsetParent && !!document.getElementById('grid').offsetParent)); }
   await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; }); await page.click('#printMine');
   v = await page.evaluate(() => ({ n: window.__printed, h1: document.querySelector('#printArea h1').textContent, ps: [...document.querySelectorAll('#printArea p')].map(p => p.textContent), all: document.getElementById('printArea').textContent, rows: [...document.querySelectorAll('#printArea table.big tbody tr')].map(tr => tr.textContent), grid: document.querySelectorAll('#printArea table:not(.big) td.mv').length, shown: getComputedStyle(document.getElementById('printArea')).display }));
