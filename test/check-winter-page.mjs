@@ -231,6 +231,14 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   v = await page.evaluate(() => ({ title: document.getElementById('popTitle').textContent, n: document.querySelectorAll('#pop button[data-more]').length, bg: getComputedStyle(document.querySelector('#pop button[data-more]')).backgroundColor, req: getComputedStyle(document.querySelector('#pop .moregrid td.req')).backgroundColor }));
   ok('여러 칸을 한 번에 신청한 뒤에도 "다른 시간에도 비어 있습니다" 창이 뜨고, 가능한 칸 배경은 신청한 수업과 같은 초록색', v.title.includes('3C') && v.title.includes('다른 시간에도 비어 있습니다') && v.n >= 1 && v.bg === v.req, v);
   await page.click('#moreNo');
+  // 닫기: 교사명 칸만 남고, 신청은 그대로. 다시 이름을 고르면 시간표가 돌아온다
+  { const n0 = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.length;
+    await page.click('#mytt [data-close]');
+    const c = await page.evaluate(() => ({ name: document.getElementById('teacher').value, steps: document.getElementById('steps').hidden, tt: document.getElementById('mytt').innerHTML, btn: document.getElementById('closeMe').hidden, pop: document.getElementById('pop').hidden }));
+    const n1 = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.length;
+    ok('"닫기"를 누르면 교사명 칸만 남고(시간표·신청 목록 사라짐) 신청은 그대로', c.name === '' && c.steps && c.tt === '' && c.btn && c.pop && n0 === n1 && n0 >= 2, { c, n0, n1 });
+    await page.evaluate(() => { choose('성준혁'); document.getElementById('notice').hidden = true; document.getElementById('multiOn').click(); });
+    ok('이름 옆에도 "닫기" 단추가 있음', await page.evaluate(() => !document.getElementById('closeMe').hidden && !!document.getElementById('closeMe').offsetParent)); }
   // 교사 본인 일괄 취소: 목록에서 한 건을 골라 취소하면 그 건만 지워지고, 관리자가 아니어도 된다
   { const b = await page.evaluate(() => ({ n: document.querySelectorAll('#mytt input[data-mine]').length, dis: document.getElementById('mineDel').disabled, admin: !!data.admin }));
     await page.click('#mineAll'); const all = await page.textContent('#mineDel'); await page.click('#mineAll');

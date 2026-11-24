@@ -34,6 +34,8 @@
   .num { flex: none; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
   #teacher, #from { font-size: .95rem; padding: 7px 10px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; width: 100%; max-width: 17em; }
   .pick { position: relative; max-width: 17em; }
+  .closeme { padding: 7px 18px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--ink); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; }
+  .closerow { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
   #tlist { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: #fff; border: 1.5px solid var(--ink); border-radius: 8px; max-height: 15em; overflow-y: auto; }
   #tlist button { display: block; width: 100%; text-align: left; padding: 9px 10px; font-size: .95rem; border: 0; border-bottom: 1px solid var(--line); background: #fff; cursor: pointer; }
   #tlist button:last-child { border-bottom: 0; }
@@ -309,6 +311,7 @@
         <input id="teacher" type="text" placeholder="이름 또는 초성 (예: ㅎㄱㄷ)" maxlength="10" autocomplete="off" aria-autocomplete="list" aria-controls="tlist">
         <div id="tlist" hidden></div>
       </div>
+      <button type="button" id="closeMe" class="closeme" hidden>닫기</button>
       <div class="hint" id="nameHint">이름을 고르면 선생님 시간표가 나옵니다. 수업 칸을 눌러 실습실을 고르세요.</div>
     </div>
     <div id="steps" hidden>
@@ -454,6 +457,9 @@ function choose(name) {
   $('teacher').value = name; $('tlist').hidden = true;
   renderMine();
 }
+// 닫기: 고른 교사를 지워 첫 화면(교사명 칸만)으로 돌아간다. 신청한 내용은 그대로 남는다
+function closeMe() { me = ''; pop = ''; more = null; picked.clear(); mineSel.clear(); multi = false; $('teacher').value = ''; $('tlist').hidden = true; $('notice').hidden = true; renderMine(); scrollTo({ top: 0 }); }
+$('closeMe').addEventListener('click', closeMe);
 $('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; more = null; picked.clear(); $('notice').hidden = true; renderMine(); } showNames(); });
 $('teacher').addEventListener('focus', showNames);
 $('teacher').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const b = $('tlist').querySelector('button'); if (b && !$('tlist').hidden) choose(b.dataset.name); } });
@@ -462,7 +468,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.pick')) $('tli
 
 // ── 내 시간표: 수업 칸을 누르면 그 시간에 비어 있는 실습실 창이 뜨고, 실을 고르면 바로 신청된다 ──
 function renderMine() {
-  $('steps').hidden = !me; $('nameHint').hidden = !!me;   // 이름을 고른 뒤에만 시작일·시간표가 나온다
+  $('steps').hidden = !me; $('nameHint').hidden = !!me; $('closeMe').hidden = !me;   // 이름을 고른 뒤에만 시작일·시간표가 나온다
   if (!data || !me) { $('mytt').innerHTML = ''; renderPop(); return; }
   const sc = data.tt[me], wk = $('from').value ? weekDates($('from').value) : {};   // 머리줄 날짜 = 고른 시작일부터 한 주
   let h = '<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업입니다.</div>'
@@ -487,10 +493,11 @@ function renderMine() {
   }
   const mv = myMoves(), mine = mv.filter(r => r.mine || data.admin);   // 취소할 수 있는 것: 이 기기에서 한 신청(관리자는 전부)
   for (const id of [...mineSel]) if (!mine.some(r => r.id === id)) mineSel.delete(id);
+  const closeBtn = '<div class="closerow"><button type="button" class="closeme" data-close>닫기</button><span class="hint">신청을 마쳤으면 닫아 주세요. 신청한 내용은 그대로 남습니다.</span></div>';
   $('mytt').innerHTML = h + '</tbody></table></div>'
     + (mv.length ? `<div class="mine"><b>실습실에서 하는 수업 ${mv.length}건</b><ul>${mv.map(r => `<li>${r.mine || data.admin ? `<input type="checkbox" data-mine="${r.id}"${mineSel.has(r.id) ? ' checked' : ''} aria-label="${r.slot[0]} ${r.slot[1]}교시 취소 선택"> ` : ''}${r.slot[0]} ${r.slot[1]}교시 · ${esc(r.cls)} ${esc(r.subject)} → <b>${r.room} ${esc(fullRoom(r.room))}</b> (${r.room[0]}층, ${md(startOf(r))}부터)</li>`).join('')}</ul>`
       + '<button type="button" id="printMine">교실 안내용 인쇄</button><button type="button" id="xlsMine">엑셀로 받기</button>'
-      + (mine.length ? `<button type="button" id="mineAll">${mineSel.size === mine.length ? '전체 선택 해제' : '전체 선택'}</button><button type="button" id="mineDel" class="x"${mineSel.size ? '' : ' disabled'}>선택한 신청 취소${mineSel.size ? ` (${mineSel.size}건)` : ''}</button>` : '') + '</div>' : '');
+      + (mine.length ? `<button type="button" id="mineAll">${mineSel.size === mine.length ? '전체 선택 해제' : '전체 선택'}</button><button type="button" id="mineDel" class="x"${mineSel.size ? '' : ' disabled'}>선택한 신청 취소${mineSel.size ? ` (${mineSel.size}건)` : ''}</button>` : '') + '</div>' : '') + closeBtn;
   renderPop();
 }
 // 실을 고른 내 신청(요일·교시 순)과 실의 전체 이름
@@ -626,6 +633,7 @@ function renderPop() {
   }
 }
 $('mytt').addEventListener('click', e => {
+  if (e.target.closest('[data-close]')) return closeMe();
   if (e.target.closest('#printMine')) return printMine();
   if (e.target.closest('#xlsMine')) return void xlsMine();
   if (e.target.closest('#mineAll')) { const ids = myMoves().filter(r => r.mine || data.admin).map(r => r.id); if (mineSel.size === ids.length) mineSel.clear(); else ids.forEach(id => mineSel.add(id)); return renderMine(); }
