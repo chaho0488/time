@@ -98,6 +98,23 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('POST', { teacher: others[0], from: D, slots: ['수4'] }, B)).status, 200);
   const idB = (await call('GET')).reqs.find(x => x.teacher === others[0]).id;
 
+  // 교체·대강 반영: 교체 탐색기 기록(KV 'data')이 그 날짜의 실습실 사용으로 바뀜
+  { const lab = Object.keys(r.tt).flatMap(t => Object.entries(r.tt[t]).filter(([k, v]) => k[0] === '수' && v.endsWith('|2D')).map(([k, v]) => [t, k, ...v.split('|')])).sort((a, b) => a[1].localeCompare(b[1]));
+    assert.ok(lab.length >= 2, '수요일 2D 전공 수업이 2칸 이상');
+    const [t1, k1, c1, s1] = lab[0], [, k2] = lab[1], o = others[0], [oc, os] = r.tt[o]['수4'].split('|');
+    await env.DATA.put('data', JSON.stringify({
+      swHist: [{ id: 1, tA: t1, kA: k1, pA: k1[1] + '교시', cA: c1, sA: s1, dateISO_sw: D, tB: o, kB: '수4', pB: '4교시', cB: oc, sB: os, dateBISO: D },
+               { id: 2, tA: t1, kA: k1, cA: c1, sA: s1, dateISO_sw: '2026-11-18', tB: o, kB: '수4', dateBISO: '2026-11-18' }],   // 이동 시작일(11/25) 전 기록은 빠짐
+      dgHist: [{ id: 3, tA: lab[1][0], kA: k2, pA: k2[1] + '교시', cA: lab[1][2], sA: lab[1][3], tSub: '홍길동', subjectSub: lab[1][3], dateISO: D }] }));
+    const m = (await call('GET')).moves;
+    assert.deepEqual(Object.keys(m.room), [D], '11/25 기록만');
+    assert.equal(m.room[D]['2D'][k1], null, '교체로 빠진 전공 수업: 그날 그 시간 2D 는 빔');
+    assert.equal(m.room[D]['2D']['수4'], `${c1} ${s1} ${t1}`, '옮겨 온 시간에는 2D 를 씀');
+    assert.equal(m.room[D]['2D'][k2], `${lab[1][2]} ${lab[1][3]} 홍길동(대강)`, '대강: 실은 그대로, 교사만 바뀜');
+    assert.equal(m.out[D][t1 + '|' + k1], ''); assert.equal(m.out[D][o + '|수4'], ''); assert.equal(m.out[D][lab[1][0] + '|' + k2], '홍길동');
+    await env.DATA.put('data', 'null');
+    assert.deepEqual((await call('GET')).moves, { room: {}, out: {} }, '기록이 없으면 빈 값'); }
+
   // 신청하면서 바로 실 고르기: 한 칸만, 쓸 수 있는 실만, 이미 누가 고른 실은 안 됨
   { const t2 = others[1], C = { 'X-Dev': 'c'.repeat(20) }, k2 = Object.keys(r.tt[t2]).find(k => k !== '수4' && r.tt[t2][k].endsWith('|'));
     assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4', k2], room: '3C' }, C)).status, 400, '실을 고를 때는 한 칸씩');

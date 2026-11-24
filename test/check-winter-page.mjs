@@ -291,6 +291,19 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   ok('맨 위 체크로 전체 선택', (await page.textContent('#bulkDel')) === '선택한 신청 취소 (2건)');
   await page.uncheck('#pickAllReq'); await page.click('#logout'); await page.waitForSelector('#adminIn:not([hidden])'); }
 ok('신청 내역이 폰에서 옆으로 넘치지 않음', !(s = await over()).length, s);
+// 교체·대강 반영: 11/25 에 2D 의 1교시 전공 수업(이선영)이 5교시로 교체되면, 그날 2D 는 1교시가 비고 5교시에 수업이 들어옴
+{ const g = await (await worker.fetch(new Request('https://x/api/winter'), env)).json();
+  const [c1, s1] = g.base['2D']['수1'].split(' '), t1 = g.base['2D']['수1'].split(' ')[2], o = Object.keys(g.tt).find(t => t !== t1 && (g.tt[t]['수5'] || '').endsWith('|')), [oc, os] = g.tt[o]['수5'].split('|');
+  await env.DATA.put('data', JSON.stringify({ swHist: [{ id: 1, tA: t1, kA: '수1', pA: '1교시', cA: c1, sA: s1, dateISO_sw: '2026-11-25', tB: o, kB: '수5', pB: '5교시', cB: oc, sB: os, dateBISO: '2026-11-25' }], dgHist: [] }));
+  await page.fill('#vdate', '2026-11-25'); await page.dispatchEvent('#vdate', 'change'); await page.click('#tabTable');
+  await page.evaluate(() => load()); await page.waitForSelector('#grid .room[data-room="2D"] li[data-moved="in"]');
+  const li = n => page.evaluate(n => { const e = document.querySelector(`#grid .room[data-room="2D"] .strip li:nth-child(${n})`); return [e.className, e.dataset.moved || '', [...e.querySelectorAll('b, small')].map(x => x.textContent).join(' '), !!e.querySelector('button')].join('|'); }, n);
+  const a1 = await li(1), a5 = await li(5), txt = await page.evaluate(() => document.querySelector('main').textContent);
+  ok('교체 반영: 11/25 2D 1교시는 "빈 실 교체"(눌리지 않음), 5교시는 옮겨 온 전공 수업 "… 교체"', a1 === 'free|out|빈 실 교체|false' && a5 === `busy|in|${c1} ${s1} ${t1} 교체|false`, { a1, a5 });
+  await page.click('#next'); const b1 = await li(1);
+  ok('다른 날짜(11/26)에는 교체 표시가 없음', !b1.includes('교체'), b1);
+  ok('"확정 시간표 기준…"·"호박색(이용가능) 실을 누르면…" 안내 글은 없음', !txt.includes('확정 시간표 기준') && !txt.includes('호박색(이용가능) 실을 누르면'));
+  await env.DATA.put('data', 'null'); await page.click('#prev'); await page.evaluate(() => load()); await page.waitForFunction(() => !document.querySelector('#grid li[data-moved]')); await page.click('#tabPlan'); }
 if (process.env.SHOT) { await page.click('#prev'); await page.screenshot({ path: process.env.SHOT + '-phone.png', fullPage: true });
   await page.click('#tabPlan'); await page.click('#grid .pr[data-plan="2D"]'); await page.screenshot({ path: process.env.SHOT + '-plan.png', fullPage: true });
   await page.setViewportSize({ width: 1100, height: 900 }); await login(); await page.screenshot({ path: process.env.SHOT + '-pc.png', fullPage: true }); }

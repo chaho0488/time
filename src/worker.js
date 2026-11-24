@@ -223,6 +223,52 @@ const wInit = env => wReady || (wReady = (async () => {
   await env.DG.prepare('CREATE UNIQUE INDEX IF NOT EXISTS winter2_room ON winter2(slot, room) WHERE room IS NOT NULL').run();
 })().catch(e => { wReady = null; throw e; }));
 
+// 교체·대강 반영: 교체 탐색기가 KV 'data' 에 저장한 기록(swHist·dgHist)을 '그 날짜에만' 달라지는 실습실 사용으로 바꾼다.
+//   room[날짜][실][요일교시] = null(그날은 빔) | '학급 과목 교사'(그날만 들어온 수업 / 대강 교사)
+//   out[날짜]['교사|요일교시'] = ''(교체로 그 시간 수업이 없음) | '대강 교사 이름'
+// 요일교시는 그 날짜의 실제 교시. 실습실 수업은 교체되면 실습실도 함께 옮겨 가는 것으로 본다.
+// 최소구현: 같은 수업을 두 번 이상 연달아 옮긴 기록(교체의 교체)은 한 단계만 반영한다 — 필요해지면 교체 탐색기의 실효 시간표 계산을 옮겨 올 것
+async function wMoves(env) {
+  let d = null;
+  try { d = JSON.parse((await env.DATA.get('data')) || 'null'); } catch {}
+  const room = {}, out = {}, ins = [];
+  const put = (o, a, b, c, v) => { ((o[a] ||= {})[b] ||= {})[c] = v; };
+  const wd = iso => '일월화수목금토'[new Date(iso + 'T00:00:00Z').getUTCDay()];
+  const keyOf = (k, iso, p) => { k = String(k || ''); if (/^[월화수목금][1-7]$/.test(k)) return k; const n = parseInt(p, 10); return n >= 1 && n <= 7 ? wd(iso) + n : ''; };
+  const lesson = (t, iso, k) => {   // 그 날짜 그 교시의 원래 수업 [학급, 과목, 실] (교시가 옮겨진 날은 원래 시간표 칸으로 바꿔 찾는다)
+    const sh = W_SHIFT[iso], bk = sh ? (sh[k[1]] ? k[0] + sh[k[1]] : '') : k, v = Object.hasOwn(W_TT, t) && W_TT[t][bk];
+    return v ? v.split('|') : null;
+  };
+  const okDate = iso => typeof iso === 'string' && wIsDate(iso) && iso >= W_START;
+  const move = (t, d1, k1, d2, k2) => {   // t 의 (d1,k1) 수업이 (d2,k2) 로 옮겨 감
+    if (!okDate(d1) || !k1) return;
+    const L = lesson(t, d1, k1);
+    if (!L) return;
+    (out[d1] ||= {})[t + '|' + k1] = '';
+    if (!W_CODES.has(L[2])) return;
+    put(room, d1, L[2], k1, null);
+    if (okDate(d2) && k2) ins.push([d2, L[2], k2, `${L[0]} ${L[1]} ${t}`]);
+  };
+  const sub = (t, iso, k, tSub, subj) => {   // 대강: 수업·실은 그대로, 교사만 바뀜
+    tSub = String(tSub || '');
+    if (!okDate(iso) || !k || !tSub || tSub === '—') return;
+    const L = lesson(t, iso, k);
+    if (!L) return;
+    (out[iso] ||= {})[t + '|' + k] = tSub;
+    if (W_CODES.has(L[2])) ins.push([iso, L[2], k, `${L[0]} ${subj || L[1]} ${tSub}(대강)`]);
+  };
+  for (const r of (d && Array.isArray(d.swHist) ? d.swHist : [])) {
+    if (!r || typeof r !== 'object') continue;
+    const dA = r.dateISO_sw, dB = r.dateBISO || dA, kA = okDate(dA) ? keyOf(r.kA, dA, r.pA) : '', kB = okDate(dB) ? keyOf(r.kB, dB, r.pB) : '';
+    if (r.isDG) { sub(String(r.tA), dA, kA, r.tB, r.sB); continue; }
+    move(String(r.tA), dA, kA, dB, kB); move(String(r.tB), dB, kB, dA, kA);
+  }
+  for (const r of (d && Array.isArray(d.dgHist) ? d.dgHist : []))
+    if (r && typeof r === 'object' && okDate(r.dateISO)) sub(String(r.tA), r.dateISO, keyOf(r.kA, r.dateISO, r.pA), r.tSub, r.subjectSub);
+  for (const [iso, R, k, v] of ins) put(room, iso, R, k, v);   // 들어온 수업은 '빔' 표시보다 나중에(같은 칸이면 들어온 수업이 이김)
+  return { room, out };
+}
+
 // 고른 실을 쓸 수 있는지: 있는 실 · 이용가능 표시 · 그 요일교시에 전공 수업 없음 (다른 신청과 겹치는지는 DB 의 UNIQUE 가 막는다)
 // 선생님은 이동 시작일에 이미 쓸 수 있는 실만 고른다(아직 안 열린 실을 미리 잡아 두지 못함). 관리자는 미리 배정할 수 있다
 async function wRoomBad(env, room, slot, from, admin) {
@@ -244,7 +290,7 @@ async function winterApi(req, env, url) {
 
   if (req.method === 'GET') {
     const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), moves: await wMoves(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 

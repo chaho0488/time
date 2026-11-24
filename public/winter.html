@@ -287,7 +287,6 @@
   <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
   <div id="note" class="err"></div>
   <div id="grid"></div>
-  <p class="fine">확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</p>
 
   <h2>신청 내역</h2>
   <div class="wrap" id="list"></div>
@@ -517,7 +516,6 @@ function render() {
       if (sel && sel[0] === f) h += `<div class="ftable">${roomHtml(sel, iso, n, admin, true)}</div>`;
       h += '</div></div>';
     }
-    h += '<p class="fine">호박색(이용가능) 실을 누르면 그 실의 시간표가 아래에 나옵니다. ' + PCMARK + ' 는 PC 사용가능 실입니다.</p>';
   } else {   // 목록형
     let floor = '';
     for (const [code] of data.rooms) {   // 실 코드 순 = 층 순
@@ -602,11 +600,17 @@ function roomHtml(code, iso, n, admin, inPlan) {
   h += '<ol class="strip">';
   for (let p = 1; p <= 7; p++) {
     const slot = p <= n && slotAt(iso, p), no = `<i>${p}</i>`;
-    const b = slot && data.base[code] && data.base[code][slot];
-    const a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
+    // 교체·대강 반영(그 날짜에만): mv = 이 실 이 교시의 변화(null = 그날은 빔, 글자 = 그날 들어온 수업·대강), gone = 신청한 수업이 그날 교체로 없음('')·대강 교사 이름
+    const dk = dayOf(iso) + p, mvs = (data.moves.room[iso] || {})[code] || {}, mv = dk in mvs ? mvs[dk] : undefined;
+    const b = slot && (mv !== undefined ? mv : data.base[code] && data.base[code][slot]);
+    let a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
+    const gone = a ? (data.moves.out[iso] || {})[a.teacher + '|' + dk] : undefined;
+    const swapFree = slot && !b && (mv === null || gone === '');   // 교체로 그날만 비는 칸(매주 쓰는 신청은 받을 수 없으므로 눌리지 않는다)
+    if (gone === '') a = null;
     if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
-    else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}">${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}</small></li>`; }
-    else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${esc(a.teacher)}</small></li>`;
+    else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}"${mv ? ' data-moved="in"' : ''}>${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}${mv && !t.endsWith('(대강)') ? ' 교체' : ''}</small></li>`; }
+    else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${gone ? esc(gone) + '(대강)' : esc(a.teacher)}</small></li>`;
+    else if (swapFree) h += ok ? `<li class="free" data-moved="out">${no}<b>빈 실</b><small>교체</small></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
     else if (ok && (admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine && canUse(code, r.from)))) {   // 누를 수 있는 빈 실 칸: 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
       const wait = data.reqs.filter(r => !r.room && r.slot === slot && (admin || r.mine) && canUse(code, r.from)).length, key = code + '|' + slot;
       h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>${admin ? '대기' : '내 신청'} ${wait}건</small>` : ''}</button></li>`;
