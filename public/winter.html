@@ -62,6 +62,27 @@
   .pop { position: fixed; z-index: 20; left: 50%; top: 9vh; transform: translateX(-50%); width: min(560px, 94vw); max-height: 84vh; display: flex; flex-direction: column;
          background: #fff; border: 1.5px solid var(--ink); border-radius: 12px; box-shadow: 0 12px 40px rgba(20, 33, 61, .28); overflow: hidden; }
   .pop[hidden] { display: none; }
+  .pop.notice { z-index: 30; top: 30vh; left: 50%; right: auto; transform: translateX(-50%); width: min(380px, 90vw); text-align: center; }   /* 안내 창은 언제나 화면 가운데 */
+  .notice p { margin: 8px 0 14px; font-size: 1rem; }
+  #noticeOk, #moreSend { padding: 8px 26px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; cursor: pointer; }
+  .morelist { list-style: none; margin: 0 0 10px; padding: 0; }
+  .morelist label { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: .92rem; cursor: pointer; }
+  .morelist input { width: 1.1em; height: 1.1em; }
+  /* 내 수업 장소(실습실에서 하는 수업) 목록과 인쇄·엑셀 단추 */
+  .mine { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .mine ul { margin: 6px 0 8px; padding-left: 1.2em; font-size: .9rem; }
+  .mine button { padding: 6px 12px; margin-right: 6px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  /* 인쇄: 교실에 붙일 안내 한 장만 */
+  #printArea { display: none; }
+  @media print {
+    main, .pop { display: none !important; }
+    body { background: #fff; }
+    #printArea { display: block; padding: 0 4mm; color: #000; }
+    #printArea h1 { font-size: 22pt; margin: 0 0 4mm; } #printArea h2 { font-size: 13pt; margin: 8mm 0 2mm; } #printArea p { font-size: 12pt; margin: 0 0 4mm; }
+    #printArea table { border-collapse: collapse; width: 100%; } #printArea th, #printArea td { border: 1px solid #000; padding: 2.5mm 2mm; text-align: center; font-size: 12pt; }
+    #printArea table.big td { font-size: 15pt; font-weight: 700; padding: 4mm 2mm; } #printArea th { background: #eee; }
+    #printArea td small { display: block; font-size: 9pt; font-weight: 400; } #printArea td.mv { font-weight: 800; background: #f3f3f3; }
+  }
   @media (min-width: 1500px) { .pop { left: auto; right: 3vw; transform: none; } }   /* 넓은 화면: 시간표를 가리지 않게 오른쪽에 */
   .pophead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 14px; background: var(--ink); color: #fff; cursor: move; touch-action: none; user-select: none; }
   .pophead b { font-size: .95rem; }
@@ -293,6 +314,11 @@
 
 </main>
 <!-- 수업 칸을 누르면 뜨는 창: 그 시간에 비어 있는 실습실과 위치(배치도). 제목 줄을 끌어 옮길 수 있다 -->
+<!-- 이름을 고르면 뜨는 안내(화면 안의 창이라 팝업 차단과 상관없이 나온다) -->
+<div id="notice" class="pop notice" role="alertdialog" aria-labelledby="noticeText" hidden>
+  <div class="popbody"><p id="noticeText"><b>수업 장소 이동은 1주 단위로 신청할 수 있습니다.</b></p><button type="button" id="noticeOk">확인</button></div>
+</div>
+<div id="printArea"></div>
 <div id="pop" class="pop" role="dialog" aria-labelledby="popTitle" hidden>
   <div class="pophead" id="popHead"><b id="popTitle"></b><button type="button" id="popClose" aria-label="닫기">✕</button></div>
   <div class="popbody" id="popBody"></div>
@@ -327,6 +353,7 @@ const PLAN = {
   4: [{ left: ['전공심화 동아리실', 5043], top: [['화장실', 3179], ['계단', 4010], ['', 10043, '4B'], ['', 10043, '4A'], ['계단', 4156]], mid: '복도',
         bottom: [['', 3179], ['', 11765, '4C'], ['', 12331, '4D'], ['약품실', 4156]], right: ['체력단련실', 11709] }],
 };
+let more = null;                   // 방금 고른 실이 내 다른 수업 시간에도 비어 있을 때 띄우는 안내 { room, from }
 let pop = '', popErr = '';         // 실 고르기 창을 띄운 내 시간표 칸(요일교시)과 그 창에 보일 오류
 
 // 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
@@ -378,11 +405,11 @@ function showNames() {
   $('tlist').innerHTML = names.map(n => `<button type="button" data-name="${esc(n)}">${esc(n)}</button>`).join('');
 }
 function choose(name) {
-  me = name; pop = '';
+  me = name; pop = ''; more = null; $('notice').hidden = false; $('noticeOk').focus();   // 이름을 고르면 '1주 단위' 안내
   $('teacher').value = name; $('tlist').hidden = true;
   renderMine();
 }
-$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; renderMine(); } showNames(); });
+$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; more = null; $('notice').hidden = true; renderMine(); } showNames(); });
 $('teacher').addEventListener('focus', showNames);
 $('teacher').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('tlist').querySelector('button'); if (b && !$('tlist').hidden) choose(b.dataset.name); } });
 $('tlist').addEventListener('click', e => { const b = e.target.closest('button[data-name]'); if (b) choose(b.dataset.name); });
@@ -408,12 +435,58 @@ function renderMine() {
     }
     h += '</tr>';
   }
-  $('mytt').innerHTML = h + '</tbody></table></div>';
+  const mv = myMoves();
+  $('mytt').innerHTML = h + '</tbody></table></div>'
+    + (mv.length ? `<div class="mine"><b>실습실에서 하는 수업 ${mv.length}건</b><ul>${mv.map(r => `<li>${r.slot[0]} ${r.slot[1]}교시 · ${esc(r.cls)} ${esc(r.subject)} → <b>${r.room} ${esc(fullRoom(r.room))}</b> (${r.room[0]}층, ${md(startOf(r))}부터)</li>`).join('')}</ul>`
+      + '<button type="button" id="printMine">교실 안내용 인쇄</button><button type="button" id="xlsMine">엑셀로 받기</button></div>' : '');
   renderPop();
+}
+// 실을 고른 내 신청(요일·교시 순)과 실의 전체 이름
+const myMoves = () => data.reqs.filter(r => r.teacher === me && r.room).sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot));
+const fullRoom = c => (data.rooms.find(r => r[0] === c) || ['', c])[1];
+// 방금 고른 실이 비어 있는 내 다른 수업(아직 신청하지 않은 교실 수업)
+const moreSlots = () => Object.keys(data.tt[me]).filter(k => !data.tt[me][k].split('|')[2] && !data.reqs.some(x => x.teacher === me && x.slot === k)
+  && canUse(more.room, more.from) && freeRooms(k).includes(more.room)).sort((a, b) => slotOrder(a) - slotOrder(b));
+// 교실 안내용 인쇄: 옮긴 수업 표(크게) + 주간 시간표. 화면 안에서 인쇄 창만 부르므로 팝업 차단과 상관없다
+function printMine() {
+  const mv = myMoves(), sc = data.tt[me];
+  let h = `<h1>수업 장소 변경 안내</h1><p><b>${esc(me)}</b> 선생님의 아래 수업은 한파로 실습실에서 합니다.</p><table class="big"><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>수업 장소</th><th>시작일</th></tr></thead><tbody>`
+    + mv.map(r => `<tr><td>${r.slot[0]}요일 ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${r.room[0]}층 ${esc(fullRoom(r.room))} (${r.room})</td><td>${md(startOf(r))}부터</td></tr>`).join('')
+    + '</tbody></table><h2>주간 시간표</h2><table><thead><tr><th></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  for (let p = 1; p <= 7; p++) {
+    h += `<tr><th>${p}</th>`;
+    for (const d of DAYS) { const v = sc[d + p], r = mv.find(x => x.slot === d + p);
+      if (!v || p > NP[d]) { h += '<td></td>'; continue; }
+      const [c, s, rm] = v.split('|'); h += `<td${r ? ' class="mv"' : ''}>${esc(c)} ${esc(s)}<small>${r ? '→ ' + r.room + ' ' + esc(roomName(r.room)) : esc(rm || '교실')}</small></td>`; }
+    h += '</tr>';
+  }
+  $('printArea').innerHTML = h + '</tbody></table>';
+  window.print();
+}
+// 엑셀로 받기: 엑셀에서 바로 열리는 CSV(한글이 깨지지 않게 BOM 을 붙임). 파일을 만들어 내려받는 것이라 팝업 차단과 상관없다
+function csvMine() {
+  const rows = [['교사', '요일', '교시', '학급', '과목', '실습실 코드', '실습실 이름', '층', '시작일']]
+    .concat(myMoves().map(r => [me, r.slot[0], r.slot[1], r.cls, r.subject, r.room, fullRoom(r.room), r.room[0] + '층', startOf(r)]));
+  const text = '\ufeff' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })); a.download = `수업장소_${me}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 1000);
+  return text;
 }
 // 실 고르기 창: 누른 수업 시간에 비어 있는 실 목록 + 그 실이 있는 층의 배치도(둘 다 눌러 고를 수 있다)
 function renderPop() {
-  const el = $('pop'), v = data && me && pop && data.tt[me][pop];
+  const el = $('pop');
+  if (more && data && me) {   // 방금 고른 실이 내 다른 수업 시간에도 비어 있으면 같이 신청할지 묻는다
+    const ks = moreSlots();
+    if (ks.length) {
+      $('popTitle').textContent = `${more.room} ${roomName(more.room)} — 다른 시간에도 비어 있습니다`;
+      $('popBody').innerHTML = `<p class="fine">같은 실에서 할 수업을 고르면 함께 신청됩니다. (${md(more.from)}부터)</p><ul class="morelist">`
+        + ks.map(k => { const [c, s] = data.tt[me][k].split('|'); return `<li><label><input type="checkbox" data-more="${k}">${k[0]}요일 ${k[1]}교시 · ${esc(c)} ${esc(s)}</label></li>`; }).join('')
+        + `</ul><div class="popfoot"><button type="button" id="moreSend">선택한 수업도 ${more.room}(으)로 신청</button><button type="button" class="x" id="moreNo">닫기</button><span id="popMsg" class="err" role="alert">${esc(popErr)}</span></div>`;
+      el.hidden = false; return;
+    }
+    more = null;
+  }
+  const v = data && me && pop && data.tt[me][pop];
   if (!v) { pop = ''; popErr = ''; el.hidden = true; return; }
   const [c, s] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === pop);
   const can = !r || r.mine || data.admin, from = r ? r.from : $('from').value, cur = (r && r.room) || '';
@@ -436,16 +509,28 @@ function renderPop() {
   }
 }
 $('mytt').addEventListener('click', e => {
+  if (e.target.closest('#printMine')) return printMine();
+  if (e.target.closest('#xlsMine')) return void csvMine();
   const b = e.target.closest('button[data-slot]');
   if (!b) return;
-  pop = pop === b.dataset.slot ? '' : b.dataset.slot; popErr = '';
+  pop = pop === b.dataset.slot ? '' : b.dataset.slot; popErr = ''; more = null;
   renderMine();
 });
 $('from').addEventListener('change', () => renderPop());
-$('popClose').addEventListener('click', () => { pop = ''; renderMine(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && pop) { pop = ''; renderMine(); } });
+$('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
+$('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); } });
 $('popBody').addEventListener('click', async e => {
   const b = e.target.closest('button[data-room]'), x = e.target.closest('button[data-cancel]');
+  if (e.target.closest('#moreNo')) { more = null; popErr = ''; return renderMine(); }
+  if (e.target.closest('#moreSend')) {   // 고른 수업들을 같은 실로 한 칸씩 신청
+    const ks = [...document.querySelectorAll('#popBody input[data-more]:checked')].map(c => c.dataset.more);
+    if (!ks.length) { popErr = '함께 신청할 수업을 골라 주세요'; return renderPop(); }
+    const { room, from } = more; let n = 0, err = '';
+    for (const k of ks) { const r = await api('POST', { teacher: me, from, slots: [k], room }); if (r.ok) n++; else err = r.error; }
+    say(err ? `${n}건 신청, 나머지는 안 됨: ${err}` : `${n}건을 ${room}(으)로 함께 신청했습니다`, !err); more = null; popErr = '';
+    return load();
+  }
   if (x) {
     const r = await api('DELETE', null, '?id=' + x.dataset.cancel);
     say(r.ok ? '신청을 취소했습니다' : r.error, r.ok); if (r.ok) pop = ''; else popErr = r.error;
@@ -455,7 +540,7 @@ $('popBody').addEventListener('click', async e => {
   const room = b.dataset.room, k = pop, r0 = data.reqs.find(q => q.teacher === me && q.slot === k);
   if (!r0 && !$('from').value) { popErr = '언제부터 이동할지 날짜를 먼저 골라 주세요'; return renderPop(); }
   const r = r0 ? await api('PATCH', { id: r0.id, room }) : await api('POST', { teacher: me, from: $('from').value, slots: [k], room });
-  if (r.ok) { say(`${k[0]}요일 ${k[1]}교시 ${data.tt[me][k].split('|')[0]} → ${room} ${r0 ? '(으)로 바꿨습니다' : '신청되었습니다'}`, true); pop = ''; popErr = ''; }
+  if (r.ok) { say(`${k[0]}요일 ${k[1]}교시 ${data.tt[me][k].split('|')[0]} → ${room} ${r0 ? '(으)로 바꿨습니다' : '신청되었습니다'}`, true); pop = ''; popErr = ''; more = { room, from: r0 ? r0.from : $('from').value }; }
   else popErr = r.error;   // 창이 떠 있는 동안에는 창 안에 오류를 보여 준다
   load();
 });
