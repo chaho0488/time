@@ -98,6 +98,7 @@
   .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 800; color: var(--red); }
   .multi label input { width: 1.1em; height: 1.1em; }
   .multi button { padding: 5px 12px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  .multi button:not(:disabled) { padding: 9px 18px; background: var(--red); font-size: 1.05rem; font-weight: 800; box-shadow: 0 2px 8px rgba(192, 57, 43, .35); }
   .multi button:disabled { background: var(--frost); color: var(--frost-ink); cursor: default; }
   .pophint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .pophint .fine { margin: 0; } .pophint .x { flex: none; }
@@ -107,11 +108,13 @@
   .moregrid th { font-size: .78rem; color: var(--sub); padding: 1px 0; } .moregrid th.p { width: 1.6em; }
   .moregrid td { height: 2.5em; padding: 0; border-radius: 6px; text-align: center; font-size: .8rem; font-weight: 700; line-height: 1.15; }
   .moregrid td small { display: block; font-size: .68rem; font-weight: 500; }
-  .moregrid td.no { color: var(--frost-ink); background: var(--frost); }
+  .moregrid td.no { color: var(--frost-ink); }
   .moregrid td.req { color: var(--pine); background: var(--pine-bg); }
   .moregrid td.out { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }
-  .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 1.5px dashed var(--pine); border-radius: 6px; background: var(--pine-bg); color: var(--pine); font: inherit; cursor: pointer; }
-  .moregrid td button[aria-pressed=true] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 2px dashed var(--frost-ink); border-radius: 6px; background: #fff; color: var(--sub); font: inherit; cursor: pointer; }
+  .moregrid td button[aria-pressed=true] { background: var(--pine-bg); border-color: var(--red); color: var(--pine); }
+  .moreask { font-size: 1rem; line-height: 1.6; margin: 4px 0 10px; }
+  #moreYes, #moreSend { padding: 9px 22px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 1rem; font-weight: 800; cursor: pointer; }
   .popbody .pfl { font-size: .78rem; font-weight: 800; margin: 5px 0 2px; }
   .popbody .prow { height: 40px; }
   .popbody .pmid { height: 14px; font-size: 10px; }
@@ -463,7 +466,7 @@ function renderMine() {
   if (!data || !me) { $('mytt').innerHTML = ''; renderPop(); return; }
   const sc = data.tt[me], wk = $('from').value ? weekDates($('from').value) : {};   // 머리줄 날짜 = 고른 시작일부터 한 주
   let h = '<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업입니다.</div>'
-    + `<div class="multi"><label><input type="checkbox" id="multiOn"${multi ? ' checked' : ''}> 여러 수업을 한 번에 고르기</label>${multi ? `<button type="button" id="multiGo"${picked.size ? '' : ' disabled'}>${picked.size ? `고른 ${picked.size}칸에 모두 비어 있는 실습실 보기` : '수업 칸을 여러 개 누르세요'}</button>` : ''}</div>`
+    + `<div class="multi"><label><input type="checkbox" id="multiOn"${multi ? ' checked' : ''}> 여러 수업을 한 번에 고르기</label>${multi ? `<button type="button" id="multiGo"${picked.size ? '' : ' disabled'}>${picked.size ? `실습실 선택하기 (고른 ${picked.size}칸)` : '수업 칸을 여러 개 누르세요'}</button>` : ''}</div>`
     + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}${wk[d] ? `<small>${mdOnly(wk[d])}</small>` : ''}</th>`).join('') + '</tr></thead><tbody>';
   for (const k of [...picked]) if (!sc[k] || data.reqs.some(x => x.teacher === me && x.slot === k)) picked.delete(k);   // 그사이 신청된 칸은 선택에서 뺌
   for (let p = 1; p <= 7; p++) {
@@ -564,9 +567,14 @@ function renderPop() {
     const ks = moreSlots();
     if (ks.length) {
       $('popTitle').textContent = `${more.room} ${roomName(more.room)} — 다른 시간에도 비어 있습니다`;
+      if (!more.yes) {   // 1단계: 먼저 묻는다. '예'를 눌러야 시간표가 나온다
+        $('popBody').innerHTML = `<p class="moreask">다른 시간대 수업 <b>${ks.length}개</b>(${ks.map(k => k[0] + k[1]).join(', ')})도 이번 주 이 실습실(<b>${more.room} ${esc(roomName(more.room))}</b>)로 신청이 가능합니다.<br>신청하시겠습니까?</p>`
+          + '<div class="popfoot"><button type="button" id="moreYes">예</button><button type="button" class="x" id="moreNo">아니오</button></div>';
+        el.hidden = false; return;
+      }
       for (const k of [...moreSel]) if (!ks.includes(k)) moreSel.delete(k);
       const sc = data.tt[me];   // 내 시간표 모양 그대로: 이 실이 비어 있는 수업 칸만 눌린다
-      let g = `<p class="fine">${more.room} 이(가) 비어 있는 수업 칸(초록색 점선)을 누르면 함께 신청됩니다. (${md(more.from)}부터)</p><table class="moregrid"><thead><tr><th class="p"></th>` + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+      let g = `<p class="fine">${more.room}에서 할 수 있는 수업을 <b class="ok">초록색</b>·<b class="red">빨간 점선</b>으로 표시했습니다. 뺄 수업은 칸을 눌러 빼고 <b>선택하기</b>를 누르세요. (${md(more.from)}부터)</p><table class="moregrid"><thead><tr><th class="p"></th>` + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
       for (let p = 1; p <= 7; p++) {
         g += `<tr><th class="p">${p}</th>`;
         for (const d of DAYS) {
@@ -579,7 +587,7 @@ function renderPop() {
         }
         g += '</tr>';
       }
-      $('popBody').innerHTML = g + `</tbody></table><div class="popfoot"><button type="button" id="moreSend">선택한 수업${moreSel.size ? ` ${moreSel.size}칸` : ''}도 ${more.room}(으)로 신청</button><button type="button" class="x" id="moreNo">닫기</button><span id="popMsg" class="err" role="alert">${esc(popErr)}</span></div>`;
+      $('popBody').innerHTML = g + `</tbody></table><div class="popfoot"><button type="button" id="moreSend">선택하기${moreSel.size ? ` (${moreSel.size}칸을 ${more.room}(으)로 신청)` : ''}</button><button type="button" class="x" id="moreNo">닫기</button><span id="popMsg" class="err" role="alert">${esc(popErr)}</span></div>`;
       el.hidden = false; return;
     }
     more = null;
@@ -643,6 +651,7 @@ $('noticeNever').addEventListener('click', () => { try { localStorage.setItem('w
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); } });
 $('popBody').addEventListener('click', async e => {
   const b = e.target.closest('button[data-room]'), x = e.target.closest('button[data-cancel]');
+  if (e.target.closest('#moreYes')) { more.yes = true; moreSel.clear(); moreSlots().forEach(k => moreSel.add(k)); popErr = ''; return renderPop(); }   // 2단계: 가능한 칸을 모두 고른 채로 시간표를 보여 준다
   if (e.target.closest('#moreNo')) { more = null; popErr = ''; return renderMine(); }
   const mb = e.target.closest('button[data-more]');
   if (mb) { const k = mb.dataset.more; if (moreSel.has(k)) moreSel.delete(k); else moreSel.add(k); popErr = ''; return renderPop(); }
