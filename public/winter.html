@@ -64,6 +64,7 @@
   .pop[hidden] { display: none; }
   .pop.notice { z-index: 30; top: 30vh; left: 50%; right: auto; transform: translateX(-50%); width: min(380px, 90vw); text-align: center; }   /* 안내 창은 언제나 화면 가운데 */
   .notice p { margin: 8px 0 14px; font-size: 1rem; }
+  .notice #noticeMulti { font-size: .9rem; text-align: left; } .red { color: var(--red); }
   #noticeOk, #moreSend { padding: 8px 26px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; cursor: pointer; }
   .morelist { list-style: none; margin: 0 0 10px; padding: 0; }
   .morelist label { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: .92rem; cursor: pointer; }
@@ -90,7 +91,8 @@
   .popbody { padding: 8px 14px 10px; overflow-y: auto; }
   .popbody .fine { margin: 0 0 8px; }
   .multi { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 2px; font-size: .88rem; font-weight: 600; }
-  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 800; color: var(--red); }
+  .multi label input { width: 1.1em; height: 1.1em; }
   .multi button { padding: 5px 12px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
   .multi button:disabled { background: var(--frost); color: var(--frost-ink); cursor: default; }
   .pophint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
@@ -134,6 +136,7 @@
   .fine { font-size: .8rem; color: var(--sub); margin: 8px 0; }
   #note { font-weight: 700; margin-bottom: 8px; }
   #grid { display: block; }
+  #grid[hidden], #list[hidden], .legend[hidden] { display: none; }
   /* 같은 층의 실은 표 하나로 묶는다: 바깥 테두리 하나, 실 사이는 가는 줄 */
   .ftable { background: var(--card); border: 1.5px solid var(--ink); border-radius: 12px; overflow: hidden; }
   /* 층별 묶음 제목 */
@@ -315,20 +318,19 @@
     <input id="vdate" type="date" aria-label="볼 날짜">
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
-    <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabPlan">배치도형</button><button type="button" role="tab" id="tabTable">목록형</button></div>
+    <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabPlan">배치도형</button><button type="button" role="tab" id="tabTable">목록형</button><button type="button" role="tab" id="tabList">신청 내역</button></div>
   </div>
   <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
   <div id="note" class="err"></div>
   <div id="grid"></div>
+  <div class="wrap" id="list" hidden></div>
 
-  <h2>신청 내역</h2>
-  <div class="wrap" id="list"></div>
 
 </main>
 <!-- 수업 칸을 누르면 뜨는 창: 그 시간에 비어 있는 실습실과 위치(배치도). 제목 줄을 끌어 옮길 수 있다 -->
 <!-- 이름을 고르면 뜨는 안내(화면 안의 창이라 팝업 차단과 상관없이 나온다) -->
 <div id="notice" class="pop notice" role="alertdialog" aria-labelledby="noticeText" hidden>
-  <div class="popbody"><p id="noticeText"><b>수업 장소 이동은 1주 단위로 신청할 수 있습니다.</b></p><button type="button" id="noticeOk">확인</button></div>
+  <div class="popbody"><p id="noticeText"><b>수업 장소 이동은 1주 단위로 신청할 수 있습니다.</b></p><p id="noticeMulti"><b class="red">여러 수업을 한 번에 고르기</b>를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.</p><button type="button" id="noticeOk">확인</button></div>
 </div>
 <div id="printArea"></div>
 <div id="pop" class="pop" role="dialog" aria-labelledby="popTitle" hidden>
@@ -341,8 +343,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const DAYS = ['월', '화', '수', '목', '금'], NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
 let data = null, me = '';          // me = 고른 교사
 let openCell = '';                 // 관리자가 누른 빈 실 칸('실|요일교시')
-let view = 'plan';                 // 실습실 시간표 보기: 'plan'(배치도형, 기본) | 'table'(목록형)
-try { if (localStorage.getItem('winterView') === 'table') view = 'table'; } catch {}
+let view = 'plan';                 // 아래 탭: 'plan'(배치도형, 기본) | 'table'(목록형) | 'list'(신청 내역)
+let gridView = 'plan';             // 실습실 시간표를 마지막으로 본 모양('신청 내역' 탭에서도 기억)
+try { if (localStorage.getItem('winterView') === 'table') view = gridView = 'table'; } catch {}
 const shown = new Set();           // 층별 표에서 시간표를 펼쳐 둔 수업 불가 실
 let sel = '';                      // 배치도에서 누른 실(그 실의 시간표를 배치도 아래에 보여 준다)
 let openReq = '';                  // 신청 내역에서 '자세히'를 펼친 줄('교사|과목')
@@ -468,7 +471,7 @@ const moreSlots = () => Object.keys(data.tt[me]).filter(k => !data.tt[me][k].spl
 // 교실 안내용 인쇄: 옮긴 수업 표(크게) + 주간 시간표. 화면 안에서 인쇄 창만 부르므로 팝업 차단과 상관없다
 function printMine() {
   const mv = myMoves(), sc = data.tt[me];
-  let h = `<h1>수업 장소 변경 안내</h1><p><b>${esc(me)}</b> 선생님의 아래 수업은 한파로 실습실에서 합니다.</p><table class="big"><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>수업 장소</th><th>시작일</th></tr></thead><tbody>`
+  let h = `<h1>수업 장소 변경 안내</h1><p><b>${esc(me)}</b> 선생님 <b>${md(mv.map(startOf).sort()[0])}</b>부터 수업은 아래 장소에서 합니다.</p><p>반장은 쉬는 시간에 학과 사무실에서 열쇠를 받아 수업 시작 종이 울리기 전에 문을 열어주세요.</p><table class="big"><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>수업 장소</th><th>시작일</th></tr></thead><tbody>`
     + mv.map(r => `<tr><td>${r.slot[0]}요일 ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${r.room[0]}층 ${esc(fullRoom(r.room))} (${r.room})</td><td>${md(startOf(r))}부터</td></tr>`).join('')
     + '</tbody></table><h2>주간 시간표</h2><table><thead><tr><th></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
   for (let p = 1; p <= 7; p++) {
@@ -646,10 +649,13 @@ function render() {
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
   // 실습실 시간표: 두 가지 보기(탭). '배치도형'(기본) = 층마다 배치도 그림(4층 → 1층), '목록형' = 층마다 표 하나(수업 불가 실은 한 줄로 접힘)
-  $('tabTable').setAttribute('aria-selected', view !== 'plan'); $('tabPlan').setAttribute('aria-selected', view === 'plan');
+  for (const [id, v] of [['tabPlan', 'plan'], ['tabTable', 'table'], ['tabList', 'list']]) $(id).setAttribute('aria-selected', view === v);
+  $('tabList').textContent = `신청 내역${data.reqs.length ? ` (${data.reqs.length})` : ''}`;
+  const isList = view === 'list';   // 신청 내역 탭: 실습실 시간표 대신 신청 내역만
+  $('grid').hidden = isList; $('list').hidden = !isList; document.querySelector('.legend').hidden = isList; $('note').hidden = isList;
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
-  else if (view === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 배치도 아래에 나온다
+  else if (gridView === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 배치도 아래에 나온다
     for (const f of ['4', '3', '2', '1']) {   // 건물처럼 위층부터
       const cnt = data.rooms.filter(r => r[0][0] === f && availOn(r[0], iso)).length;
       h += `<div class="frow"><h3 class="floor">${f}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3><div>`;
@@ -839,7 +845,8 @@ $('adminForm').addEventListener('submit', async e => {
   else { PW = ''; $('adminMsg').textContent = data ? '비밀번호가 맞지 않습니다' : '확인하지 못했습니다. 인터넷 연결을 확인해 주세요'; $('pw').select(); }
 });
 $('logout').addEventListener('click', () => { PW = ''; try { sessionStorage.removeItem('winterPw'); } catch {} load(); });
-for (const [id, v] of [['tabTable', 'table'], ['tabPlan', 'plan']]) $(id).addEventListener('click', () => { view = v; try { localStorage.setItem('winterView', v); } catch {} render(); });
+for (const [id, v] of [['tabTable', 'table'], ['tabPlan', 'plan']]) $(id).addEventListener('click', () => { view = gridView = v; try { localStorage.setItem('winterView', v); } catch {} render(); });
+$('tabList').addEventListener('click', () => { view = 'list'; render(); });
 $('vdate').addEventListener('change', () => { if (data && $('vdate').value < minDate()) $('vdate').value = minDate(); render(); });
 $('prev').addEventListener('click', () => { const d = addDays($('vdate').value, -1); if (d >= minDate()) { $('vdate').value = d; render(); } });
 $('next').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, 1); render(); });

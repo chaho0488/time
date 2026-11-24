@@ -23,14 +23,17 @@ await page.route('**/*', async r => {
   const res = await worker.fetch(new Request(q.url(), { method: q.method(), headers: q.headers(), body: q.postData() || undefined }), env);
   return r.fulfill({ status: res.status, contentType: 'application/json', body: await res.text() });
 });
+// 신청 내역은 탭 안에 있으므로 그 안을 누르기 전에 탭을 연다(실습실 시간표를 누를 때는 마지막에 보던 모양으로 돌아간다). 화면이 뜨기 전에는 아무 일도 하지 않는다
+const showList = () => page.evaluate(() => { if (typeof view !== 'undefined' && view !== 'list') document.getElementById('tabList').click(); });
+const showGrid = () => page.evaluate(() => { if (typeof view !== 'undefined' && view === 'list') document.getElementById(gridView === 'plan' ? 'tabPlan' : 'tabTable').click(); });
 await page.goto('https://fake.test/winter');   /* https: 기기 표시(crypto.randomUUID)는 보안 주소에서만 만들어짐 */
-await page.waitForSelector('#grid .plan');
+await showGrid(); await page.waitForSelector('#grid .plan');
 { const f = await page.evaluate(() => { const vis = id => !!document.getElementById(id).offsetParent, y = id => document.getElementById(id).getBoundingClientRect().top;
     return { name: document.getElementById('teacher').value, steps: ['mytt', 'from'].filter(vis).join(), order: y('teacher') < y('vdate') && y('vdate') < y('grid'), gap: Math.round(document.querySelector('main h2').getBoundingClientRect().top - document.querySelector('.apply').getBoundingClientRect().bottom) }; });
   ok('첫 화면: 교사명 칸(비어 있음)만 있고 바로 아래가 실습실 시간표', f.name === '' && f.steps === '' && f.order && f.gap < 60, f); }
 { const t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length, rooms: document.querySelectorAll('#grid .room').length }));
-  ok('처음 화면은 배치도형(탭: 배치도형·목록형)', t.tabs === '배치도형:true,목록형:false' && t.plans === 5 && t.rooms === 0, t); }
-await page.click('#tabTable'); await page.waitForSelector('#grid .ftable .room');   // 아래 점검은 목록형부터
+  ok('처음 화면은 배치도형(탭: 배치도형·목록형)', t.tabs === '배치도형:true,목록형:false,신청 내역:false' && t.plans === 5 && t.rooms === 0, t); }
+await page.click('#tabTable'); await showGrid(); await page.waitForSelector('#grid .ftable .room');   // 아래 점검은 목록형부터
 const login = async () => { await page.fill('#pw', 'pw'); await page.click('#login'); await page.waitForSelector('#adminOn:not([hidden])'); };
 const names = () => page.evaluate(() => document.getElementById('tlist').hidden ? [] : [...document.querySelectorAll('#tlist button')].map(b => b.textContent));
 const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [...document.querySelectorAll('#' + id + ', #' + id + ' .wrap')].some(w => w.scrollWidth > w.clientWidth + 1)).concat(document.documentElement.scrollWidth > innerWidth + 1 ? ['화면'] : []));
@@ -62,7 +65,7 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
 
 // 배치도 탭: 기존 층별 표는 그대로 두고, 탭을 누르면 층마다 배치도 그림이 나옴. 이용가능 실만 눌림
 { let t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length }));
-  ok('목록형 탭에서는 배치도가 없음', t.tabs === '배치도형:false,목록형:true' && t.plans === 0, t);
+  ok('목록형 탭에서는 배치도가 없음', t.tabs === '배치도형:false,목록형:true,신청 내역:false' && t.plans === 0, t);
   await page.click('#tabPlan');
   t = await page.evaluate(() => { const rs = [...document.querySelectorAll('#grid .pr')];
     return { plans: document.querySelectorAll('#grid .plan').length, floors: [...document.querySelectorAll('#grid .floor')].map(f => f.textContent).join(), rooms: rs.map(b => b.dataset.plan).sort().join(' '),
@@ -86,22 +89,22 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
     const a = await sizes(390, 800), b = await sizes(760, 900), c = await sizes(1920, 910); if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '-first.png' }); await page.setViewportSize({ width: 390, height: 800 });
     ok('배치도 글자: 폰에서도 실 코드 15px·이름 12px 이상, PC 에서는 코드 16px·이름 13px·제목 20px 로 작게, 어느 폭에서도 칸 밖으로 넘치지 않음', a.code >= 15 && a.name >= 12 && c.code === 16 && c.name === 13 && c.h1 === 20 && ![a, b, c].some(x => x.fits.length || x.over), { a, b, c });
     ok('PC 화면(1920×910) 첫 화면에 4층~2층 배치도가 스크롤 없이 모두 보임', c.bottom2 <= c.vh, c); }
-  await page.click('#grid .pr[data-plan="2D"]');
+  await showGrid(); await page.click('#grid .pr[data-plan="2D"]');
   t = await page.evaluate(() => ({ rooms: [...document.querySelectorAll('#grid .room')].map(r => r.dataset.room).join(), cells: [...document.querySelectorAll('#grid .room .strip li')].map(li => li.className).join(), name: document.querySelector('#grid .room .rname').textContent,
     pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: document.querySelector('#grid .ftable').previousElementSibling.classList.contains('plan') && !!document.querySelector('#grid .ftable').closest('.frow').querySelector('[data-plan="2D"]') }));
   ok('배치도에서 2D 를 누르면 그 층 배치도 아래에 2D 시간표만 나옴', t.rooms === '2D' && t.cells === 'busy,busy,busy,free,free,free,free' && t.name === '송변전배전설비운영실습실' && t.pressed === 'true' && t.after, t);
-  await page.click('#grid .room .more');
+  await showGrid(); await page.click('#grid .room .more');
   ok('"닫기"를 누르면 시간표가 닫힘', (await page.locator('#grid .room').count()) === 0);
-  await page.click('#tabTable'); await page.waitForSelector('#grid .ftable .room');
+  await page.click('#tabTable'); await showGrid(); await page.waitForSelector('#grid .ftable .room');
   ok('목록형 탭으로 돌아오면 표 그대로(실 23곳), PC 실 이름 옆에도 PC 표시', (await page.locator('#grid .room').count()) === 23 && (await page.locator('#grid .plan').count()) === 0 && (await page.evaluate(() => [...document.querySelectorAll('#grid .room')].filter(r => r.querySelector('header .pcmark')).map(r => r.dataset.room).join())) === '2E,2G,2X,2Y,3B,3C,3F'); }
 { const d = await page.evaluate(() => { const bg = c => getComputedStyle(document.querySelector(`#grid .room[data-room="${c}"]`)).backgroundColor;
     return { never: [...document.querySelectorAll('#grid .room.never')].map(r => r.dataset.room).join(), labs: [...document.querySelectorAll('#grid .room.never .shutlab')].map(e => e.textContent).join(),
       dark: bg('1C'), plain: bg('1A'), plainLab: document.querySelector('#grid .room[data-room="1A"] .shutlab').textContent }; });
   ok('교실 이용불가 6곳(1C·1D·2E·2X·2Y·4A)은 다른 닫힌 실보다 어두운 음영, 표시는 "교실 이용불가"', d.never === '1C,1D,2E,2X,2Y,4A' && d.labs === Array(6).fill('교실 이용불가').join() && d.dark !== d.plain && d.plainLab === '수업 불가', d); }
-await page.click('#grid .room[data-room="1A"] .more');
+await showGrid(); await page.click('#grid .room[data-room="1A"] .more');
 let s2 = await page.evaluate(() => { const r = document.querySelector('#grid .room[data-room="1A"]'); return { cells: [...r.querySelectorAll('.strip li')].map(li => li.className).join(), w4: r.querySelector('.strip li:nth-child(4) b').textContent, btn: r.querySelector('.more').textContent }; });
 ok('"보기"를 누르면 그 실의 시간표가 회색으로 펼쳐짐 (1A 수4 = 3신1)', s2.cells === 'shut,shut,shut,shut,shut,shut,shut' && s2.w4 === '3신1' && s2.btn === '접기', s2);
-await page.click('#grid .room[data-room="1A"] .more');
+await showGrid(); await page.click('#grid .room[data-room="1A"] .more');
 
 // 교사 찾기: 초성, 쓰는 도중의 글자, 이름 일부
 await page.fill('#teacher', 'ㄱㄷ'); s = await names();
@@ -116,6 +119,9 @@ await page.fill('#teacher', 'ㅅㅈㅇ'); s = await names();
 ok('초성 ㅅㅈㅇ → 신지은 포함', s.includes('신지은'), s);
 await page.click('#tlist button[data-name="신지은"]');
 ok('이름을 고르면 화면 안 안내 창: "수업 장소 이동은 1주 단위로 신청할 수 있습니다." (새 창이 아니라 팝업 차단과 무관)', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('noticeText').textContent === '수업 장소 이동은 1주 단위로 신청할 수 있습니다.'));
+ok('안내 창에 "여러 수업을 한 번에 고르기 … 한 실습실에서 계속 할 수 있는지 확인" 문구', (await page.textContent('#noticeMulti')) === '여러 수업을 한 번에 고르기를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.');
+{ const m = await page.evaluate(() => { const l = document.querySelector('#mytt .multi label'), c = getComputedStyle(l); return { color: c.color, size: parseFloat(c.fontSize), base: parseFloat(getComputedStyle(document.querySelector('#mytt .hint')).fontSize) }; });
+  ok('"여러 수업을 한 번에 고르기"는 빨간색 큰 글자', m.color === 'rgb(192, 57, 43)' && m.size > m.base + 3, m); }
 await page.click('#noticeOk'); ok('확인을 누르면 안내 창이 닫힘', await page.evaluate(() => document.getElementById('notice').hidden));
 s = await page.evaluate(() => ({ btn: document.querySelectorAll('#mytt button[data-slot]').length, lab: [...document.querySelectorAll('#mytt td.lab')].map(td => td.textContent) }));
 ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 고를 수 있는 칸은 HR 1칸', s.btn === 1 && s.lab.length === 18 && s.lab.every(t => t.endsWith('음악 · 음악실')), s);
@@ -167,9 +173,12 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   v = { msg: await page.textContent('#msg'), open: (await popState()).open, cells: [await cellText(two[0]), await cellText(two[1])], mine: await page.evaluate(() => document.querySelector('#mytt .mine').textContent) };
   ok('고른 2건이 같은 실(3C)로 함께 신청되고 창이 닫힘, 시간표 아래에 "실습실에서 하는 수업 3건"과 인쇄·엑셀 단추', v.msg === '2건을 3C(으)로 함께 신청했습니다' && !v.open && v.cells.every(c => c.endsWith('3C/req')) && v.mine.includes('실습실에서 하는 수업 3건') && v.mine.includes('3C 자동화설비실습실 (3층, 11/25(수)부터)') && v.mine.includes('교실 안내용 인쇄') && v.mine.includes('엑셀로 받기'), v);
   // 인쇄(교실 안내)·엑셀(CSV)
+  { await page.click('#tabList'); const t = await page.evaluate(() => ({ tab: document.getElementById('tabList').textContent + ':' + document.getElementById('tabList').getAttribute('aria-selected'), list: !!document.getElementById('list').offsetParent, grid: !!document.getElementById('grid').offsetParent, rows: document.querySelectorAll('#list tr.g').length, h2: [...document.querySelectorAll('main h2')].map(h => h.textContent).join() }));
+    ok('"신청 내역 (3)" 탭을 누르면 실습실 시간표 자리에 신청 내역만 보임(맨 아래 신청 내역 제목은 없음)', t.tab === '신청 내역 (3):true' && t.list && !t.grid && t.rows === 1 && t.h2 === '실습실 시간표', t);
+    await page.click('#tabPlan'); ok('배치도형 탭으로 돌아오면 신청 내역은 숨음', await page.evaluate(() => !document.getElementById('list').offsetParent && !!document.getElementById('grid').offsetParent)); }
   await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; }); await page.click('#printMine');
-  v = await page.evaluate(() => ({ n: window.__printed, h1: document.querySelector('#printArea h1').textContent, rows: [...document.querySelectorAll('#printArea table.big tbody tr')].map(tr => tr.textContent), grid: document.querySelectorAll('#printArea table:not(.big) td.mv').length, shown: getComputedStyle(document.getElementById('printArea')).display }));
-  ok('"교실 안내용 인쇄": 인쇄 창을 부르고, 안내문에 옮긴 수업 3줄(요일·교시·학급·과목·층과 실 이름·시작일)과 주간 시간표, 화면에는 안 보임', v.n === 1 && v.h1 === '수업 장소 변경 안내' && v.rows.length === 3 && v.rows.some(r => r === '수요일 4교시1신1과학3층 자동화설비실습실 (3C)11/25(수)부터') && v.grid === 3 && v.shown === 'none', v);
+  v = await page.evaluate(() => ({ n: window.__printed, h1: document.querySelector('#printArea h1').textContent, ps: [...document.querySelectorAll('#printArea p')].map(p => p.textContent), all: document.getElementById('printArea').textContent, rows: [...document.querySelectorAll('#printArea table.big tbody tr')].map(tr => tr.textContent), grid: document.querySelectorAll('#printArea table:not(.big) td.mv').length, shown: getComputedStyle(document.getElementById('printArea')).display }));
+  ok('"교실 안내용 인쇄": 인쇄 창을 부르고, 안내문에 옮긴 수업 3줄(요일·교시·학급·과목·층과 실 이름·시작일)과 주간 시간표, 화면에는 안 보임', v.n === 1 && v.h1 === '수업 장소 변경 안내' && v.ps.join('|') === '성준혁 선생님 11/25(수)부터 수업은 아래 장소에서 합니다.|반장은 쉬는 시간에 학과 사무실에서 열쇠를 받아 수업 시작 종이 울리기 전에 문을 열어주세요.' && !v.all.includes('한파') && v.rows.length === 3 && v.rows.some(r => r === '수요일 4교시1신1과학3층 자동화설비실습실 (3C)11/25(수)부터') && v.grid === 3 && v.shown === 'none', v);
   const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#xlsMine')]); const csv = await page.evaluate(() => csvMine());
   // (이 점검 환경의 크롬은 한글 파일 이름을 'download' 로만 알려 줘서 파일 이름은 확인하지 않는다)
   ok('"엑셀로 받기": 파일이 내려받아지고 내용은 제목 줄 + 3줄(한글 깨짐 방지 BOM)', !!dl && csv.charCodeAt(0) === 0xFEFF && csv.trim().split('\r\n').length === 4 && csv.includes('"성준혁","수","4","1신1","과학","3C","자동화설비실습실","3층","2026-11-25"'), [dl.suggestedFilename(), csv.charCodeAt(0), csv.trim().split('\r\n').length]);
@@ -204,10 +213,10 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
 { const dev = await page.evaluate(() => localStorage.getItem('dgDev'));
   const r = await (await worker.fetch(new Request('https://x/api/winter', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Dev': dev }, body: JSON.stringify({ teacher: '성준혁', from: '2026-11-25', slots: ['수3', '수4'] }) }), env)).json();
   if (!r.ok) console.log('점검용 신청 실패', r);
-  await page.evaluate(() => load()); await page.waitForSelector('#list table'); }
+  await page.evaluate(() => load()); await showList(); await page.waitForSelector('#list table'); }
 let sum = await page.evaluate(() => ({ head: [...document.querySelectorAll('#list table.sum > thead th')].map(t => t.textContent.trim()).join('|'), rows: [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].map(c => c.textContent).join('|')), detail: document.querySelectorAll('#list tr.d').length }));
 ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역은 접혀 있음), 선생님 화면에는 선택 칸·일괄 취소 단추가 없음', sum.head === '|교사 ▲|과목|학반|' && sum.rows.join() === '|성준혁|과학|1신1, 1신3|자세히' && sum.detail === 0 && !(await page.locator('#bulkDel, #list input[type=checkbox]').count()), sum);
-await page.click('#list button[data-open]');
+await showList(); await page.click('#list button[data-open]');
 s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent, rows: [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => [...tr.cells].map(c => c.textContent).join('|')),
   req: [...document.querySelectorAll('#mytt button.req')].map(td => td.textContent), del: document.querySelectorAll('#list button[data-del]').length, sel: document.querySelectorAll('#list select').length }));
 ok('"자세히"를 누르면 요일·교시별 2줄: 내 신청이라 실 선택 칸(수3 은 빈 실 없음, 수4 는 2D·3B·3C)과 취소 단추, 신청 뒤 "직접 고르세요" 안내', s.rows.length === 2 && s.rows[0].startsWith('수 3교시|1신3|11/25(수)부터|실 선택') && s.rows[0].includes('빈 실 없음') && s.rows[1].includes('2D') && s.rows[1].includes('3C') && s.del === 2 && s.sel === 2, s);
@@ -215,16 +224,16 @@ ok('"자세히"를 누르면 요일·교시별 2줄: 내 신청이라 실 선택
 { const was = await page.evaluate(() => document.getElementById('tabPlan').getAttribute('aria-selected'));
   await page.click('#tabPlan');
   const w = await page.evaluate(() => [...document.querySelectorAll('#grid .pr em.wait')].map(e => e.closest('.pr').dataset.plan + ':' + e.textContent).sort().join());
-  if (await page.evaluate(() => document.querySelector('#grid .pr[data-plan="3C"]').getAttribute('aria-pressed')) !== 'true') await page.click('#grid .pr[data-plan="3C"]');
+  if (await page.evaluate(() => document.querySelector('#grid .pr[data-plan="3C"]').getAttribute('aria-pressed')) !== 'true') await showGrid(); await page.click('#grid .pr[data-plan="3C"]');
   const free = await page.evaluate(() => [...document.querySelectorAll('#grid .room[data-room="3C"] .strip li')].map((li, i) => (li.querySelector('button[data-free]') ? i + 1 : '')).join(''));
-  await page.click('#grid .room[data-room="3C"] .strip li:nth-child(4) button');
+  await showGrid(); await page.click('#grid .room[data-room="3C"] .strip li:nth-child(4) button');
   const c = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
-  await page.click('#grid .putbox button[data-put]:not(.x)');
+  await showGrid(); await page.click('#grid .putbox button[data-put]:not(.x)');
   await page.waitForFunction(() => document.querySelector('#grid .room[data-room="3C"] .strip li:nth-child(4)').classList.contains('done'));
   const m = await page.textContent('#msg');
   ok('선생님이 직접 실을 고름: 배치도 빈 실에 "내 신청 1", 내 신청이 있는 4교시 칸만 눌리고, 누르면 3C 로 정해짐', w === '2D:내 신청 1,3B:내 신청 1,3C:내 신청 1' && free === '4' && c.length === 1 && c[0].startsWith('1신1 과학 성준혁') && m === '3C(으)로 정했습니다', { w, free, c, m });
-  await page.selectOption('#list select >> nth=1', ''); await page.waitForFunction(() => document.getElementById('msg').textContent === '실 선택을 취소했습니다');
-  await page.click('#grid .room[data-room="3C"] .more');
+  await showList(); await page.selectOption('#list select >> nth=1', ''); await page.waitForFunction(() => document.getElementById('msg').textContent === '실 선택을 취소했습니다');
+  await showGrid(); await page.click('#grid .room[data-room="3C"] .more');
   if (was !== 'true') await page.click('#tabTable'); }
 ok('실을 고르지 않은 내 신청 칸은 초록색 "실 선택 전"', s.req.join() === '1신3실 선택 전,1신1실 선택 전', s);
 
@@ -245,27 +254,27 @@ ok('배정 칸에는 그 요일교시에 빈 이용가능 실만 (수3: 없음, 
 { const was = await page.evaluate(() => document.getElementById('tabPlan').getAttribute('aria-selected'));
   await page.click('#tabPlan');
   const w = await page.evaluate(() => [...document.querySelectorAll('#grid .pr em.wait')].map(e => e.closest('.pr').dataset.plan + ':' + e.textContent).sort().join());
-  if (await page.evaluate(() => document.querySelector('#grid .pr[data-plan="3B"]').getAttribute('aria-pressed')) !== 'true') await page.click('#grid .pr[data-plan="3B"]');
-  await page.click('#grid .room[data-room="3B"] .strip li:nth-child(4) button');
+  if (await page.evaluate(() => document.querySelector('#grid .pr[data-plan="3B"]').getAttribute('aria-pressed')) !== 'true') await showGrid(); await page.click('#grid .pr[data-plan="3B"]');
+  await showGrid(); await page.click('#grid .room[data-room="3B"] .strip li:nth-child(4) button');
   const c = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
   ok('배치도형(관리자): 기다리는 신청이 있는 빈 실에 "대기 1", 실 → 빈 실 칸을 누르면 신청한 반을 고를 수 있음', w === '2D:대기 1,3B:대기 1,3C:대기 1' && c.length === 1 && c[0].startsWith('1신1 과학 성준혁'), { w, c });
-  await page.click('#grid .putbox button.x'); await page.click('#grid .room[data-room="3B"] .more');
+  await showGrid(); await page.click('#grid .putbox button.x'); await showGrid(); await page.click('#grid .room[data-room="3B"] .more');
   if (was !== 'true') await page.click('#tabTable'); }
 // 빈 실 칸을 눌러 배정: 3B 수4 칸에 '대기 1건' → 누르면 그 시간 신청 목록 → 신청을 누르면 3B 에 배정
 const cell3B = '#grid .room[data-room="3B"] .strip li:nth-child(4)';
 s = await page.evaluate(q => ({ code: '3B', t: document.querySelector(q).textContent, hint: document.getElementById('adminHint').hidden,
   w5: document.querySelector('#grid .room[data-room="3B"] .strip li:nth-child(5)').textContent }), cell3B);
 ok('관리자 화면: 3B 수4 빈 실 칸에 "대기 1건", 신청 없는 5교시 칸은 "빈 실"만', s.code === '3B' && s.t === '4빈 실대기 1건' && s.w5 === '5빈 실' && !s.hint, s);
-await page.click('#grid .room[data-room="3B"] .strip li:nth-child(5) button');
+await showGrid(); await page.click('#grid .room[data-room="3B"] .strip li:nth-child(5) button');
 ok('신청 없는 빈 실을 누르면 "실을 고르지 않은 신청이 없습니다"', (await page.textContent('#grid .putbox')).includes('실을 고르지 않은 신청이 없습니다'));
 await page.click(cell3B + ' button');
 s = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
 ok('빈 실을 누르면 그 시간에 기다리는 신청이 나옴 (1신1 과학 성준혁)', s.length === 1 && s[0].startsWith('1신1 과학 성준혁'), s);
-await page.click('#grid .putbox button[data-put]:not(.x)');
+await showGrid(); await page.click('#grid .putbox button[data-put]:not(.x)');
 await page.waitForFunction(q => document.querySelector(q).classList.contains('done'), cell3B);
 ok('신청을 누르면 그 실에 배정되고 목록이 닫힘', (await page.textContent('#msg')) === '3B(으)로 정했습니다' && !(await page.locator('#grid .putbox').count()));
 // 신청 내역의 목록으로도 실을 바꿀 수 있음: 3B → 2D
-await page.selectOption('#list tr.d tbody tr:nth-child(2) select', '2D');
+await showList(); await page.selectOption('#list tr.d tbody tr:nth-child(2) select', '2D');
 await page.waitForFunction(() => document.querySelector('#grid .room[data-room="2D"] li.done'));
 s = await page.evaluate(() => ({ cells: [...document.querySelectorAll('#grid .room[data-room="2D"] .strip li')].map(li => li.className), cell: [...document.querySelectorAll('#grid li.done b, #grid li.done small')].map(e => e.textContent).join(''),
   mine: [...document.querySelectorAll('#mytt button.req small')].map(e => e.textContent) }));
@@ -274,19 +283,19 @@ await page.click('#next');
 ok('11/26(목): 수요일 배정은 보이지 않음', (await page.textContent('#vday')) === '11/26(목)' && (await page.evaluate(() => document.querySelectorAll('#grid li.done').length)) === 0);
 
 // 이용가능 표시: 3C 를 끄면 그 줄이 회색으로 닫히고, 2A 를 켜면 열림
-await page.uncheck('#grid input[data-avail="3C"]');
+await showGrid(); await page.uncheck('#grid input[data-avail="3C"]');
 await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 21);
-await page.check('#grid input[data-avail="2A"]');
+await showGrid(); await page.check('#grid input[data-avail="2A"]');
 await page.waitForFunction(() => document.querySelectorAll('#grid .room.closed').length === 20);
 ok('보통 실은 이용가능으로 바꿀 때 확인 창이 뜨지 않음', !asked.some(m => m.includes('해제')), asked);
 // 교실 이용불가 실을 풀려 하면 확인 창: 취소하면 그대로, 확인하면 이용가능으로
-answer = false; await page.click('#grid input[data-avail="1C"]');
+answer = false; await showGrid(); await page.click('#grid input[data-avail="1C"]');
 let n1 = await page.evaluate(() => ({ on: document.querySelector('#grid input[data-avail="1C"]').checked, never: document.querySelector('#grid .room[data-room="1C"]').classList.contains('never') }));
 ok('이용불가 실 체크 → "교실 이용불가 실습실입니다 … 해제하시겠습니까?" 확인 창, 취소하면 그대로', asked.at(-1).includes('1C') && asked.at(-1).includes('교실 이용불가 실습실입니다') && asked.at(-1).includes('해제하시겠습니까') && !n1.on && n1.never, { asked, n1 });
-answer = true; await page.click('#grid input[data-avail="1C"]');
+answer = true; await showGrid(); await page.click('#grid input[data-avail="1C"]');
 await page.waitForFunction(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('open'));
 ok('확인하면 이용가능으로 풀리고 어두운 음영이 없어짐', !(await page.evaluate(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('never'))));
-await page.uncheck('#grid input[data-avail="1C"]');
+await showGrid(); await page.uncheck('#grid input[data-avail="1C"]');
 await page.waitForFunction(() => document.querySelector('#grid .room[data-room="1C"]').classList.contains('never'));
 ok('관리자가 이용가능 표시를 끄고 켜면 회색 닫힘이 바로 바뀜', true);
 
@@ -302,40 +311,40 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   // 김학선: 1학년 국A 한 칸 + 2학년 진로 한 칸(과목·학년이 달라도 신청 내역에는 한 줄이어야 함)
   const mixed = [pick('김학선').find(k => tt['김학선'][k].startsWith('1')), Object.keys(tt['김학선']).find(k => tt['김학선'][k].startsWith('2') && tt['김학선'][k].endsWith('|'))];
   for (const [t, sl] of [['정선화', pick('정선화')], ['김학선', mixed]]) { const r = await post(t, sl); if (!r.ok) console.log('점검용 신청 실패', t, r); }
-  await page.reload(); await page.waitForSelector('#list tr.g');
+  await page.reload(); await showList(); await page.waitForSelector('#list tr.g');
   ok('다시 접속하면 전에 고른 교사 이름이 남아 있지 않음', (await page.inputValue('#teacher')) === '' && !(await page.locator('#from').evaluate(e => !!e.offsetParent)) && (await page.evaluate(() => localStorage.getItem('winterTeacher'))) === null);
   const col = i => page.evaluate(i => [...document.querySelectorAll('#list tr.g')].map(tr => tr.cells[i].textContent), i);
   let v = { names: await col(1), boxes: await page.locator('#list input[type=checkbox]').count(), bulk: await page.locator('#bulkDel').count() };
   ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 내 신청이 있어도 선택 칸과 "선택한 신청 취소" 단추가 없음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 0 && v.bulk === 0, v);
   { const k = await page.evaluate(() => [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].slice(1, 4).map(c => c.textContent).join('|')).find(x => x.startsWith('김학선')));
     ok('신청 내역은 교사 기준 한 줄: 김학선은 1학년 국A·2학년 진로를 신청해도 한 줄에 과목·학반이 함께', /^김학선\|국A, 진로\|1.+, 2.+$/.test(k), k); }
-  await page.click('#list button[data-sort="teacher"]'); v = await col(1);
+  await showList(); await page.click('#list button[data-sort="teacher"]'); v = await col(1);
   ok('교사 제목을 다시 누르면 거꾸로 정렬', v.join() === '정선화,성준혁,김학선', v);
-  await page.click('#list button[data-sort="subject"]'); v = { subj: await col(2), head: await page.evaluate(() => document.querySelector('#list th[aria-sort="ascending"]').textContent.trim()) };
+  await showList(); await page.click('#list button[data-sort="subject"]'); v = { subj: await col(2), head: await page.evaluate(() => document.querySelector('#list th[aria-sort="ascending"]').textContent.trim()) };
   ok('과목 제목을 누르면 과목순', v.subj.join() === [...v.subj].sort((a, b) => a.localeCompare(b, 'ko')).join() && v.head === '과목 ▲', v);
-  await page.click('#list button[data-sort="cls"]'); v = await col(3);
+  await showList(); await page.click('#list button[data-sort="cls"]'); v = await col(3);
   ok('학반 제목을 누르면 학반순(1학년 → 2학년, 전기반 → 신재생반)', v.map(x => x.split(',')[0]).join() === [...v].map(x => x.split(',')[0]).sort((a, b) => (a[0] + (a[1] === '전' ? 0 : 1) + a[2]).localeCompare(b[0] + (b[1] === '전' ? 0 : 1) + b[2])).join(), v);
   // 관리자만 줄을 고를 수 있음 → 두 줄을 골라 한 번에 취소
   await login(); await page.waitForFunction(() => document.querySelectorAll('#list input[data-pick]').length === 3);
   ok('관리자로 로그인하면 줄마다 선택 칸과 꺼진 "선택한 신청 취소" 단추가 나옴', await page.evaluate(() => document.getElementById('bulkDel').disabled && !!document.getElementById('pickAllReq')));
-  await page.check('#list input[data-pick^="정선화"]'); await page.check('#list input[data-pick^="김학선"]');
+  await showList(); await page.check('#list input[data-pick^="정선화"]'); await showList(); await page.check('#list input[data-pick^="김학선"]');
   v = await page.textContent('#bulkDel');
   ok('두 줄을 고르면 "선택한 신청 취소 (4건)"', v === '선택한 신청 취소 (4건)', v);
-  answer = false; await page.click('#bulkDel'); await page.waitForTimeout(200);
+  answer = false; await showList(); await page.click('#bulkDel'); await page.waitForTimeout(200);
   ok('확인 창에서 취소하면 그대로', asked.at(-1) === '선택한 신청 4건을 모두 취소할까요?' && (await page.locator('#list tr.g').count()) === 3, asked.at(-1));
-  answer = true; await page.click('#bulkDel'); await page.waitForFunction(() => document.querySelectorAll('#list tr.g').length === 1);
+  answer = true; await showList(); await page.click('#bulkDel'); await page.waitForFunction(() => document.querySelectorAll('#list tr.g').length === 1);
   v = { names: await col(1), msg: await page.textContent('#msg'), left: (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.map(r => r.teacher).join() };
   ok('확인하면 고른 두 분의 신청 4건만 지워지고 나머지는 남음', v.names.join() === '성준혁' && v.msg === '4건을 취소했습니다' && v.left === '성준혁,성준혁', v);
-  await page.check('#pickAllReq');
+  await showList(); await page.check('#pickAllReq');
   ok('맨 위 체크로 전체 선택', (await page.textContent('#bulkDel')) === '선택한 신청 취소 (2건)');
-  await page.uncheck('#pickAllReq'); await page.click('#logout'); await page.waitForSelector('#adminIn:not([hidden])'); }
+  await showList(); await page.uncheck('#pickAllReq'); await page.click('#logout'); await page.waitForSelector('#adminIn:not([hidden])'); }
 ok('신청 내역이 폰에서 옆으로 넘치지 않음', !(s = await over()).length, s);
 // 교체·대강 반영: 11/25 에 2D 의 1교시 전공 수업(이선영)이 5교시로 교체되면, 그날 2D 는 1교시가 비고 5교시에 수업이 들어옴
 { const g = await (await worker.fetch(new Request('https://x/api/winter'), env)).json();
   const [c1, s1] = g.base['2D']['수1'].split(' '), t1 = g.base['2D']['수1'].split(' ')[2], o = Object.keys(g.tt).find(t => t !== t1 && (g.tt[t]['수5'] || '').endsWith('|')), [oc, os] = g.tt[o]['수5'].split('|');
   await env.DATA.put('data', JSON.stringify({ swHist: [{ id: 1, tA: t1, kA: '수1', pA: '1교시', cA: c1, sA: s1, dateISO_sw: '2026-11-25', tB: o, kB: '수5', pB: '5교시', cB: oc, sB: os, dateBISO: '2026-11-25' }], dgHist: [] }));
   await page.fill('#vdate', '2026-11-25'); await page.dispatchEvent('#vdate', 'change'); await page.click('#tabTable');
-  await page.evaluate(() => load()); await page.waitForSelector('#grid .room[data-room="2D"] li[data-moved="in"]');
+  await page.evaluate(() => load()); await showGrid(); await page.waitForSelector('#grid .room[data-room="2D"] li[data-moved="in"]');
   const li = n => page.evaluate(n => { const e = document.querySelector(`#grid .room[data-room="2D"] .strip li:nth-child(${n})`); return [e.className, e.dataset.moved || '', [...e.querySelectorAll('b, small')].map(x => x.textContent).join(' '), !!e.querySelector('button')].join('|'); }, n);
   const a1 = await li(1), a5 = await li(5), txt = await page.evaluate(() => document.querySelector('main').textContent);
   ok('교체 반영: 11/25 2D 1교시는 "빈 실 교체"(눌리지 않음), 5교시는 옮겨 온 전공 수업 "… 교체"', a1 === 'free|out|빈 실 교체|false' && a5 === `busy|in|${c1} ${s1} ${t1} 교체|false`, { a1, a5 });
@@ -344,7 +353,7 @@ ok('신청 내역이 폰에서 옆으로 넘치지 않음', !(s = await over()).
   ok('"확정 시간표 기준…"·"호박색(이용가능) 실을 누르면…" 안내 글은 없음', !txt.includes('확정 시간표 기준') && !txt.includes('호박색(이용가능) 실을 누르면'));
   await env.DATA.put('data', 'null'); await page.click('#prev'); await page.evaluate(() => load()); await page.waitForFunction(() => !document.querySelector('#grid li[data-moved]')); await page.click('#tabPlan'); }
 if (process.env.SHOT) { await page.click('#prev'); await page.screenshot({ path: process.env.SHOT + '-phone.png', fullPage: true });
-  await page.click('#tabPlan'); await page.click('#grid .pr[data-plan="2D"]'); await page.screenshot({ path: process.env.SHOT + '-plan.png', fullPage: true });
+  await page.click('#tabPlan'); await showGrid(); await page.click('#grid .pr[data-plan="2D"]'); await page.screenshot({ path: process.env.SHOT + '-plan.png', fullPage: true });
   await page.setViewportSize({ width: 1100, height: 900 }); await login(); await page.screenshot({ path: process.env.SHOT + '-pc.png', fullPage: true }); }
 
 await browser.close();
