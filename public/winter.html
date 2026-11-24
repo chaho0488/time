@@ -75,6 +75,42 @@
   .floor { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; font-weight: 800; margin: 22px 0 8px; }
   .floor:first-child { margin-top: 4px; }
   .floor span { font-size: .82rem; font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 999px; padding: 2px 10px; }
+  .tabs { display: inline-flex; margin: 12px 0 0; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
+  .tabs button { padding: 8px 18px; border: 0; background: #fff; font-weight: 700; cursor: pointer; }
+  .tabs button[aria-selected=true] { background: var(--ink); color: #fff; }
+  /* 층별 배치도 */
+  .pname { font-size: .85rem; font-weight: 700; color: var(--sub); margin: 8px 0 4px; }
+  .plan { display: flex; border: 1.5px solid var(--ink); border-radius: 10px; overflow: hidden; background: #fff; margin-bottom: 8px; }
+  .pcol { display: flex; flex-direction: column; min-width: 0; }
+  .pside { display: flex; min-width: 0; }
+  .pside > .pc { flex: 1 1 auto !important; }
+  .prow { display: flex; height: 66px; }
+  .pmid { height: 20px; padding: 0 8px; font-size: .7rem; color: var(--sub); background: #fff; display: flex; align-items: center; white-space: nowrap; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .pc { min-width: 0; margin: 0; padding: 3px 1px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: repeating-linear-gradient(135deg, #F6F8FB 0 6px, #EDF1F6 6px 7px); color: var(--frost-ink);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; overflow: hidden; font: inherit; line-height: 1.2; }
+  .prow > .pc:last-child, .pside:last-child > .pc { border-right: 0; }
+  .pc span { font-size: .7rem; overflow-wrap: anywhere; max-height: 2.4em; overflow: hidden; }
+  .pc b { font-size: .95rem; font-weight: 800; }
+  .pc em { font-style: normal; font-size: .7rem; font-weight: 700; white-space: nowrap; }
+  .pr { cursor: pointer; }
+  .pr.on { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 2px var(--warm); }
+  .pr.on b { color: var(--ink); }
+  .pr.off { background: var(--frost); color: var(--frost-ink); }
+  .pr.never { background: #B4BCC9; color: #4E5766; }
+  .pr:disabled { cursor: default; }
+  .pr[aria-pressed=true] { box-shadow: inset 0 0 0 3px var(--ink); }
+  .ftable { margin-bottom: 8px; }
+  /* 신청 내역: 교사·과목·학반 요약, 정렬, 골라서 한 번에 취소 */
+  .bulk { padding: 10px 8px 0; text-align: right; }
+  #bulkDel { padding: 7px 12px; border: 1.5px solid var(--red); border-radius: 8px; background: #fff; color: var(--red); font-weight: 700; cursor: pointer; }
+  #bulkDel:disabled { border-color: var(--line); color: var(--frost-ink); cursor: default; }
+  #list .ck { width: 2em; text-align: center; }
+  #list .ck input { width: 1.2em; height: 1.2em; accent-color: var(--ink); }
+  #list .sort { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
+  #list table.sum > tbody > tr.g > td { font-size: 1rem; }
+  #list tr.d > td { padding: 0 8px 8px; background: var(--paper); }
+  #list tr.d table { background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  #list .more { text-decoration: underline; color: var(--sub); }
   .more { margin-left: auto; font-size: .82rem; font-weight: 700; color: var(--frost-ink); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; }
   .room { background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 14px 14px; }
   .room:last-child { border-bottom: 0; }
@@ -141,6 +177,9 @@
   .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
   .putbox button small { font-weight: 500; color: var(--sub); }
   @media (max-width: 600px) {
+    .pc span { display: none; }   /* 폰: 배치도에는 실 코드와 빈 시간 수만 */
+    .prow { height: 54px; }
+    .pr b { font-size: .85rem; } .pr em { font-size: .64rem; }
     main { padding: 20px 12px 40px; }
     h1 { font-size: 1.35rem; }
     .apply { padding: 2px 14px 16px; }
@@ -192,6 +231,7 @@
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
   </div>
+  <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabTable">층별 표</button><button type="button" role="tab" id="tabPlan">배치도</button></div>
   <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
   <p class="fine">확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</p>
   <div id="note" class="err"></div>
@@ -207,7 +247,26 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const DAYS = ['월', '화', '수', '목', '금'], NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
 let data = null, me = '';          // me = 고른 교사
 let openCell = '';                 // 관리자가 누른 빈 실 칸('실|요일교시')
-const shown = new Set();           // 수업 불가 실 중 시간표를 펼쳐 둔 실
+let view = 'table';                // 실습실 시간표 보기: 'table'(층별 표) | 'plan'(배치도)
+try { if (localStorage.getItem('winterView') === 'plan') view = 'plan'; } catch {}
+const shown = new Set();           // 층별 표에서 시간표를 펼쳐 둔 수업 불가 실
+let sel = '';                      // 배치도에서 누른 실(그 실의 시간표를 배치도 아래에 보여 준다)
+let openReq = '';                  // 신청 내역에서 '자세히'를 펼친 줄('교사|과목')
+let sortBy = 'teacher', sortDir = 1;   // 신청 내역 정렬: 교사·과목·학반, 오름(1)/내림(-1)
+const picks = new Set();           // 신청 내역에서 한 번에 취소하려고 고른 줄('교사|과목')
+// 층별 배치도(학교 배치도.hwpx 의 실습동 표 그대로): 칸 = [이름, 너비, 실 코드]. 실 코드가 있는 칸만 실습실.
+// top·bottom = 복도 위·아래 줄, left·right = 위아래를 다 차지하는 양옆 칸, mid = 복도에 적는 글
+const PLAN = {
+  1: [{ top: [['매점', 5043], ['화장실', 3200], ['계단', 3989], ['', 10328, '1A'], ['', 9762, '1C'], ['계단', 4092]], mid: '← 교실동 이동 통로 · 복도',
+        bottom: [['휴게실', 8243], ['현관', 3989], ['', 16074, '1D'], ['준비실', 4016], ['현관', 4092]], right: ['', 11487, '1B'] }],
+  2: [{ name: '실습동 1', top: [['학과사무실', 4919], ['화장실', 3431], ['계단', 3939], ['', 7879, '2E'], ['', 8162, '2A'], ['VR실', 3926], ['계단', 4177], ['', 5386, '2G'], ['', 4997, '2F']], mid: '← 교실동 이동 통로 · 복도',
+        bottom: [['', 8350], ['전공전학공실', 11818], ['', 16265, '2B'], ['', 5386, '2C'], ['', 4997, '2D']] },
+      { name: '실습동 2(별관)', mid: '복도', bottom: [['', 8508, '2Y'], ['', 8791, '2X'], ['계단', 3653]], right: ['프로젝트제작실', 14263] }],
+  3: [{ top: [['자동화 동아리실', 4946], ['화장실', 3395], ['계단', 3788], ['', 10144, '3F'], ['', 10144, '3E'], ['계단', 3922], ['', 11844, '3C']], mid: '← 교실동 이동 통로 · 복도',
+        bottom: [['기자재실', 8341], ['', 11655, '3A'], ['', 8254, '3D'], ['프로젝트 공작실', 4167], ['3D동아리실', 3922], ['', 6068, '3B'], ['프로젝트실습실', 5776]] }],
+  4: [{ left: ['전공심화 동아리실', 5043], top: [['화장실', 3179], ['계단', 4010], ['', 10043, '4B'], ['', 10043, '4A'], ['계단', 4156]], mid: '복도',
+        bottom: [['', 3179], ['', 11765, '4C'], ['', 12331, '4D'], ['약품실', 4156]], right: ['체력단련실', 11709] }],
+};
 const picked = new Set();          // 내 시간표에서 고른 칸(요일교시)
 
 // 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
@@ -342,66 +401,117 @@ function render() {
   $('adminHint').hidden = !admin; if (!admin) openCell = '';
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
-  // 실습실 시간표: 층마다 표 하나. 그 안에 실마다 이름 한 줄 + 1~7교시 한 줄. 수업 불가 실은 이름 한 줄로 접어 두고 누르면 펼침
+  // 실습실 시간표: 두 가지 보기(탭). '층별 표' = 층마다 표 하나(수업 불가 실은 한 줄로 접힘), '배치도' = 층마다 배치도 그림
+  $('tabTable').setAttribute('aria-selected', view !== 'plan'); $('tabPlan').setAttribute('aria-selected', view === 'plan');
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
-  else {
+  else if (view === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 배치도 아래에 나온다
+    h = '<p class="fine">호박색(이용가능) 실을 누르면 그 실의 시간표가 아래에 나옵니다. 숫자는 그날 비어 있는 교시 수입니다.</p>';
+    for (const f of Object.keys(PLAN)) {
+      const cnt = data.rooms.filter(r => r[0][0] === f && availOn(r[0], iso)).length;
+      h += `<h3 class="floor">${f}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3>`;
+      for (const pl of PLAN[f]) h += (pl.name ? `<div class="pname">${pl.name}</div>` : '') + planHtml(pl, iso, n, admin);
+      if (sel && sel[0] === f) h += `<div class="ftable">${roomHtml(sel, iso, n, admin, true)}</div>`;
+    }
+  } else {   // 층별 표
     let floor = '';
-    for (const [code, name] of data.rooms) {   // 실 코드 순 = 층 순
+    for (const [code] of data.rooms) {   // 실 코드 순 = 층 순
       if (code[0] !== floor) {
         floor = code[0];
         const cnt = data.rooms.filter(r => r[0][0] === floor && availOn(r[0], iso)).length;
         h += `${h ? '</div>' : ''}<h3 class="floor">${floor}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3><div class="ftable">`;
       }
-      const ok = availOn(code, iso), from = data.avail[code], shut = !ok;
-      const never = shut && data.never.includes(code);   // 교실 이용불가 실: 더 어둡게
-      const tag = ok ? '<span class="badge">이용가능</span>' : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
-      h += `<section class="room${shut ? ' closed' : ok ? ' open' : ''}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
-      if (shut && !shown.has(code)) { h += '</section>'; continue; }   // 접힌 수업 불가 실
-      h += '<ol class="strip">';
-      for (let p = 1; p <= 7; p++) {
-        const slot = p <= n && slotAt(iso, p), no = `<i>${p}</i>`;
-        const b = slot && data.base[code] && data.base[code][slot];
-        const a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
-        if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
-        else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}">${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}</small></li>`; }
-        else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${esc(a.teacher)}</small></li>`;
-        else if (ok && admin) {   // 관리자: 누를 수 있는 빈 실 칸 + 그 시간에 기다리는 신청 수
-          const wait = data.reqs.filter(r => !r.room && r.slot === slot).length, key = code + '|' + slot;
-          h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>대기 ${wait}건</small>` : ''}</button></li>`;
-        }
-        else h += ok ? `<li class="free">${no}<b>빈 실</b></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
-      }
-      h += '</ol>';
-      if (admin && openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 배정을 기다리는 신청 목록
-        const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl);
-        h += `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>`
-          + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 배정을 기다리는 신청이 없습니다.</span>')
-          + '<button type="button" class="x" data-put="">닫기</button></div>';
-      }
-      h += '</section>';
+      h += roomHtml(code, iso, n, admin, false);
     }
     h += '</div>';
   }
   $('grid').innerHTML = h;
 
-  // 신청 내역: 요일·교시 순. 관리자는 빈 실을 골라 배정
+  // 신청 내역: 교사·과목·학반만 한 줄씩(제목을 누르면 정렬). 내 신청(관리자는 전부)은 골라서 한 번에 취소.
+  // '자세히'를 누르면 그 교사의 요일·교시별 내역(배정·취소)이 펼쳐진다
   const reqs = [...data.reqs].sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot) || a.id - b.id);
-  if (!reqs.length) { $('list').innerHTML = '<div class="empty">아직 신청이 없습니다. 위에서 이름을 고르고 수업을 선택해 신청하세요.</div>'; return; }
-  h = '<table><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>교사</th><th>시작일</th><th>배정 실습실</th><th></th></tr></thead><tbody>';
-  for (const r of reqs) {
-    let cell;
-    if (admin) {
-      const opts = freeRooms(r.slot);
-      cell = `<select data-assign="${r.id}"><option value="">${r.room ? '배정 취소' : '대기 (실 선택)'}</option>`
-        + (r.room ? `<option value="${r.room}" selected>${roomLabel(r, r.room)}</option>` : '')
-        + opts.map(c => `<option value="${c}">${roomLabel(r, c)}</option>`).join('') + '</select>'
-        + (!r.room && !opts.length ? ' <small class="err">빈 실 없음</small>' : '');
-    } else cell = r.room ? `<b class="ok">${roomLabel(r, r.room)}</b>` : '<span class="wait">배정 대기</span>';
-    h += `<tr><td>${r.slot[0]} ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${esc(r.teacher)}</td><td>${md(r.from)}부터</td><td class="l">${cell}</td>`
-      + `<td>${r.mine || admin ? `<button class="x" data-del="${r.id}">취소</button>` : ''}</td></tr>`;
+  if (!reqs.length) { picks.clear(); $('list').innerHTML = '<div class="empty">아직 신청이 없습니다. 위에서 이름을 고르고 수업을 선택해 신청하세요.</div>'; return; }
+  const groups = new Map();
+  for (const r of reqs) { const k = r.teacher + '|' + r.subject; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(r); }
+  const clsKey = c => c[0] + (c[1] === '전' ? 0 : 1) + c.slice(2);   // 학년 → 전기반 → 신재생반 순
+  const list = [...groups].map(([k, rows]) => ({ k, rows, teacher: rows[0].teacher, subject: rows[0].subject,
+    cls: [...new Set(rows.map(r => r.cls))].sort((a, b) => clsKey(a).localeCompare(clsKey(b))), can: rows.every(r => r.mine || admin) }));
+  const sortVal = g => (sortBy === 'cls' ? clsKey(g.cls[0]) : g[sortBy]);
+  list.sort((a, b) => sortDir * sortVal(a).localeCompare(sortVal(b), 'ko') || a.teacher.localeCompare(b.teacher, 'ko'));
+  for (const k of [...picks]) if (!list.some(g => g.k === k && g.can)) picks.delete(k);   // 없어졌거나 취소할 수 없게 된 줄은 선택에서 뺌
+  const canAny = list.filter(g => g.can), nPick = list.filter(g => picks.has(g.k)).reduce((t, g) => t + g.rows.length, 0);
+  const th = (key, label) => `<th aria-sort="${sortBy === key ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sort" data-sort="${key}">${label}<span aria-hidden="true">${sortBy === key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</span></button></th>`;
+  h = (canAny.length ? `<div class="bulk"><button type="button" id="bulkDel"${nPick ? '' : ' disabled'}>선택한 신청 취소${nPick ? ` (${nPick}건)` : ''}</button></div>` : '')
+    + `<table class="sum"><thead><tr><th class="ck">${canAny.length ? `<input type="checkbox" id="pickAllReq" aria-label="취소할 수 있는 신청 모두 선택"${canAny.every(g => picks.has(g.k)) ? ' checked' : ''}>` : ''}</th>${th('teacher', '교사')}${th('subject', '과목')}${th('cls', '학반')}<th></th></tr></thead><tbody>`;
+  for (const g of list) {
+    const open = openReq === g.k;
+    h += `<tr class="g"><td class="ck">${g.can ? `<input type="checkbox" data-pick="${esc(g.k)}" aria-label="${esc(g.teacher)} ${esc(g.subject)} 신청 선택"${picks.has(g.k) ? ' checked' : ''}>` : ''}</td><td>${esc(g.teacher)}</td><td>${esc(g.subject)}</td><td class="l">${g.cls.map(esc).join(', ')}</td>`
+      + `<td><button type="button" class="more" data-open="${esc(g.k)}" aria-expanded="${open}">${open ? '접기' : '자세히'}</button></td></tr>`;
+    if (!open) continue;
+    h += '<tr class="d"><td colspan="5"><table><tbody>';
+    for (const r of g.rows) {
+      let cell;
+      if (admin) {
+        const opts = freeRooms(r.slot);
+        cell = `<select data-assign="${r.id}"><option value="">${r.room ? '배정 취소' : '대기 (실 선택)'}</option>`
+          + (r.room ? `<option value="${r.room}" selected>${roomLabel(r, r.room)}</option>` : '')
+          + opts.map(c => `<option value="${c}">${roomLabel(r, c)}</option>`).join('') + '</select>'
+          + (!r.room && !opts.length ? ' <small class="err">빈 실 없음</small>' : '');
+      } else cell = r.room ? `<b class="ok">${roomLabel(r, r.room)}</b>` : '<span class="wait">배정 대기</span>';
+      h += `<tr><td>${r.slot[0]} ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${md(r.from)}부터</td><td class="l">${cell}</td>`
+        + `<td>${r.mine || admin ? `<button class="x" data-del="${r.id}">취소</button>` : ''}</td></tr>`;
+    }
+    h += '</tbody></table></td></tr>';
   }
   $('list').innerHTML = h + '</tbody></table>';
+}
+
+// 배치도 한 장: 위 줄 · 복도 · 아래 줄(+ 양옆 통칸). 실습실 칸만 단추이고 그 날짜에 이용가능한 실만 눌린다(관리자는 모두)
+function planHtml(pl, iso, n, admin) {
+  const cell = ([name, w, code]) => {
+    if (!code) return `<div class="pc" style="flex:${w} 1 0"><span>${esc(name)}</span></div>`;
+    const ok = availOn(code, iso), never = !ok && data.never.includes(code), from = data.avail[code];
+    let free = 0;
+    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) free++; }
+    const st = ok ? `빈 ${free}` : from ? md(from).split('(')[0] + '~' : '';
+    const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
+    return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}"><b>${code}</b><span>${esc(roomName(code))}</span>${st ? `<em>${st}</em>` : ''}</button>`;
+  };
+  const row = cells => `<div class="prow">${cells.map(cell).join('')}</div>`;
+  const cw = (pl.top || pl.bottom).reduce((t, c) => t + c[1], 0), side = c => (c ? `<div class="pside" style="flex:${c[1]} 1 0">${cell(c)}</div>` : '');
+  return `<div class="plan">${side(pl.left)}<div class="pcol" style="flex:${cw} 1 0">${pl.top ? row(pl.top) : ''}<div class="pmid">${esc(pl.mid)}</div>${row(pl.bottom)}</div>${side(pl.right)}</div>`;
+}
+
+// 실 하나의 이름 줄 + 1~7교시 줄. inPlan = 배치도에서 누른 실('닫기' 단추), 아니면 층별 표의 한 줄(수업 불가 실은 접혀 있고 '보기'로 펼침)
+function roomHtml(code, iso, n, admin, inPlan) {
+  const name = (data.rooms.find(r => r[0] === code) || ['', ''])[1];
+  const ok = availOn(code, iso), from = data.avail[code], shut = !ok;
+  const never = shut && data.never.includes(code);   // 교실 이용불가 실: 더 어둡게
+  const tag = ok ? '<span class="badge">이용가능</span>' : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
+  let h = `<section class="room${shut ? ' closed' : ' open'}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${inPlan ? `<button type="button" class="more" data-plan="${code}">닫기</button>` : shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
+  if (!inPlan && shut && !shown.has(code)) return h + '</section>';   // 접힌 수업 불가 실
+  h += '<ol class="strip">';
+  for (let p = 1; p <= 7; p++) {
+    const slot = p <= n && slotAt(iso, p), no = `<i>${p}</i>`;
+    const b = slot && data.base[code] && data.base[code][slot];
+    const a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
+    if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
+    else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}">${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}</small></li>`; }
+    else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${esc(a.teacher)}</small></li>`;
+    else if (ok && admin) {   // 관리자: 누를 수 있는 빈 실 칸 + 그 시간에 기다리는 신청 수
+      const wait = data.reqs.filter(r => !r.room && r.slot === slot).length, key = code + '|' + slot;
+      h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>대기 ${wait}건</small>` : ''}</button></li>`;
+    }
+    else h += ok ? `<li class="free">${no}<b>빈 실</b></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
+  }
+  h += '</ol>';
+  if (admin && openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 배정을 기다리는 신청 목록
+    const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl);
+    h += `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>`
+      + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 배정을 기다리는 신청이 없습니다.</span>')
+      + '<button type="button" class="x" data-put="">닫기</button></div>';
+  }
+  return h + '</section>';
 }
 
 const api = (method, body, q = '') => fetch('/api/winter' + q, { method, headers: H({ 'Content-Type': 'application/json' }), body: body && JSON.stringify(body) })
@@ -422,6 +532,18 @@ $('send').addEventListener('click', async () => {
 });
 
 $('list').addEventListener('click', async e => {
+  const o = e.target.closest('button[data-open]'), so = e.target.closest('button[data-sort]');
+  if (o) { openReq = openReq === o.dataset.open ? '' : o.dataset.open; render(); return; }
+  if (so) { if (sortBy === so.dataset.sort) sortDir = -sortDir; else { sortBy = so.dataset.sort; sortDir = 1; } render(); return; }
+  if (e.target.closest('#bulkDel')) {   // 고른 줄의 신청을 한 번에 취소
+    const ids = data.reqs.filter(r => picks.has(r.teacher + '|' + r.subject)).map(r => r.id);
+    if (!ids.length || !confirm(`선택한 신청 ${ids.length}건을 모두 취소할까요?`)) return;
+    let done = 0, err = '';
+    for (const id of ids) { const r = await api('DELETE', null, '?id=' + id); if (r.ok) done++; else err = r.error; }
+    picks.clear();
+    say(err ? `${done}건 취소, ${ids.length - done}건은 취소하지 못했습니다: ${err}` : `${done}건을 취소했습니다`, !err);
+    load(); return;
+  }
   const b = e.target.closest('button[data-del]');
   if (!b || !confirm('이 신청을 취소할까요?')) return;
   const r = await api('DELETE', null, '?id=' + b.dataset.del);
@@ -429,6 +551,9 @@ $('list').addEventListener('click', async e => {
   load();
 });
 $('list').addEventListener('change', async e => {
+  const pk = e.target.closest('input[data-pick]');
+  if (pk) { if (pk.checked) picks.add(pk.dataset.pick); else picks.delete(pk.dataset.pick); render(); return; }
+  if (e.target.id === 'pickAllReq') { picks.clear(); if (e.target.checked) document.querySelectorAll('#list input[data-pick]').forEach(c => picks.add(c.dataset.pick)); render(); return; }
   const s = e.target.closest('select[data-assign]');
   if (!s) return;
   const r = await api('PATCH', { id: Number(s.dataset.assign), room: s.value });
@@ -450,8 +575,10 @@ $('grid').addEventListener('change', async e => {
 });
 // 관리자: 빈 실 칸을 누르면 아래에 신청 목록, 신청을 누르면 그 실에 배정
 $('grid').addEventListener('click', async e => {
-  const f = e.target.closest('button[data-free]'), p = e.target.closest('button[data-put]'), m = e.target.closest('button[data-more]');
-  if (m) { const c = m.dataset.more; if (shown.has(c)) shown.delete(c); else shown.add(c); render(); return; }
+  const f = e.target.closest('button[data-free]'), p = e.target.closest('button[data-put]'), m = e.target.closest('button[data-plan]');
+  if (m) { sel = sel === m.dataset.plan ? '' : m.dataset.plan; openCell = ''; render(); return; }   // 배치도의 실(또는 '닫기')
+  const mo = e.target.closest('button[data-more]');
+  if (mo) { const c = mo.dataset.more; if (shown.has(c)) shown.delete(c); else shown.add(c); render(); return; }   // 층별 표의 '보기/접기'
   if (f) { openCell = openCell === f.dataset.free ? '' : f.dataset.free; render(); return; }
   if (!p) return;
   if (!p.dataset.put) { openCell = ''; render(); return; }
@@ -472,6 +599,7 @@ $('adminForm').addEventListener('submit', async e => {
   else { PW = ''; $('adminMsg').textContent = data ? '비밀번호가 맞지 않습니다' : '확인하지 못했습니다. 인터넷 연결을 확인해 주세요'; $('pw').select(); }
 });
 $('logout').addEventListener('click', () => { PW = ''; try { sessionStorage.removeItem('winterPw'); } catch {} load(); });
+for (const [id, v] of [['tabTable', 'table'], ['tabPlan', 'plan']]) $(id).addEventListener('click', () => { view = v; try { localStorage.setItem('winterView', v); } catch {} render(); });
 $('vdate').addEventListener('change', () => { if (data && $('vdate').value < minDate()) $('vdate').value = minDate(); render(); });
 $('prev').addEventListener('click', () => { const d = addDays($('vdate').value, -1); if (d >= minDate()) { $('vdate').value = d; render(); } });
 $('next').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, 1); render(); });
