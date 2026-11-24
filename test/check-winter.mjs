@@ -115,6 +115,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     await env.DATA.put('data', 'null');
     assert.deepEqual((await call('GET')).moves, { room: {}, out: {} }, '기록이 없으면 빈 값'); }
 
+  // 창체 시간(화7·목7): 신청도 실 고르기도 안 됨(관리자 포함)
+  { assert.deepEqual(r.block, { 화7: '창체', 목7: '창체' });
+    const tb = Object.keys(r.tt).find(t => ['화7', '목7'].some(k => (r.tt[t][k] || '').endsWith('|'))), kb = ['화7', '목7'].find(k => (r.tt[tb][k] || '').endsWith('|'));
+    let x = await call('POST', { teacher: tb, from: D, slots: [kb] }, { 'X-Dev': 'd'.repeat(20) });
+    assert.equal(x.status, 400); assert.match(x.error, /창체 수업으로 실습실을 쓸 수 없습니다/);
+    x = await call('POST', { teacher: tb, from: D, slots: [kb], room: '2D' }, PW);
+    assert.ok(x.status >= 400, '관리자도 창체 시간에는 배정할 수 없음'); assert.match(x.error, /창체/); }
+
   // 신청하면서 바로 실 고르기: 한 칸만, 쓸 수 있는 실만, 이미 누가 고른 실은 안 됨
   { const t2 = others[1], C = { 'X-Dev': 'c'.repeat(20) }, k2 = Object.keys(r.tt[t2]).find(k => k !== '수4' && r.tt[t2][k].endsWith('|'));
     assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4', k2], room: '3C' }, C)).status, 400, '실을 고를 때는 한 칸씩');

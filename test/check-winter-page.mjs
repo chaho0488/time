@@ -124,7 +124,7 @@ ok('안내 창에 "여러 수업을 한 번에 고르기 … 한 실습실에서
   ok('"여러 수업을 한 번에 고르기"는 빨간색 큰 글자', m.color === 'rgb(192, 57, 43)' && m.size > m.base + 3, m); }
 await page.click('#noticeOk'); ok('확인을 누르면 안내 창이 닫힘', await page.evaluate(() => document.getElementById('notice').hidden));
 s = await page.evaluate(() => ({ btn: document.querySelectorAll('#mytt button[data-slot]').length, lab: [...document.querySelectorAll('#mytt td.lab')].map(td => td.textContent) }));
-ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 고를 수 있는 칸은 HR 1칸', s.btn === 1 && s.lab.length === 18 && s.lab.every(t => t.endsWith('음악 · 음악실')), s);
+ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 화7 HR 은 "HR · 창체" 회색(창체 시간은 실습실 불가)이라 고를 수 있는 칸이 없음', s.btn === 0 && s.lab.length === 19 && s.lab.filter(t => t.endsWith('음악 · 음악실')).length === 18 && s.lab.filter(t => t.endsWith('HR · 창체')).length === 1, s);
 
 // 성준혁 선택 → 내 시간표(과학 18칸), 칸을 눌러 고름
 await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]'); await page.click('#noticeOk');
@@ -343,6 +343,13 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   ok('맨 위 체크로 전체 선택', (await page.textContent('#bulkDel')) === '선택한 신청 취소 (2건)');
   await showList(); await page.uncheck('#pickAllReq'); await page.click('#logout'); await page.waitForSelector('#adminIn:not([hidden])'); }
 ok('신청 내역이 폰에서 옆으로 넘치지 않음', !(s = await over()).length, s);
+// 창체 시간(화·목 7교시): 실습실 시간표에서 빈 실이 아니라 '창체'로 나오고, 안내 문구가 있음
+{ await page.click('#tabTable'); await page.fill('#vdate', '2026-12-01'); await page.dispatchEvent('#vdate', 'change');   // 12/1(화)
+  const c7 = await page.evaluate(() => [...document.querySelectorAll('#grid .room.open .strip li:nth-child(7)')].map(li => li.textContent + '/' + (li.dataset.block || '') + '/' + !!li.querySelector('button')));
+  const note = await page.textContent('#swapNote');
+  ok('화요일 7교시: 이용가능 실의 빈 칸이 모두 "창체"로 막혀 있음(눌리지 않음)', c7.length > 0 && c7.every(t => t === '7창체/1/false' || !t.includes('빈 실')) && c7.some(t => t === '7창체/1/false'), c7);
+  ok('안내: 교체·대강 수업도 시간표에 표시, 화·목 7교시는 창체', note.includes('교체·대강으로 바뀐 수업도') && note.includes('화·목 7교시는 창체'), note);
+  await page.fill('#vdate', '2026-11-25'); await page.dispatchEvent('#vdate', 'change'); await page.click('#tabPlan'); }
 // 교체·대강 반영: 11/25 에 2D 의 1교시 전공 수업(이선영)이 5교시로 교체되면, 그날 2D 는 1교시가 비고 5교시에 수업이 들어옴
 { const g = await (await worker.fetch(new Request('https://x/api/winter'), env)).json();
   const [c1, s1] = g.base['2D']['수1'].split(' '), t1 = g.base['2D']['수1'].split(' ')[2], o = Object.keys(g.tt).find(t => t !== t1 && (g.tt[t]['수5'] || '').endsWith('|')), [oc, os] = g.tt[o]['수5'].split('|');

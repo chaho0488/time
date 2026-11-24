@@ -325,6 +325,7 @@
     <button type="button" id="tabList" aria-pressed="false">신청내역 확인</button>
   </div>
   <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
+  <p class="fine" id="swapNote">교체·대강으로 바뀐 수업도 날짜별 실습실 시간표에 표시됩니다. 화·목 7교시는 창체 수업으로 실습실을 쓸 수 없습니다.</p>
   <div id="note" class="err"></div>
   <div id="grid"></div>
   <div class="wrap" id="list" hidden></div>
@@ -403,7 +404,7 @@ const startOf = r => (data.avail[r.room] && data.avail[r.room] > r.from ? data.a
 // 그 날짜의 p교시가 원래 시간표의 어느 칸인지 (교시가 옮겨진 날은 원래 교시로)
 function slotAt(iso, p) { const sh = data.shift[iso], bp = sh ? sh[p] : p; return bp ? dayOf(iso) + bp : null; }
 // 배정할 수 있는 실: 이용가능 표시가 있고, 그 요일교시에 전공 수업도 다른 배정도 없는 실 (서버와 같은 규칙)
-const freeRooms = slot => data.rooms.map(r => r[0]).filter(c => typeof data.avail[c] === 'string' && !(data.base[c] && data.base[c][slot]) && !data.reqs.some(r => r.room === c && r.slot === slot));
+const freeRooms = slot => (data.block[slot] ? [] : data.rooms.map(r => r[0])).filter(c => typeof data.avail[c] === 'string' && !(data.base[c] && data.base[c][slot]) && !data.reqs.some(r => r.room === c && r.slot === slot));
 // 선생님이 고를 수 있는 실: 이동 시작일(from)에 이미 열려 있는 실만. 관리자는 아직 안 열린 실에도 미리 배정할 수 있다
 const canUse = (c, from) => data.admin || data.avail[c] <= from;
 const roomLabel = (r, c) => `${c} ${esc(roomName(c))}` + (data.avail[c] && data.avail[c] > r.from ? ` (${md(data.avail[c])}부터)` : '');
@@ -452,6 +453,7 @@ function renderMine() {
       if (p > NP[d]) { h += '<td class="out"></td>'; continue; }
       if (!v) { h += '<td></td>'; continue; }
       const [c, s, room] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === k);
+      if (!room && !r && data.block[k]) { h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${data.block[k]}</small></td>`; continue; }   // 창체 시간(화7·목7): 실습실을 쓸 수 없어 고를 수 없음
       if (multi && !room && !r) { h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}" class="${picked.has(k) ? 'sel' : ''}">${esc(c)}<small>${esc(s)}</small></button></td>`; continue; }   // 여러 칸 고르기: 아직 신청하지 않은 수업만
       if (multi && r) { h += `<td class="req">${esc(c)}<small>${r.room ? esc(r.room) : '신청됨'}</small></td>`; continue; }
       if (room) h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${esc(room)}</small></td>`;
@@ -692,7 +694,7 @@ function render() {
   for (const [id, v] of [['tabPlan', 'plan'], ['tabTable', 'table']]) $(id).setAttribute('aria-selected', view === v);
   $('tabList').setAttribute('aria-pressed', view === 'list'); $('tabList').textContent = `신청내역 확인${data.reqs.length ? ` (${data.reqs.length})` : ''}`;
   const isList = view === 'list';   // 신청 내역 탭: 실습실 시간표 대신 신청 내역만
-  $('grid').hidden = isList; $('list').hidden = !isList; document.querySelector('.legend').hidden = isList; $('note').hidden = isList;
+  $('grid').hidden = isList; $('list').hidden = !isList; document.querySelector('.legend').hidden = isList; $('note').hidden = isList; $('swapNote').hidden = isList;
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
   else if (gridView === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 배치도 아래에 나온다
@@ -797,6 +799,7 @@ function roomHtml(code, iso, n, admin, inPlan) {
     if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
     else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}"${mv ? ' data-moved="in"' : ''}>${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}${mv && !t.endsWith('(대강)') ? ' 교체' : ''}</small></li>`; }
     else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${gone ? esc(gone) + '(대강)' : esc(a.teacher)}</small></li>`;
+    else if (slot && data.block[slot]) h += `<li class="${shut ? 'shut' : 'na'}" data-block="1">${no}<b>${data.block[slot]}</b></li>`;   // 창체 시간: 빈 실로 보이지 않게
     else if (swapFree) h += ok ? `<li class="free" data-moved="out">${no}<b>빈 실</b><small>교체</small></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
     else if (ok && (admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine && canUse(code, r.from)))) {   // 누를 수 있는 빈 실 칸: 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
       const wait = data.reqs.filter(r => !r.room && r.slot === slot && (admin || r.mine) && canUse(code, r.from)).length, key = code + '|' + slot;

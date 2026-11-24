@@ -194,6 +194,8 @@ for (const [t, sc] of Object.entries(W_TT)) for (const [k, v] of Object.entries(
   if (b[k]) { const [c0, s0, t0] = b[k].split(' '); b[k] = `${c0}·${c} ${s0} ${t0}·${t}`; } else b[k] = `${c} ${s} ${t}`;
 }
 // 교시가 옮겨진 날: {그날 교시: 원래 교시}. 화면이 그날 시간표를 그릴 때 쓴다. public/index.html 의 DATE_DAY_OVERRIDES(periodMap)와 같게 둔다.
+// 실습실을 쓸 수 없는 시간(모든 실, 관리자 포함): 화·목 7교시는 창체 수업으로 실습실을 쓴다
+const W_BLOCK = { 화7: '창체', 목7: '창체' };
 const W_SHIFT = { '2026-11-26': { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6 } };
 // 이용가능한 실 → 이용 시작일. 그 날짜부터만 이용가능으로 보인다(관리자가 화면에서 바꿀 수 있음)
 const W_START = '2026-11-25';   // 실습실 이동이 시작되는 날: 이보다 앞선 날짜는 신청도 화면 조회도 안 됨
@@ -273,6 +275,7 @@ async function wMoves(env) {
 // 선생님은 이동 시작일에 이미 쓸 수 있는 실만 고른다(아직 안 열린 실을 미리 잡아 두지 못함). 관리자는 미리 배정할 수 있다
 async function wRoomBad(env, room, slot, from, admin) {
   if (!W_CODES.has(room)) return json({ error: '없는 실습실입니다' }, 400);
+  if (W_BLOCK[slot]) return json({ error: `${slot[0]}요일 ${slot[1]}교시는 ${W_BLOCK[slot]} 수업으로 실습실을 쓸 수 없습니다` }, 409);
   const open = (await wAvail(env))[room];
   if (typeof open !== 'string') return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);
   if (!admin && open > from) return json({ error: `${room}은(는) ${Number(open.slice(5, 7))}/${Number(open.slice(8))}부터 쓸 수 있어 아직 신청할 수 없습니다` }, 400);
@@ -290,7 +293,7 @@ async function winterApi(req, env, url) {
 
   if (req.method === 'GET') {
     const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), moves: await wMoves(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, block: W_BLOCK, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), moves: await wMoves(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
@@ -329,6 +332,7 @@ async function winterApi(req, env, url) {
     for (const k of slots) {
       if (!Object.hasOwn(sc, k)) return json({ error: `${teacher} 선생님 시간표에 없는 시간입니다 (${k})` }, 400);
       const [cls, subject, room] = sc[k].split('|');
+      if (W_BLOCK[k]) return json({ error: `${k[0]}요일 ${k[1]}교시는 ${W_BLOCK[k]} 수업으로 실습실을 쓸 수 없습니다` }, 400);
       if (room) return json({ error: `${k} ${cls} ${subject} 수업은 이미 실습실(${room})에서 하는 수업입니다` }, 400);
       // 겹치는 신청은 먼저 찾아 어느 칸인지 알려 준다 (동시에 들어온 신청은 아래 UNIQUE 가 막음)
       const dup = await env.DG.prepare('SELECT 1 FROM winter2 WHERE slot = ? AND (cls = ? OR teacher = ?)').bind(k, cls, teacher).first();
