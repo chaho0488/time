@@ -24,6 +24,8 @@
   /* 신청: 1 이름 → 2 수업 → 3 시작일 */
   .apply { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 6px 20px 20px; }
   .step { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .apply > .step:first-child:has(+ #steps[hidden]) { border-bottom: 0; padding-bottom: 6px; }   /* 이름을 고르기 전: 교사명 칸만 */
+  #msg:empty { display: none; }
   .step > label { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.05rem; margin-bottom: 10px; }
   .num { flex: none; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
   #teacher, #from { font-size: 1.05rem; padding: 10px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; width: 100%; max-width: 17em; }
@@ -39,7 +41,7 @@
   #fromNote:empty { display: none; }
   #send { margin-top: 18px; padding: 12px 34px; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: 8px; background: var(--ink); color: #fff; cursor: pointer; }
   #send:disabled { opacity: .5; }
-  #msg { margin-top: 10px; min-height: 1.5em; font-weight: 700; }
+  #msg { margin-top: 10px; font-weight: 700; }
 
   /* 내 시간표: 옮기고 싶은 수업 칸을 눌러 고른다 */
   .wrap { overflow-x: auto; }
@@ -215,16 +217,19 @@
         <input id="teacher" type="text" placeholder="이름 또는 초성 (예: ㅎㄱㄷ)" maxlength="10" autocomplete="off" aria-autocomplete="list" aria-controls="tlist">
         <div id="tlist" hidden></div>
       </div>
+      <div class="hint" id="nameHint" style="margin-top:6px">이름을 고르면 옮길 수업을 고르는 시간표가 나옵니다.</div>
     </div>
-    <div class="step">
-      <label><span class="num">2</span>옮기고 싶은 수업</label>
-      <div id="mytt"></div>
+    <div id="steps" hidden>
+      <div class="step">
+        <label><span class="num">2</span>옮기고 싶은 수업</label>
+        <div id="mytt"></div>
+      </div>
+      <div class="step" style="border-bottom:0;padding-bottom:0">
+        <label for="from"><span class="num">3</span>언제부터 이동을 희망하십니까</label>
+        <div class="fromrow"><input id="from" type="date"><span id="fromNote"></span></div>
+      </div>
+      <button id="send">신청</button>
     </div>
-    <div class="step" style="border-bottom:0;padding-bottom:0">
-      <label for="from"><span class="num">3</span>언제부터 이동을 희망하십니까</label>
-      <div class="fromrow"><input id="from" type="date"><span id="fromNote"></span></div>
-    </div>
-    <button id="send">신청</button>
     <div id="msg"></div>
   </div>
 
@@ -326,7 +331,6 @@ function showNames() {
 function choose(name) {
   me = name; picked.clear();
   $('teacher').value = name; $('tlist').hidden = true;
-  try { localStorage.setItem('winterTeacher', name); } catch {}
   renderMine();
 }
 $('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; picked.clear(); renderMine(); } showNames(); });
@@ -337,6 +341,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.pick')) $('tli
 
 // ── 내 시간표: 수업 칸을 눌러 옮기고 싶은 수업을 고른다 ──
 function renderMine() {
+  $('steps').hidden = !me; $('nameHint').hidden = !!me;   // 이름을 고른 뒤에만 수업 고르기·시작일·신청이 나온다
   if (!data || !me) { $('mytt').innerHTML = '<div class="hint">이름을 고르면 선생님 시간표가 나옵니다.</div>'; return; }
   const sc = data.tt[me];
   let h = '<div class="hint">수업 칸을 눌러 고르세요 (여러 칸 가능). 회색은 이미 실습실에서 하는 수업, 초록색은 이미 신청한 수업입니다.</div>'
@@ -390,8 +395,8 @@ async function load() {
       // 이동 시작일(11/25) 앞 날짜는 고를 수도 볼 수도 없다. 기본값은 그날(지났으면 오늘, 주말이면 다음 월요일)
       const m = minDate(), d0 = [0, 6].includes(new Date(m + 'T00:00:00Z').getUTCDay()) ? addDays(m, 1) : m;
       $('vdate').value = d0; $('vdate').min = m; $('from').value = d0; $('from').min = m;
-      let saved = ''; try { saved = localStorage.getItem('winterTeacher') || ''; } catch {}
-      if (data.tt[saved]) choose(saved); else renderMine();
+      try { localStorage.removeItem('winterTeacher'); } catch {}   // 예전에 기억해 둔 이름은 지움(접속할 때 이름을 미리 채우지 않음)
+      renderMine();
     } else renderMine();
     // 시작일 옆 안내: 이용가능 실 중 가장 빠른 이용 시작일 (예: '11/25부터 일부 실습실 이용가능')
     const d1 = Object.values(data.avail).sort()[0];

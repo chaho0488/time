@@ -25,6 +25,9 @@ await page.route('**/*', async r => {
 });
 await page.goto('https://fake.test/winter');   /* https: 기기 표시(crypto.randomUUID)는 보안 주소에서만 만들어짐 */
 await page.waitForSelector('#grid .plan');
+{ const f = await page.evaluate(() => { const vis = id => !!document.getElementById(id).offsetParent, y = id => document.getElementById(id).getBoundingClientRect().top;
+    return { name: document.getElementById('teacher').value, steps: ['mytt', 'from', 'send'].filter(vis).join(), order: y('teacher') < y('vdate') && y('vdate') < y('grid'), gap: Math.round(document.querySelector('main h2').getBoundingClientRect().top - document.querySelector('.apply').getBoundingClientRect().bottom) }; });
+  ok('첫 화면: 교사명 칸(비어 있음)만 있고 바로 아래가 실습실 시간표', f.name === '' && f.steps === '' && f.order && f.gap < 60, f); }
 { const t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length, rooms: document.querySelectorAll('#grid .room').length }));
   ok('처음 화면은 배치도형(탭: 배치도형·목록형)', t.tabs === '배치도형:true,목록형:false' && t.plans === 5 && t.rooms === 0, t); }
 await page.click('#tabTable'); await page.waitForSelector('#grid .ftable .room');   // 아래 점검은 목록형부터
@@ -104,7 +107,7 @@ ok('초성 ㄱㄷ → 김동현·김동후', s.join() === '김동현,김동후',
 await page.fill('#teacher', '김도'); s = await names();
 ok('쓰는 도중(김도) → 김동현·김동후', s.join() === '김동현,김동후', s);
 await page.fill('#teacher', 'ㅋㅋ'); ok('맞는 이름이 없으면 목록이 뜨지 않음', (await names()).length === 0);
-await page.click('#send'); ok('교사를 고르지 않으면 신청이 막힘', (await page.textContent('#msg')).includes('교사명'));
+ok('이름을 고르기 전에는 수업 고르기·시작일·신청 단추가 나오지 않음', !(await page.locator('#mytt, #from, #send').evaluateAll(els => els.some(e => e.offsetParent))));
 
 // 음악 선생님: 음악 18칸은 이미 음악실에서 하므로 고를 수 없고 HR 한 칸만 고를 수 있음
 await page.fill('#teacher', 'ㅅㅈㅇ'); s = await names();
@@ -201,6 +204,7 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   const pick = t => Object.keys(tt[t]).filter(k => tt[t][k].endsWith('|')).slice(0, 2);
   for (const t of ['정선화', '김학선']) { const r = await post(t, pick(t)); if (!r.ok) console.log('점검용 신청 실패', t, r); }
   await page.reload(); await page.waitForSelector('#list tr.g');
+  ok('다시 접속하면 전에 고른 교사 이름이 남아 있지 않음', (await page.inputValue('#teacher')) === '' && !(await page.locator('#send').evaluate(e => !!e.offsetParent)) && (await page.evaluate(() => localStorage.getItem('winterTeacher'))) === null);
   const col = i => page.evaluate(i => [...document.querySelectorAll('#list tr.g')].map(tr => tr.cells[i].textContent), i);
   let v = { names: await col(1), boxes: await page.locator('#list input[type=checkbox]').count(), bulk: await page.locator('#bulkDel').count() };
   ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 내 신청이 있어도 선택 칸과 "선택한 신청 취소" 단추가 없음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 0 && v.bulk === 0, v);
