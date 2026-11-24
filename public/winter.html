@@ -84,7 +84,7 @@
   .pcol { display: flex; flex-direction: column; min-width: 0; }
   .pside { display: flex; min-width: 0; }
   .pside > .pc { flex: 1 1 auto !important; }
-  .prow { display: flex; height: 66px; }
+  .prow { display: flex; height: 84px; }
   .pmid { height: 20px; padding: 0 8px; font-size: .7rem; color: var(--sub); background: #fff; display: flex; align-items: center; white-space: nowrap; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .pc { min-width: 0; margin: 0; padding: 3px 1px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: repeating-linear-gradient(135deg, #F6F8FB 0 6px, #EDF1F6 6px 7px); color: var(--frost-ink);
         display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; overflow: hidden; font: inherit; line-height: 1.2; }
@@ -92,6 +92,8 @@
   .pc span { font-size: .7rem; overflow-wrap: anywhere; max-height: 2.4em; overflow: hidden; }
   .pc b { font-size: .95rem; font-weight: 800; }
   .pc em { font-style: normal; font-size: .7rem; font-weight: 700; white-space: nowrap; }
+  .pcmark { display: inline-block; font-size: .68rem; font-weight: 800; line-height: 1.3; padding: 0 4px; border: 1.5px solid currentColor; border-radius: 4px; white-space: nowrap; }
+  .pr .pcmark { margin: 1px 0; }
   .pr { cursor: pointer; }
   .pr.on { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 2px var(--warm); }
   .pr.on b { color: var(--ink); }
@@ -177,8 +179,9 @@
   .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
   .putbox button small { font-weight: 500; color: var(--sub); }
   @media (max-width: 600px) {
-    .pc span { display: none; }   /* 폰: 배치도에는 실 코드와 빈 시간 수만 */
-    .prow { height: 54px; }
+    .pc:not(.pr) span { display: none; }   /* 폰: 실습실이 아닌 칸의 이름만 숨김(실습실은 줄인 이름이 나옴) */
+    .pr span:not(.pcmark) { font-size: .69rem; letter-spacing: -.03em; max-height: none; }
+    .prow { height: 96px; }
     .pr b { font-size: .85rem; } .pr em { font-size: .64rem; }
     main { padding: 20px 12px 40px; }
     h1 { font-size: 1.35rem; }
@@ -231,7 +234,7 @@
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
   </div>
-  <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabTable">층별 표</button><button type="button" role="tab" id="tabPlan">배치도</button></div>
+  <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabPlan">배치도형</button><button type="button" role="tab" id="tabTable">목록형</button></div>
   <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
   <p class="fine">확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</p>
   <div id="note" class="err"></div>
@@ -247,13 +250,17 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const DAYS = ['월', '화', '수', '목', '금'], NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
 let data = null, me = '';          // me = 고른 교사
 let openCell = '';                 // 관리자가 누른 빈 실 칸('실|요일교시')
-let view = 'table';                // 실습실 시간표 보기: 'table'(층별 표) | 'plan'(배치도)
-try { if (localStorage.getItem('winterView') === 'plan') view = 'plan'; } catch {}
+let view = 'plan';                 // 실습실 시간표 보기: 'plan'(배치도형, 기본) | 'table'(목록형)
+try { if (localStorage.getItem('winterView') === 'table') view = 'table'; } catch {}
 const shown = new Set();           // 층별 표에서 시간표를 펼쳐 둔 수업 불가 실
 let sel = '';                      // 배치도에서 누른 실(그 실의 시간표를 배치도 아래에 보여 준다)
 let openReq = '';                  // 신청 내역에서 '자세히'를 펼친 줄('교사|과목')
 let sortBy = 'teacher', sortDir = 1;   // 신청 내역 정렬: 교사·과목·학반, 오름(1)/내림(-1)
 const picks = new Set();           // 신청 내역에서 한 번에 취소하려고 고른 줄('교사|과목')
+// 배치도 칸에 쓰는 줄인 실 이름(좁은 화면에서도 보이게)
+const SHORT = { '1A': '공유압1', '1B': '내선공사1', '1C': '내선공사2', '1D': '설비보전', '2A': '공유압2', '2B': '동력설비', '2C': '반도체', '2D': '송변전', '2E': '자동제어', '2F': '전기기기', '2G': 'CAD1', '2X': '생산자동화1', '2Y': '생산자동화2',
+  '3A': '신재생', '3B': '제어기기', '3C': '자동화설비', '3D': '전기저장', '3E': '전자회로', '3F': 'CAD2', '4A': '기계제어', '4B': '전기설비1', '4C': '전기설비2', '4D': '환경공정' };
+const PCMARK = '<span class="pcmark" title="PC 사용가능">PC</span>';   // PC 사용가능 실 표시
 // 층별 배치도(학교 배치도.hwpx 의 실습동 표 그대로): 칸 = [이름, 너비, 실 코드]. 실 코드가 있는 칸만 실습실.
 // top·bottom = 복도 위·아래 줄, left·right = 위아래를 다 차지하는 양옆 칸, mid = 복도에 적는 글
 const PLAN = {
@@ -401,19 +408,19 @@ function render() {
   $('adminHint').hidden = !admin; if (!admin) openCell = '';
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
-  // 실습실 시간표: 두 가지 보기(탭). '층별 표' = 층마다 표 하나(수업 불가 실은 한 줄로 접힘), '배치도' = 층마다 배치도 그림
+  // 실습실 시간표: 두 가지 보기(탭). '배치도형'(기본) = 층마다 배치도 그림(4층 → 1층), '목록형' = 층마다 표 하나(수업 불가 실은 한 줄로 접힘)
   $('tabTable').setAttribute('aria-selected', view !== 'plan'); $('tabPlan').setAttribute('aria-selected', view === 'plan');
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
   else if (view === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 배치도 아래에 나온다
-    h = '<p class="fine">호박색(이용가능) 실을 누르면 그 실의 시간표가 아래에 나옵니다. 숫자는 그날 비어 있는 교시 수입니다.</p>';
-    for (const f of Object.keys(PLAN)) {
+    h = '<p class="fine">호박색(이용가능) 실을 누르면 그 실의 시간표가 아래에 나옵니다. 숫자는 그날 비어 있는 교시 수, ' + PCMARK + ' 는 PC 사용가능 실입니다.</p>';
+    for (const f of ['4', '3', '2', '1']) {   // 건물처럼 위층부터
       const cnt = data.rooms.filter(r => r[0][0] === f && availOn(r[0], iso)).length;
       h += `<h3 class="floor">${f}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3>`;
       for (const pl of PLAN[f]) h += (pl.name ? `<div class="pname">${pl.name}</div>` : '') + planHtml(pl, iso, n, admin);
       if (sel && sel[0] === f) h += `<div class="ftable">${roomHtml(sel, iso, n, admin, true)}</div>`;
     }
-  } else {   // 층별 표
+  } else {   // 목록형
     let floor = '';
     for (const [code] of data.rooms) {   // 실 코드 순 = 층 순
       if (code[0] !== floor) {
@@ -475,7 +482,7 @@ function planHtml(pl, iso, n, admin) {
     if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) free++; }
     const st = ok ? `빈 ${free}` : from ? md(from).split('(')[0] + '~' : '';
     const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
-    return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}"><b>${code}</b><span>${esc(roomName(code))}</span>${st ? `<em>${st}</em>` : ''}</button>`;
+    return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}${data.pc.includes(code) ? ' · PC 사용가능' : ''}"><b>${code}</b><span>${SHORT[code] || esc(roomName(code))}</span>${data.pc.includes(code) ? PCMARK : ''}${st ? `<em>${st}</em>` : ''}</button>`;
   };
   const row = cells => `<div class="prow">${cells.map(cell).join('')}</div>`;
   const cw = (pl.top || pl.bottom).reduce((t, c) => t + c[1], 0), side = c => (c ? `<div class="pside" style="flex:${c[1]} 1 0">${cell(c)}</div>` : '');
@@ -488,7 +495,7 @@ function roomHtml(code, iso, n, admin, inPlan) {
   const ok = availOn(code, iso), from = data.avail[code], shut = !ok;
   const never = shut && data.never.includes(code);   // 교실 이용불가 실: 더 어둡게
   const tag = ok ? '<span class="badge">이용가능</span>' : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
-  let h = `<section class="room${shut ? ' closed' : ' open'}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${inPlan ? `<button type="button" class="more" data-plan="${code}">닫기</button>` : shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
+  let h = `<section class="room${shut ? ' closed' : ' open'}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${data.pc.includes(code) ? PCMARK : ''}${tag}${inPlan ? `<button type="button" class="more" data-plan="${code}">닫기</button>` : shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
   if (!inPlan && shut && !shown.has(code)) return h + '</section>';   // 접힌 수업 불가 실
   h += '<ol class="strip">';
   for (let p = 1; p <= 7; p++) {

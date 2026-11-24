@@ -24,7 +24,10 @@ await page.route('**/*', async r => {
   return r.fulfill({ status: res.status, contentType: 'application/json', body: await res.text() });
 });
 await page.goto('https://fake.test/winter');   /* https: 기기 표시(crypto.randomUUID)는 보안 주소에서만 만들어짐 */
-await page.waitForSelector('#grid .room');
+await page.waitForSelector('#grid .plan');
+{ const t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length, rooms: document.querySelectorAll('#grid .room').length }));
+  ok('처음 화면은 배치도형(탭: 배치도형·목록형)', t.tabs === '배치도형:true,목록형:false' && t.plans === 5 && t.rooms === 0, t); }
+await page.click('#tabTable'); await page.waitForSelector('#grid .ftable .room');   // 아래 점검은 목록형부터
 const login = async () => { await page.fill('#pw', 'pw'); await page.click('#login'); await page.waitForSelector('#adminOn:not([hidden])'); };
 const names = () => page.evaluate(() => document.getElementById('tlist').hidden ? [] : [...document.querySelectorAll('#tlist button')].map(b => b.textContent));
 const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [...document.querySelectorAll('#' + id + ', #' + id + ' .wrap')].some(w => w.scrollWidth > w.clientWidth + 1)).concat(document.documentElement.scrollWidth > innerWidth + 1 ? ['화면'] : []));
@@ -56,16 +59,22 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
 
 // 배치도 탭: 기존 층별 표는 그대로 두고, 탭을 누르면 층마다 배치도 그림이 나옴. 이용가능 실만 눌림
 { let t = await page.evaluate(() => ({ tabs: [...document.querySelectorAll('.tabs button')].map(b => b.textContent + ':' + b.getAttribute('aria-selected')).join(), plans: document.querySelectorAll('#grid .plan').length }));
-  ok('탭 두 개(층별 표·배치도), 처음에는 층별 표', t.tabs === '층별 표:true,배치도:false' && t.plans === 0, t);
+  ok('목록형 탭에서는 배치도가 없음', t.tabs === '배치도형:false,목록형:true' && t.plans === 0, t);
   await page.click('#tabPlan');
   t = await page.evaluate(() => { const rs = [...document.querySelectorAll('#grid .pr')];
     return { plans: document.querySelectorAll('#grid .plan').length, floors: [...document.querySelectorAll('#grid .floor')].map(f => f.textContent).join(), rooms: rs.map(b => b.dataset.plan).sort().join(' '),
       on: rs.filter(b => !b.disabled).map(b => b.dataset.plan).sort().join(), onCls: rs.filter(b => b.classList.contains('on')).map(b => b.dataset.plan).sort().join(), never: rs.filter(b => b.classList.contains('never')).map(b => b.dataset.plan).sort().join(),
       free: document.querySelector('#grid .pr[data-plan="2D"] em').textContent, etc: [...document.querySelectorAll('#grid .pc:not(.pr) span')].map(e => e.textContent).filter(Boolean).length,
-      order4: [...document.querySelectorAll('#grid .plan')].at(-1).textContent.replace(/\s+/g, ' '), table: document.querySelectorAll('#grid .room').length, over: document.getElementById('grid').scrollWidth > document.getElementById('grid').clientWidth + 1 }; });
-  ok('배치도: 층별 5장(2층은 실습동 1·별관), 실습실 23곳이 모두 그림에 있음', t.plans === 5 && t.floors === '1층,2층이용가능 1곳,3층이용가능 2곳,4층' && t.rooms === '1A 1B 1C 1D 2A 2B 2C 2D 2E 2F 2G 2X 2Y 3A 3B 3C 3D 3E 3F 4A 4B 4C 4D' && t.etc > 20 && !t.table, t);
+      order4: [...document.querySelectorAll('#grid .plan')][0].textContent.replace(/\s+/g, ' '), table: document.querySelectorAll('#grid .room').length, over: document.getElementById('grid').scrollWidth > document.getElementById('grid').clientWidth + 1 }; });
+  ok('배치도: 4층 → 1층 순서로 5장(2층은 실습동 1·별관), 실습실 23곳이 모두 그림에 있음', t.plans === 5 && t.floors === '4층,3층이용가능 2곳,2층이용가능 1곳,1층' && t.rooms === '1A 1B 1C 1D 2A 2B 2C 2D 2E 2F 2G 2X 2Y 3A 3B 3C 3D 3E 3F 4A 4B 4C 4D' && t.etc > 20 && !t.table, t);
   ok('배치도: 이용가능 실(2D·3B·3C)만 호박색으로 눌리고, 교실 이용불가 6곳은 어둡게, 2D 는 "빈 4"', t.on === '2D,3B,3C' && t.onCls === '2D,3B,3C' && t.never === '1C,1D,2E,2X,2Y,4A' && t.free === '빈 4', t);
   ok('배치도 4층: 전공심화 동아리실 | 화장실·계단·4B·4A·계단 / 복도 / 4C·4D·약품실 | 체력단련실 순서', /^전공심화 동아리실.*화장실.*계단.*4B.*4A.*계단.*복도.*4C.*4D.*약품실.*체력단련실$/.test(t.order4) && !t.over, t);
+  { const v = await page.evaluate(() => { const vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0, nm = c => document.querySelector(`#grid .pr[data-plan="${c}"] span:not(.pcmark)`);
+      const fits = [...document.querySelectorAll('#grid .pr')].filter(b => b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.plan);
+      return { w: innerWidth, names: ['2D', '2F', '2X', '3B', '4B'].map(c => nm(c).textContent + (vis(nm(c)) ? '' : '(숨김)')).join(), all: [...document.querySelectorAll('#grid .pr')].every(b => vis(b.querySelector('span:not(.pcmark)'))), fits,
+        pc: [...document.querySelectorAll('#grid .pr')].filter(b => b.querySelector('.pcmark')).map(b => b.dataset.plan).sort().join(), pcText: document.querySelector('#grid .pr .pcmark').textContent }; });
+    ok('폰 폭(390px)에서도 배치도에 줄인 실 이름이 모두 보이고 칸 밖으로 넘치지 않음', v.w === 390 && v.names === '송변전,전기기기,생산자동화1,제어기기,전기설비1' && v.all && !v.fits.length, v);
+    ok('PC 사용가능 실 7곳(2E·2G·2X·2Y·3B·3C·3F)에 PC 표시', v.pc === '2E,2G,2X,2Y,3B,3C,3F' && v.pcText === 'PC', v); }
   await page.click('#grid .pr[data-plan="2D"]');
   t = await page.evaluate(() => ({ rooms: [...document.querySelectorAll('#grid .room')].map(r => r.dataset.room).join(), cells: [...document.querySelectorAll('#grid .room .strip li')].map(li => li.className).join(), name: document.querySelector('#grid .room .rname').textContent,
     pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: document.querySelector('#grid .ftable').previousElementSibling.querySelector('[data-plan="2D"]') !== null || document.querySelector('#grid .ftable').previousElementSibling.classList.contains('plan') }));
@@ -73,7 +82,7 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
   await page.click('#grid .room .more');
   ok('"닫기"를 누르면 시간표가 닫힘', (await page.locator('#grid .room').count()) === 0);
   await page.click('#tabTable'); await page.waitForSelector('#grid .ftable .room');
-  ok('층별 표 탭으로 돌아오면 기존 표 그대로(실 23곳)', (await page.locator('#grid .room').count()) === 23 && (await page.locator('#grid .plan').count()) === 0); }
+  ok('목록형 탭으로 돌아오면 표 그대로(실 23곳), PC 실 이름 옆에도 PC 표시', (await page.locator('#grid .room').count()) === 23 && (await page.locator('#grid .plan').count()) === 0 && (await page.evaluate(() => [...document.querySelectorAll('#grid .room')].filter(r => r.querySelector('header .pcmark')).map(r => r.dataset.room).join())) === '2E,2G,2X,2Y,3B,3C,3F'); }
 { const d = await page.evaluate(() => { const bg = c => getComputedStyle(document.querySelector(`#grid .room[data-room="${c}"]`)).backgroundColor;
     return { never: [...document.querySelectorAll('#grid .room.never')].map(r => r.dataset.room).join(), labs: [...document.querySelectorAll('#grid .room.never .shutlab')].map(e => e.textContent).join(),
       dark: bg('1C'), plain: bg('1A'), plainLab: document.querySelector('#grid .room[data-room="1A"] .shutlab').textContent }; });

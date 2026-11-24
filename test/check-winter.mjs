@@ -52,6 +52,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.ok(['1C', '1D', '2E', '2X', '2Y', '4A', '1P'].every(c => !(c in def)), 'X 인 실과 음악실은 이용가능 목록에 없음');
   assert.equal(r.today, '2026-11-24');
   assert.deepEqual(r.never, ['1C', '1D', '2E', '2X', '2Y', '4A'], '교실 이용불가 실습실(현황표 X)');
+  assert.deepEqual(r.pc, ['2E', '2G', '2X', '2Y', '3B', '3C', '3F'], 'PC 사용가능 실 7곳');
   assert.equal(r.admin, false, '비밀번호 없이는 관리자가 아님');
   assert.equal((await call('GET', null, { 'X-Pw': 'x' })).admin, false, '틀린 비밀번호');
   assert.equal((await call('GET', null, PW)).admin, true, '맞는 비밀번호면 관리자 로그인 확인');

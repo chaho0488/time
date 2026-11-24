@@ -206,6 +206,8 @@ const W_AVAIL_DEFAULT = {
 };
 // 교실로 쓸 수 없는 실습실(현황표의 X). 화면에서 더 어둡게 표시하고, 관리자가 이용가능으로 풀려 하면 한 번 더 묻는다
 const W_NEVER = ['1C', '1D', '2E', '2X', '2Y', '4A'];
+// PC 를 쓸 수 있는 실습실(실습실 현황 엑셀의 'PC 가능' 칸). 화면에 PC 표시를 붙인다
+const W_PC = ['2E', '2G', '2X', '2Y', '3B', '3C', '3F'];
 const W_AVAIL_KEY = 'winterAvail2';   // 기본값을 현황표대로 새로 잡으면서 이름을 바꿈(예전 winterAvail 은 더 읽지 않음)
 
 const wToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // 한국 날짜
@@ -230,7 +232,7 @@ async function winterApi(req, env, url) {
 
   if (req.method === 'GET') {
     const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, never: W_NEVER, start: W_START, avail: await wAvail(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), today: wToday(), admin, reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
