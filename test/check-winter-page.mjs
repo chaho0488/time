@@ -214,12 +214,16 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
 { const post = (teacher, slots) => worker.fetch(new Request('https://x/api/winter', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Dev': 'z'.repeat(20) }, body: JSON.stringify({ teacher, from: '2026-11-25', slots }) }), env).then(r => r.json());
   const tt = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).tt;
   const pick = t => Object.keys(tt[t]).filter(k => tt[t][k].endsWith('|')).slice(0, 2);
-  for (const t of ['정선화', '김학선']) { const r = await post(t, pick(t)); if (!r.ok) console.log('점검용 신청 실패', t, r); }
+  // 김학선: 1학년 국A 한 칸 + 2학년 진로 한 칸(과목·학년이 달라도 신청 내역에는 한 줄이어야 함)
+  const mixed = [pick('김학선').find(k => tt['김학선'][k].startsWith('1')), Object.keys(tt['김학선']).find(k => tt['김학선'][k].startsWith('2') && tt['김학선'][k].endsWith('|'))];
+  for (const [t, sl] of [['정선화', pick('정선화')], ['김학선', mixed]]) { const r = await post(t, sl); if (!r.ok) console.log('점검용 신청 실패', t, r); }
   await page.reload(); await page.waitForSelector('#list tr.g');
   ok('다시 접속하면 전에 고른 교사 이름이 남아 있지 않음', (await page.inputValue('#teacher')) === '' && !(await page.locator('#send').evaluate(e => !!e.offsetParent)) && (await page.evaluate(() => localStorage.getItem('winterTeacher'))) === null);
   const col = i => page.evaluate(i => [...document.querySelectorAll('#list tr.g')].map(tr => tr.cells[i].textContent), i);
   let v = { names: await col(1), boxes: await page.locator('#list input[type=checkbox]').count(), bulk: await page.locator('#bulkDel').count() };
   ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 내 신청이 있어도 선택 칸과 "선택한 신청 취소" 단추가 없음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 0 && v.bulk === 0, v);
+  { const k = await page.evaluate(() => [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].slice(1, 4).map(c => c.textContent).join('|')).find(x => x.startsWith('김학선')));
+    ok('신청 내역은 교사 기준 한 줄: 김학선은 1학년 국A·2학년 진로를 신청해도 한 줄에 과목·학반이 함께', /^김학선\|국A, 진로\|1.+, 2.+$/.test(k), k); }
   await page.click('#list button[data-sort="teacher"]'); v = await col(1);
   ok('교사 제목을 다시 누르면 거꾸로 정렬', v.join() === '정선화,성준혁,김학선', v);
   await page.click('#list button[data-sort="subject"]'); v = { subj: await col(2), head: await page.evaluate(() => document.querySelector('#list th[aria-sort="ascending"]').textContent.trim()) };
