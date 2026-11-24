@@ -30,9 +30,10 @@ const over = () => page.evaluate(() => ['mytt', 'grid', 'list'].filter(id => [..
 // 첫 화면: 안내 문구 없음, 오늘(11/24 화) 시간표 — 2D·3B·3C 는 11/25부터라 오늘은 이용가능으로 나오지 않음
 let s = await page.evaluate(() => ({ day: document.getElementById('vday').textContent, badges: document.querySelectorAll('#grid .badge').length, free: document.querySelectorAll('#grid td.free').length,
   soon: [...document.querySelectorAll('#grid .soon')].map(e => e.textContent), rows: document.querySelectorAll('#grid tbody tr').length, from: document.getElementById('from').value,
-  text: document.body.textContent.includes('요 며칠'), old: !!document.querySelector('#cls, #subject, #periods') }));
+  note: document.getElementById('fromNote').textContent, text: document.body.textContent.includes('요 며칠'), old: !!document.querySelector('#cls, #subject, #periods') }));
 ok('첫 화면: 11/24(화), 실 23곳, 이용가능 배지·빈 실 없음, 세 곳에 "11/25부터", 시작일 기본값 11/25', s.day === '11/24(화)' && s.rows === 23 && s.badges === 0 && s.free === 0 && s.soon.join() === '11/25부터,11/25부터,11/25부터' && s.from === '2026-11-25', s);
 ok('안내 문구와 학급·과목·교시 입력 칸은 없음', !s.text && !s.old, s);
+ok('시작일 옆에 "11/25부터 일부 실습실 이용가능"', s.note === '11/25부터 일부 실습실 이용가능', s);
 
 // 교사 찾기: 초성, 쓰는 도중의 글자, 이름 일부
 await page.fill('#teacher', 'ㄱㄷ'); s = await names();

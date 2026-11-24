@@ -78,7 +78,7 @@
     </div>
     <div id="mytt"></div>
     <label for="from">언제부터 이동을 희망하십니까</label>
-    <input id="from" type="date">
+    <div><input id="from" type="date"> <b id="fromNote" class="err"></b></div>
     <div><button id="send">신청</button></div>
     <div id="msg"></div>
   </div>
@@ -201,6 +201,9 @@ async function load() {
       let saved = ''; try { saved = localStorage.getItem('winterTeacher') || ''; } catch {}
       if (data.tt[saved]) choose(saved); else renderMine();
     } else renderMine();
+    // 시작일 옆 안내: 이용가능 실 중 가장 빠른 이용 시작일 (예: '11/25부터 일부 실습실 이용가능')
+    const d1 = Object.values(data.avail).sort()[0];
+    $('fromNote').textContent = d1 ? `${md(d1).split('(')[0]}부터 일부 실습실 이용가능` : '';
     if (document.activeElement && document.activeElement.tagName === 'SELECT' && document.activeElement.closest('#list')) return;   // 배정 실을 고르는 중이면 다시 그리지 않음
     render();
   } catch (e) { say('불러오지 못했습니다: ' + e.message); }
