@@ -50,6 +50,7 @@
   #mytt table { border-collapse: separate; border-spacing: 3px; width: 100%; max-width: 660px; table-layout: fixed; margin: 6px -3px 0; }   /* PC 에서 너무 커지지 않게 폭을 제한 */
   #mytt th { font-size: .8rem; font-weight: 700; color: var(--sub); padding: 2px 0; }
   #mytt th.p { width: 1.8em; }
+  #mytt th small { display: block; font-size: .7rem; font-weight: 500; }   /* 요일 아래 날짜 */
   #mytt td { padding: 0; height: 2.2em; border-radius: 6px; text-align: center; font-weight: 700; font-size: .85rem; background: transparent; }
   #mytt td small, #mytt td button small { display: inline; margin-left: 4px; font-weight: 500; font-size: .75rem; color: var(--sub); }   /* 학급 옆에 과목을 한 줄로: 칸을 낮게 */
   #mytt td button { width: 100%; height: 100%; min-height: 2.2em; border: 1.5px solid var(--line); border-radius: 6px; background: #fff; font-weight: 700; cursor: pointer; padding: 2px; }
@@ -83,6 +84,7 @@
     #printArea h1 { font-size: 22pt; margin: 0 0 4mm; } #printArea h2 { font-size: 13pt; margin: 8mm 0 2mm; } #printArea p { font-size: 12pt; margin: 0 0 4mm; }
     #printArea table { border-collapse: collapse; width: 100%; } #printArea th, #printArea td { border: 1px solid #000; padding: 2.5mm 2mm; text-align: center; font-size: 12pt; }
     #printArea table.big td { font-size: 15pt; font-weight: 700; padding: 4mm 2mm; } #printArea th { background: #eee; }
+    #printArea th small { display: block; font-size: 9pt; font-weight: 400; } #printArea h2 small { font-size: 11pt; font-weight: 400; }
     #printArea td small { display: block; font-size: 9pt; font-weight: 400; } #printArea td.mv { font-weight: 800; background: #f3f3f3; }
   }
   @media (min-width: 1500px) { .pop { left: auto; right: 3vw; transform: none; } }   /* 넓은 화면: 시간표를 가리지 않게 오른쪽에 */
@@ -397,6 +399,13 @@ function addDays(iso, n) {   // 주말은 건너뛴다
   do { d = new Date(d.getTime() + n * 864e5); } while ([0, 6].includes(d.getUTCDay()));
   return d.toISOString().slice(0, 10);
 }
+// 시작일부터 한 주(학교 5일): 요일마다 시작일 이후 처음 오는 날짜. 예) 11/25(수) 시작 → 수 11/25 … 화 12/1
+function weekDates(from) {
+  const w = {}; let iso = DAYS.includes(dayOf(from)) ? from : addDays(from, 1);   // 주말이면 다음 월요일부터
+  for (let i = 0; i < 5; i++) { w[dayOf(iso)] = iso; iso = addDays(iso, 1); }
+  return w;
+}
+const mdOnly = iso => md(iso).split('(')[0];   // 11/30
 const minDate = () => (data.start > data.today ? data.start : data.today);
 const roomName = code => (data.rooms.find(r => r[0] === code) || ['', ''])[1].replace('실습실', '');
 const slotOrder = k => DAYS.indexOf(k[0]) * 10 + Number(k[1]);
@@ -449,10 +458,10 @@ document.addEventListener('click', e => { if (!e.target.closest('.pick')) $('tli
 function renderMine() {
   $('steps').hidden = !me; $('nameHint').hidden = !!me;   // 이름을 고른 뒤에만 시작일·시간표가 나온다
   if (!data || !me) { $('mytt').innerHTML = ''; renderPop(); return; }
-  const sc = data.tt[me];
+  const sc = data.tt[me], wk = $('from').value ? weekDates($('from').value) : {};   // 머리줄 날짜 = 고른 시작일부터 한 주
   let h = '<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업입니다.</div>'
     + `<div class="multi"><label><input type="checkbox" id="multiOn"${multi ? ' checked' : ''}> 여러 수업을 한 번에 고르기</label>${multi ? `<button type="button" id="multiGo"${picked.size ? '' : ' disabled'}>${picked.size ? `고른 ${picked.size}칸에 모두 비어 있는 실습실 보기` : '수업 칸을 여러 개 누르세요'}</button>` : ''}</div>`
-    + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+    + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}${wk[d] ? `<small>${mdOnly(wk[d])}</small>` : ''}</th>`).join('') + '</tr></thead><tbody>';
   for (const k of [...picked]) if (!sc[k] || data.reqs.some(x => x.teacher === me && x.slot === k)) picked.delete(k);   // 그사이 신청된 칸은 선택에서 뺌
   for (let p = 1; p <= 7; p++) {
     h += `<tr><th class="p">${p}</th>`;
@@ -484,10 +493,10 @@ const moreSlots = () => Object.keys(data.tt[me]).filter(k => !data.tt[me][k].spl
   && canUse(more.room, more.from) && freeRooms(k).includes(more.room)).sort((a, b) => slotOrder(a) - slotOrder(b));
 // 교실 안내용 인쇄: 옮긴 수업 표(크게) + 주간 시간표. 화면 안에서 인쇄 창만 부르므로 팝업 차단과 상관없다
 function printMine() {
-  const mv = myMoves(), sc = data.tt[me];
+  const mv = myMoves(), sc = data.tt[me], wk = weekDates(mv.map(startOf).sort()[0]), ds = Object.values(wk).sort();   // 날짜 = 첫 시작일부터 한 주
   let h = `<h1>수업 장소 변경 안내</h1><p><b>${esc(me)}</b> 선생님 <b>${md(mv.map(startOf).sort()[0])}</b>부터 수업은 아래 장소에서 합니다.</p><p>반장은 쉬는 시간에 학과 사무실에서 열쇠를 받아 수업 시작 종이 울리기 전에 문을 열어주세요.</p><table class="big"><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>수업 장소</th><th>시작일</th></tr></thead><tbody>`
     + mv.map(r => `<tr><td>${r.slot[0]}요일 ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${r.room[0]}층 ${esc(fullRoom(r.room))} (${r.room})</td><td>${md(startOf(r))}부터</td></tr>`).join('')
-    + '</tbody></table><h2>주간 시간표</h2><table><thead><tr><th></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+    + `</tbody></table><h2>주간 시간표 <small>(${md(ds[0])} ~ ${md(ds[4])})</small></h2><table><thead><tr><th></th>` + DAYS.map(d => `<th>${d}<small>${mdOnly(wk[d])}</small></th>`).join('') + '</tr></thead><tbody>';
   for (let p = 1; p <= 7; p++) {
     h += `<tr><th>${p}</th>`;
     for (const d of DAYS) { const v = sc[d + p], r = mv.find(x => x.slot === d + p);
@@ -613,7 +622,7 @@ $('mytt').addEventListener('click', e => {
   pop = pop === b.dataset.slot ? '' : b.dataset.slot; popErr = ''; more = null;
   renderMine();
 });
-$('from').addEventListener('change', () => renderPop());
+$('from').addEventListener('change', () => renderMine());   // 머리줄 날짜도 바뀌므로 내 시간표째 다시 그림(창도 함께)
 $('mytt').addEventListener('change', e => { if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
 $('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
