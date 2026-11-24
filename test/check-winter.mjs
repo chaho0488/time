@@ -4,7 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
 
-Date.now = () => Date.parse('2026-11-24T03:00:00Z');   // 점검 기준일: 2026-11-24(화) 한국 시각 낮 12시
+Date.now = () => Date.parse('2026-11-30T03:00:00Z');   // 점검 기준일: 2026-11-30(월) 한국 시각 낮 12시 — 주 단위 신청이라 월요일로 둔다(이번 주 = 11/30~12/4)
 
 // D1 흉내: prepare().bind().run()/all()/first(), batch(한 묶음 = 전부 되거나 전부 안 됨)
 // seed=true: 이용가능 실을 점검용 고정값(2D·3B·3C 11/25)으로 넣어 둔다 — 실제 기본값(W_AVAIL_DEFAULT)이 바뀌어도 점검은 그대로
@@ -37,20 +37,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     worker.fetch(new Request('https://x/api/winter' + q, { method, headers: { 'Content-Type': 'application/json', ...headers }, body: body && JSON.stringify(body) }), env)
       .then(async r => ({ status: r.status, ...(await r.json()) }));
   const A = { 'X-Dev': 'a'.repeat(20) }, B = { 'X-Dev': 'b'.repeat(20) }, PW = { 'X-Pw': 'pw' };
-  const D = '2026-11-25';
+  const D = '2026-11-30';
   const req = (o = {}) => ({ teacher: '성준혁', from: D, slots: ['수3', '수4'], ...o });
 
   let r = await call('GET');
   assert.equal(r.status, 200);
   assert.equal(r.rooms.length, 23, '실습실 23곳(음악실은 목록에 없음)');
-  assert.ok(r.start === D && !('fixed' in r) && !r.rooms.some(x => x[0] === '1P' || x[1].includes('음악')));
-  assert.deepEqual(r.avail, { '2D': D, '3B': D, '3C': D }, '점검용 고정값: 2D·3B·3C 가 11/25부터 이용가능');
+  assert.ok(r.start === '2026-11-25' && !('fixed' in r) && !r.rooms.some(x => x[0] === '1P' || x[1].includes('음악')));
+  assert.deepEqual(r.avail, { '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' }, '점검용 고정값: 2D·3B·3C 가 11/25부터 이용가능');
   // 저장된 값이 없을 때의 기본값 = 2026-11-24 실습실 현황표의 가능 시작일
   const def = (await (await worker.fetch(new Request('https://x/api/winter'), { ...env, DATA: { get: async () => null, put: async () => {} } })).json()).avail;   // 같은 표, 빈 KV
   assert.equal(Object.keys(def).length, 17, '날짜가 있는 실 17곳');
   assert.deepEqual([def['2A'], def['2D'], def['1A'], def['2G'], def['2C'], def['4D']], ['2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-30', '2026-12-02']);
   assert.ok(['1C', '1D', '2E', '2X', '2Y', '4A', '1P'].every(c => !(c in def)), 'X 인 실과 음악실은 이용가능 목록에 없음');
-  assert.equal(r.today, '2026-11-24');
+  assert.equal(r.today, '2026-11-30'); assert.deepEqual(r.week, { mon: '2026-11-30', fri: '2026-12-04' });
   assert.deepEqual(r.never, ['1C', '1D', '2E', '2X', '2Y', '4A'], '교실 이용불가 실습실(현황표 X)');
   assert.deepEqual(r.pc, ['2E', '2G', '2X', '2Y', '3B', '3C', '3F'], 'PC 사용가능 실 7곳');
   assert.equal(r.admin, false, '비밀번호 없이는 관리자가 아님');
@@ -135,16 +135,16 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   // 아직 안 열린 실(3C 가 11/27부터)은 선생님이 미리 잡을 수 없고, 관리자만 미리 배정할 수 있음
   { const t2 = others[1], C = { 'X-Dev': 'c'.repeat(20) };
-    assert.equal((await call('PUT', { avail: { '2D': D, '3B': D, '3C': '2026-11-27' } }, PW)).status, 200);
+    assert.equal((await call('PUT', { avail: { '2D': D, '3B': D, '3C': '2026-12-02' } }, PW)).status, 200);
     const x = await call('POST', { teacher: t2, from: D, slots: ['수4'], room: '3C' }, C);
-    assert.equal(x.status, 400); assert.match(x.error, /11\/27부터/);
+    assert.equal(x.status, 400); assert.match(x.error, /12\/2부터/);
     assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4'] }, C)).status, 200, '실 없이 신청');
     const id = (await call('GET')).reqs.find(q => q.teacher === t2).id;
     assert.equal((await call('PATCH', { id, room: '3C' }, C)).status, 400, '신청한 기기도 아직 안 열린 실은 못 고름');
     assert.equal((await call('PATCH', { id, room: '2D' }, C)).status, 200, '열려 있는 실은 고름');
     assert.equal((await call('PATCH', { id, room: '3C' }, PW)).status, 200, '관리자는 미리 배정 가능');
     assert.equal((await call('DELETE', null, PW, '?id=' + id)).status, 200);
-    assert.equal((await call('POST', { teacher: t2, from: '2026-11-27', slots: ['수4'], room: '3C' }, C)).status, 200, '시작일이 실이 열리는 날 이후면 고를 수 있음');
+    assert.equal((await call('POST', { teacher: t2, from: '2026-12-02', slots: ['수4'], room: '3C' }, C)).status, 200, '시작일이 실이 열리는 날 이후면 고를 수 있음');
     assert.equal((await call('DELETE', null, PW, '?id=' + (await call('GET')).reqs.find(q => q.teacher === t2).id)).status, 200);
     assert.equal((await call('PUT', { avail: { '2D': D, '3B': D, '3C': D } }, PW)).status, 200, '점검용 값으로 되돌림'); }
 
@@ -186,5 +186,20 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // 동시에 같은 수업 신청: 하나만 저장
   const both = await Promise.all([call('POST', req({ slots: ['목2'] }), A), call('POST', req({ slots: ['목2'] }), B)]);
   assert.deepEqual(both.map(x => x.status).sort(), [200, 409]);
+
+  // 주 단위 신청: 오늘(11/30 월)이 속한 주(11/30~12/4)만. 다음 주 날짜·시작일보다 앞 요일은 거절
+  r = await call('POST', req({ from: '2026-12-07', slots: ['금1'] }), A);
+  assert.equal(r.status, 400); assert.match(r.error, /이번 주\(11\/30~12\/4\) 수업만/);
+  const tt0 = (await call('GET')).tt['성준혁'], monK = Object.keys(tt0).find(k => k[0] === '월' && !tt0[k].split('|')[2]);
+  if (monK) { r = await call('POST', req({ from: '2026-12-02', slots: [monK] }), A); assert.equal(r.status, 400); assert.match(r.error, /이동 시작일\(12\/2\)보다 앞/); }
+  // 다음 주 월요일이 되면: 지난 주 신청은 목록에서 빠지고(보관 표로 옮김) 같은 수업을 다시 신청할 수 있다
+  const before = (await call('GET')).reqs; assert.ok(before.length >= 1 && before.every(x => x.date >= '2026-11-30' && x.date <= '2026-12-04'));
+  Date.now = () => Date.parse('2026-12-07T03:00:00Z');
+  r = await call('GET'); assert.deepEqual(r.week, { mon: '2026-12-07', fri: '2026-12-11' }); assert.equal(r.reqs.length, 0, '지난 주 신청은 빠짐');
+  const old = before[0];
+  assert.equal((await call('POST', { teacher: old.teacher, from: '2026-12-07', slots: [old.slot] }, A)).status, 200, '새 주에는 같은 수업을 다시 신청 가능');
+  // 주말에는 다가오는 주가 '이번 주'
+  Date.now = () => Date.parse('2026-12-12T03:00:00Z');
+  assert.deepEqual((await call('GET')).week, { mon: '2026-12-14', fri: '2026-12-18' });
   console.log('✅ /api/winter 점검 통과');
 }

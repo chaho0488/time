@@ -3,7 +3,8 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import worker from '../src/worker.js';
-import { fakeEnv } from './check-winter.mjs';   // 기준일도 2026-11-24(화)로 고정됨
+import { fakeEnv } from './check-winter.mjs';
+Date.now = () => Date.parse('2026-11-25T03:00:00Z');   // 화면 점검 기준일: 2026-11-25(수) — 이번 주 = 11/23~11/27, 월·화 수업은 '다음 주에'
 const { chromium } = createRequire(import.meta.url)('playwright');
 
 const HTML = fs.readFileSync(new URL('../public/winter.html', import.meta.url), 'utf8');
@@ -142,7 +143,9 @@ await page.evaluate(() => localStorage.removeItem('winterNoNotice'));   // 아�
 await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]'); await page.click('#noticeOk');
 s = await page.evaluate(() => ({ v: document.getElementById('teacher').value, btn: document.querySelectorAll('#mytt button[data-slot]').length, hidden: document.getElementById('tlist').hidden,
   w3: document.querySelector('#mytt button[data-slot="수3"]').textContent }));
-ok('이름을 고르면 그 교사의 시간표가 나옴 (수3 = 1신3 과학)', s.v === '성준혁' && s.btn === 18 && s.hidden && s.w3 === '1신3과학', s);
+{ const w = await page.evaluate(() => ({ head: [...document.querySelectorAll('#mytt thead th')].map(t => t.textContent).join(' '), next: [...document.querySelectorAll('#mytt td.lab')].filter(t => t.textContent.includes('다음 주에')).length, monBtn: document.querySelectorAll('#mytt button[data-slot^="월"], #mytt button[data-slot^="화"]').length, max: document.getElementById('from').max, hint: document.querySelector('#mytt .hint').textContent }));
+  ok('주 단위: 머리줄은 이번 주(월 11/23~금 11/27), 시작일(11/25 수)보다 앞인 월·화 수업 8칸은 "다음 주에"로 막힘, 시작일은 금요일까지만', w.head === ' 월11/23 화11/24 수11/25 목11/26 금11/27' && w.next === 8 && w.monBtn === 0 && w.max === '2026-11-27' && w.hint.includes('이번 주(11/23(월)~11/27(금)) 수업만 신청할 수 있고'), w); }
+ok('이름을 고르면 그 교사의 시간표가 나옴 (수3 = 1신3 과학)', s.v === '성준혁' && s.btn === 10 && s.hidden && s.w3 === '1신3과학', s);
 ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치지 않음', !(s = await over()).length, s);
 // 수업 칸을 누르면 실 고르기 창: 그 시간에 비어 있는 실 목록 + 그 층 배치도, 실을 누르면 바로 신청
 { const popState = () => page.evaluate(() => { const p = document.getElementById('pop'); return { open: !p.hidden, title: document.getElementById('popTitle').textContent, text: document.getElementById('popBody').textContent,
@@ -179,7 +182,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   ok('배치도에서 3C 를 누르면 바로 신청되고, 내 시간표 칸은 초록색 "3C"', v.msg === '수요일 4교시 1신1 → 3C 신청되었습니다' && v.cell === '1신13C/req' && v.room === '수41신13C', v);
   // 고른 실이 내 다른 수업 시간에도 비어 있으면 알려 주고 함께 신청
   const g0 = await (await worker.fetch(new Request('https://x/api/winter'), env)).json();
-  const want = Object.keys(g0.tt['성준혁']).filter(k => k !== '수4' && g0.tt['성준혁'][k].endsWith('|') && !g0.base['3C'][k]).sort();
+  const want = Object.keys(g0.tt['성준혁']).filter(k => k !== '수4' && !'월화'.includes(k[0]) && g0.tt['성준혁'][k].endsWith('|') && !g0.base['3C'][k]).sort();   // 수요일 시작이라 월·화는 다음 주
   v = await page.evaluate(() => ({ title: document.getElementById('popTitle').textContent, ks: [...document.querySelectorAll('#pop button[data-more]')].map(c => c.dataset.more), text: document.getElementById('popBody').textContent }));
   ok('신청 뒤 "3C … 다른 시간에도 비어 있습니다" 창: 3C 가 비는 내 다른 수업(전공 수업 시간·이미 신청한 칸 제외)이 모두 나옴', v.title.startsWith('3C 자동화설비') && v.title.includes('다른 시간에도 비어 있습니다') && [...v.ks].sort().join() === want.join() && want.length >= 2, { v, want });
   { const c = await page.evaluate(() => { const b = [...document.querySelectorAll('#pop button[data-more]')], cs = getComputedStyle(b[0]); return { all: b.every(x => x.getAttribute('aria-pressed') === 'true'), bg: cs.backgroundColor, bd: cs.borderTopStyle + ' ' + cs.borderTopColor, send: document.getElementById('moreSend').textContent }; });
@@ -215,7 +218,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
 
 // 여러 수업을 한 번에 고르기: 고른 시간 모두에 비어 있는 실만 배치도에 켜지고, 실을 누르면 한꺼번에 신청
 { const g = await (await worker.fetch(new Request('https://x/api/winter'), env)).json(), my = g.tt['성준혁'];
-  const other = Object.keys(my).find(k => k !== '수4' && my[k].endsWith('|') && !g.base['3C'][k]);   // 3C 가 비는 다른 칸
+  const other = Object.keys(my).find(k => k !== '수4' && !'월화'.includes(k[0]) && my[k].endsWith('|') && !g.base['3C'][k]);   // 3C 가 비는 다른 칸(이번 주에 신청 가능한 요일)
   const both = ['2D', '3B', '3C'].filter(c => !g.base[c]['수4'] && !g.base[c][other]);
   await page.check('#multiOn'); await page.click('#mytt button[data-slot="수4"]');
   ok('여러 칸 고르기를 켜면 칸을 눌러도 창이 뜨지 않고 선택만 됨', await page.evaluate(() => document.getElementById('pop').hidden && document.querySelector('#mytt button[data-slot="수4"]').classList.contains('sel') && document.getElementById('multiGo').textContent === '실습실 선택하기 (고른 1칸)'));
@@ -347,9 +350,10 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
 // 정렬과 골라서 한 번에 취소: 다른 기기에서 두 분이 더 신청한 뒤 확인
 { const post = (teacher, slots) => worker.fetch(new Request('https://x/api/winter', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Dev': 'z'.repeat(20) }, body: JSON.stringify({ teacher, from: '2026-11-25', slots }) }), env).then(r => r.json());
   const tt = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).tt;
-  const pick = t => Object.keys(tt[t]).filter(k => tt[t][k].endsWith('|')).slice(0, 2);
+  const wk = k => !'월화'.includes(k[0]);   // 수요일 시작: 이번 주에 신청할 수 있는 요일만
+  const pick = t => Object.keys(tt[t]).filter(k => wk(k) && tt[t][k].endsWith('|')).slice(0, 2);
   // 김학선: 1학년 국A 한 칸 + 2학년 진로 한 칸(과목·학년이 달라도 신청 내역에는 한 줄이어야 함)
-  const mixed = [pick('김학선').find(k => tt['김학선'][k].startsWith('1')), Object.keys(tt['김학선']).find(k => tt['김학선'][k].startsWith('2') && tt['김학선'][k].endsWith('|'))];
+  const mixed = [Object.keys(tt['김학선']).find(k => wk(k) && tt['김학선'][k].startsWith('1') && tt['김학선'][k].endsWith('|')), Object.keys(tt['김학선']).find(k => wk(k) && tt['김학선'][k].startsWith('2') && tt['김학선'][k].endsWith('|'))];
   for (const [t, sl] of [['정선화', pick('정선화')], ['김학선', mixed]]) { const r = await post(t, sl); if (!r.ok) console.log('점검용 신청 실패', t, r); }
   await page.reload(); await showList(); await page.waitForSelector('#list tr.g');
   ok('다시 접속하면 전에 고른 교사 이름이 남아 있지 않음', (await page.inputValue('#teacher')) === '' && !(await page.locator('#from').evaluate(e => !!e.offsetParent)) && (await page.evaluate(() => localStorage.getItem('winterTeacher'))) === null);

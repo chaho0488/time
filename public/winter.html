@@ -469,14 +469,10 @@ function addDays(iso, n) {   // 주말은 건너뛴다
   do { d = new Date(d.getTime() + n * 864e5); } while ([0, 6].includes(d.getUTCDay()));
   return d.toISOString().slice(0, 10);
 }
-// 시작일부터 한 주(학교 5일): 요일마다 시작일 이후 처음 오는 날짜. 예) 11/25(수) 시작 → 수 11/25 … 화 12/1
-function weekDates(from) {
-  const w = {}; let iso = DAYS.includes(dayOf(from)) ? from : addDays(from, 1);   // 주말이면 다음 월요일부터
-  for (let i = 0; i < 5; i++) { w[dayOf(iso)] = iso; iso = addDays(iso, 1); }
-  return w;
-}
+// 신청은 주 단위: 오늘이 속한 주(월~금, 주말에는 다가오는 주)의 날짜. 서버가 준 data.week 기준
+function weekDates() { const w = {}; DAYS.forEach((d, i) => { w[d] = addDays(data.week.mon, i); }); return w; }
 const mdOnly = iso => md(iso).split('(')[0];   // 11/30
-const minDate = () => (data.start > data.today ? data.start : data.today);
+const minDate = () => [data.start, data.today, data.week.mon].sort().pop();   // 신청·조회 가능한 첫 날
 const roomName = code => (data.rooms.find(r => r[0] === code) || ['', ''])[1].replace('실습실', '');
 const slotOrder = k => DAYS.indexOf(k[0]) * 10 + Number(k[1]);
 // 이용가능 실은 이용 시작일부터만 이용가능
@@ -531,11 +527,11 @@ document.addEventListener('click', e => { if (!e.target.closest('.pick')) $('tli
 function renderMine() {
   $('steps').hidden = !me; $('nameHint').hidden = !!me; $('closeMe').hidden = !me;   // 이름을 고른 뒤에만 시작일·시간표가 나온다
   if (!data || !me) { $('mytt').innerHTML = ''; renderPop(); return; }
-  const sc = data.tt[me], wk = $('from').value ? weekDates($('from').value) : {};   // 머리줄 날짜 = 고른 시작일부터 한 주
-  let h = '<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업입니다.</div>'
+  const sc = data.tt[me], wk = weekDates(), fromV = $('from').value || minDate();   // 머리줄 날짜 = 이번 주. 시작일보다 앞 요일은 고를 수 없다
+  let h = `<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업입니다. <b>이번 주(${md(wk['월'])}~${md(wk['금'])}) 수업만 신청할 수 있고, 다음 주 수업은 다음 주에 다시 신청합니다.</b></div>`
     + `<div class="multi"><label><input type="checkbox" id="multiOn"${multi ? ' checked' : ''}> 여러 수업을 한 번에 고르기</label>${multi ? `<button type="button" id="multiGo"${picked.size ? '' : ' disabled'}>${picked.size ? `실습실 선택하기 (고른 ${picked.size}칸)` : '수업 칸을 여러 개 누르세요'}</button>` : ''}</div>`
     + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}${wk[d] ? `<small>${mdOnly(wk[d])}</small>` : ''}</th>`).join('') + '</tr></thead><tbody>';
-  for (const k of [...picked]) if (!sc[k] || data.reqs.some(x => x.teacher === me && x.slot === k)) picked.delete(k);   // 그사이 신청된 칸은 선택에서 뺌
+  for (const k of [...picked]) if (!sc[k] || wk[k[0]] < fromV || data.reqs.some(x => x.teacher === me && x.slot === k)) picked.delete(k);   // 그사이 신청된 칸은 선택에서 뺌
   for (let p = 1; p <= 7; p++) {
     h += `<tr><th class="p">${p}</th>`;
     for (const d of DAYS) {
@@ -544,6 +540,7 @@ function renderMine() {
       if (!v) { h += '<td></td>'; continue; }
       const [c, s, room] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === k);
       if (!room && !r && data.block[k]) { h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${data.block[k]}</small></td>`; continue; }   // 창체 시간(화7·목7): 실습실을 쓸 수 없어 고를 수 없음
+      if (!room && !r && wk[d] < fromV) { h += `<td class="lab">${esc(c)}<small>${esc(s)} · 다음 주에</small></td>`; continue; }   // 시작일보다 앞 요일: 이번 주에는 신청 불가
       if (multi && !room && !r) { h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}" class="${picked.has(k) ? 'sel' : ''}">${esc(c)}<small>${esc(s)}</small></button></td>`; continue; }   // 여러 칸 고르기: 아직 신청하지 않은 수업만
       if (multi && r) { h += `<td class="req">${esc(c)}<small>${r.room ? esc(r.room) : '신청됨'}</small></td>`; continue; }
       if (room) h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${esc(room)}</small></td>`;
@@ -566,10 +563,10 @@ const myMoves = () => data.reqs.filter(r => r.teacher === me && r.room).sort((a,
 const fullRoom = c => (data.rooms.find(r => r[0] === c) || ['', c])[1];
 // 방금 고른 실이 비어 있는 내 다른 수업(아직 신청하지 않은 교실 수업)
 const moreSlots = () => Object.keys(data.tt[me]).filter(k => !data.tt[me][k].split('|')[2] && !data.reqs.some(x => x.teacher === me && x.slot === k)
-  && canUse(more.room, more.from) && freeRooms(k).includes(more.room)).sort((a, b) => slotOrder(a) - slotOrder(b));
+  && weekDates()[k[0]] >= more.from && canUse(more.room, more.from) && freeRooms(k).includes(more.room)).sort((a, b) => slotOrder(a) - slotOrder(b));
 // 교실 안내용 인쇄: 옮긴 수업 표(크게) + 주간 시간표. 화면 안에서 인쇄 창만 부르므로 팝업 차단과 상관없다
 function printMine() {
-  const mv = myMoves(), sc = data.tt[me], wk = weekDates(mv.map(startOf).sort()[0]), ds = Object.values(wk).sort();   // 날짜 = 첫 시작일부터 한 주
+  const mv = myMoves(), sc = data.tt[me], wk = weekDates(), ds = Object.values(wk).sort();   // 날짜 = 이번 주
   let h = `<h1>수업 장소 변경 안내</h1><p><b>${esc(me)}</b> 선생님 <b>${md(mv.map(startOf).sort()[0])}</b>부터 수업은 아래 장소에서 합니다.</p><p>반장은 쉬는 시간에 학과 사무실에서 열쇠를 받아 수업 시작 종이 울리기 전에 문을 열어주세요.</p><table class="big"><thead><tr><th>요일·교시</th><th>학급</th><th>과목</th><th>수업 장소</th><th>시작일</th></tr></thead><tbody>`
     + mv.map(r => `<tr><td>${r.slot[0]}요일 ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${r.room[0]}층 ${esc(fullRoom(r.room))} (${r.room})</td><td>${md(startOf(r))}부터</td></tr>`).join('')
     + `</tbody></table><h2>주간 시간표 <small>(${md(ds[0])} ~ ${md(ds[4])})</small></h2><table><thead><tr><th></th>` + DAYS.map(d => `<th>${d}<small>${mdOnly(wk[d])}</small></th>`).join('') + '</tr></thead><tbody>';
@@ -711,7 +708,7 @@ $('mytt').addEventListener('click', e => {
   pop = pop === b.dataset.slot ? '' : b.dataset.slot; popErr = ''; more = null;
   renderMine();
 });
-$('from').addEventListener('change', () => renderMine());   // 머리줄 날짜도 바뀌므로 내 시간표째 다시 그림(창도 함께)
+$('from').addEventListener('change', () => { const f = $('from'); if (data && f.value && (f.value < minDate() || f.value > data.week.fri)) { f.value = f.value < minDate() ? minDate() : data.week.fri; say(`이번 주(${md(data.week.mon)}~${md(data.week.fri)}) 수업만 신청할 수 있습니다`, false); } renderMine(); });   // 머리줄 날짜도 바뀌므로 내 시간표째 다시 그림(창도 함께)
 $('mytt').addEventListener('change', e => { const m = e.target.closest('input[data-mine]'); if (m) { const id = Number(m.dataset.mine); if (m.checked) mineSel.add(id); else mineSel.delete(id); return renderMine(); }
   if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
@@ -780,7 +777,7 @@ async function load() {
     if (first) {
       // 이동 시작일(11/25) 앞 날짜는 고를 수도 볼 수도 없다. 기본값은 그날(지났으면 오늘, 주말이면 다음 월요일)
       const m = minDate(), d0 = [0, 6].includes(new Date(m + 'T00:00:00Z').getUTCDay()) ? addDays(m, 1) : m;
-      $('vdate').value = d0; $('vdate').min = m; $('from').value = d0; $('from').min = m;
+      $('vdate').value = d0; $('vdate').min = m; $('from').value = d0; $('from').min = m; $('from').max = data.week.fri;
       try { localStorage.removeItem('winterTeacher'); } catch {}   // 예전에 기억해 둔 이름은 지움(접속할 때 이름을 미리 채우지 않음)
       renderMine();
     } else renderMine();
@@ -897,7 +894,7 @@ function planHtml(pl, iso, n, admin, pick) {
     }
     const ok = availOn(code, iso), never = !ok && data.never.includes(code), from = data.avail[code];
     let wait = 0;   // 이 실이 비는 교시에 아직 실을 고르지 않은 내 신청 수(관리자는 모든 신청) — 누르면 고를 수 있다는 표시
-    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from)).length; }
+    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r) && iso <= data.week.fri)) wait += data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from)).length; }
     const st = ok ? (wait ? `${admin ? '대기' : '내 신청'} ${wait}` : '') : from ? md(from).split('(')[0] + '~' : '';
     const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
     return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}${data.pc.includes(code) ? ' · PC 사용가능' : ''}"><b>${code}${data.pc.includes(code) ? PCMARK : ''}</b><span>${SHORT[code] || esc(roomName(code))}</span>${st ? `<em${ok ? ' class="wait"' : ''}>${st}</em>` : ''}</button>`;
@@ -921,7 +918,7 @@ function roomHtml(code, iso, n, admin, inPlan) {
     // 교체·대강 반영(그 날짜에만): mv = 이 실 이 교시의 변화(null = 그날은 빔, 글자 = 그날 들어온 수업·대강), gone = 신청한 수업이 그날 교체로 없음('')·대강 교사 이름
     const dk = dayOf(iso) + p, mvs = (data.moves.room[iso] || {})[code] || {}, mv = dk in mvs ? mvs[dk] : undefined;
     const b = slot && (mv !== undefined ? mv : data.base[code] && data.base[code][slot]);
-    let a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
+    let a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r) && iso <= data.week.fri);
     const gone = a ? (data.moves.out[iso] || {})[a.teacher + '|' + dk] : undefined;
     const swapFree = slot && !b && (mv === null || gone === '');   // 교체로 그날만 비는 칸(매주 쓰는 신청은 받을 수 없으므로 눌리지 않는다)
     if (gone === '') a = null;
