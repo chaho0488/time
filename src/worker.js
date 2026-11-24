@@ -123,7 +123,7 @@ async function dgApi(req, env, url) {
 // 신청은 D1(DG)의 winter2 표(처음 부를 때 자동 생성), 이용가능 실 목록은 KV(DATA)의 winterAvail.
 const W_ROOMS = [
   ['1A', '공유압실습실_01'], ['1B', '내선공사실습실_01'], ['1C', '내선공사실습실_02'],
-  ['1D', '설비보전실습실'], ['2A', '공유압실습실_02'], ['2B', '동력설비공사실습실'],
+  ['1D', '설비보전실습실'], ['1P', '프로젝트실(음악실)'], ['2A', '공유압실습실_02'], ['2B', '동력설비공사실습실'],
   ['2C', '반도체장비전장조립실습실'], ['2D', '송변전배전설비운영실습실'], ['2E', '자동제어시스템운영실습실'],
   ['2F', '전기기기실습실'], ['2G', '전기CAD실습실_01'], ['2X', '생산자동화실습실_01'],
   ['2Y', '생산자동화실습실_02'], ['3A', '신재생에너지실무실습실'], ['3B', '자동제어기기제작실습실'],
@@ -179,6 +179,12 @@ const W_TT = {
   '이숙미': {"수4":"2신2|체육|","수5":"2전3|체육|","수6":"2전1|체육|","수7":"2전2|체육|"},
   '정영옥': {"월2":"1신2|진로|","화1":"3신2|진로|","화2":"3신1|진로|","화5":"1전2|진로|","수5":"1신1|진로|","수7":"1전3|진로|","목3":"1전1|진로|","목5":"3전2|진로|","금5":"1신3|진로|"},
 };
+// 음악 수업은 11/24부터 1층 프로젝트실(1P)에서 한다 — 시간표에는 실이 비어 있어 여기서 채운다(그래서 음악은 이동 신청 대상이 아님)
+const W_FIXED = { '1P': '음악실' };   // 배정 대상이 아닌 전용실: 화면에서 '수업 불가'로 닫지 않고 이름표만 붙인다
+for (const sc of Object.values(W_TT)) for (const k of Object.keys(sc)) {
+  const [c, s, room] = sc[k].split('|');
+  if (s === '음악' && !room) sc[k] = `${c}|${s}|1P`;
+}
 // 실습실별 전공 수업(실 → 요일교시 → '학급 과목 교사'): 위 표에서 실습실이 적힌 칸. 두 반이 같이 쓰는 칸은 '·'로 잇는다
 const W_BASE = {};
 for (const [t, sc] of Object.entries(W_TT)) for (const [k, v] of Object.entries(sc)) {
@@ -190,6 +196,7 @@ for (const [t, sc] of Object.entries(W_TT)) for (const [k, v] of Object.entries(
 // 교시가 옮겨진 날: {그날 교시: 원래 교시}. 화면이 그날 시간표를 그릴 때 쓴다. public/index.html 의 DATE_DAY_OVERRIDES(periodMap)와 같게 둔다.
 const W_SHIFT = { '2026-11-26': { 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 7: 6 } };
 // 이용가능한 실 → 이용 시작일. 그 날짜부터만 이용가능으로 보인다(관리자가 화면에서 바꿀 수 있음)
+const W_START = '2026-11-25';   // 실습실 이동이 시작되는 날: 이보다 앞선 날짜는 신청도 화면 조회도 안 됨
 const W_AVAIL_DEFAULT = { '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' };
 
 const wToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);   // 한국 날짜
@@ -214,7 +221,7 @@ async function winterApi(req, env, url) {
 
   if (req.method === 'GET') {
     const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, avail: await wAvail(env), today: wToday(), reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, fixed: W_FIXED, start: W_START, avail: await wAvail(env), today: wToday(), reqs: results.map(r => ({ ...r, mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
@@ -238,6 +245,7 @@ async function winterApi(req, env, url) {
     const today = wToday();
     if (!wIsDate(from)) return json({ error: '언제부터 이동할지 날짜를 골라 주세요' }, 400);
     if (from < today) return json({ error: '지난 날짜는 고를 수 없습니다' }, 400);
+    if (from < W_START) return json({ error: `${Number(W_START.slice(5, 7))}/${Number(W_START.slice(8))}부터 신청할 수 있습니다` }, 400);
     if (from > new Date(Date.parse(today) + 60 * 864e5).toISOString().slice(0, 10)) return json({ error: '60일 안의 날짜만 고를 수 있습니다' }, 400);
     const slots = [...new Set(Array.isArray(body.slots) ? body.slots.map(String) : [])];
     if (!slots.length) return json({ error: '시간표에서 옮기고 싶은 수업을 골라 주세요' }, 400);

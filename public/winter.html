@@ -49,6 +49,10 @@
   td.free { background: #fffbe0; color: #8a6d00; }              /* 이용가능 실의 빈 시간 */
   td.done { background: #d9f2df; font-weight: 600; }            /* 배정된 수업 */
   td.na { background: #f7f7f9; }                                /* 이용가능 표시가 없는 실의 빈 시간 */
+  tr.closed th.r, td.shut { background: #d3d3d9 !important; color: #85858c; }   /* 수업 불가 실: 줄 전체를 회색으로 닫음 */
+  tr.closed th.r small, td.shut small { color: #85858c !important; }
+  .shutlab { display: inline-block; font-size: .7rem; margin-left: 4px; }
+  .badge.fix { background: #2f6fb5; }
   td.out { background: #ddd; }                                  /* 그 요일에 없는 교시 */
   #grid td small { display: block; font-weight: 400; font-size: .72rem; color: #555; }
   #list td, #list th { white-space: nowrap; } #list td.l { white-space: normal; text-align: left; }
@@ -90,7 +94,7 @@
     <button id="next" aria-label="다음날">▶</button>
     <b id="vday"></b>
   </div>
-  <div class="legend"><span style="background:#e9e9ee">전공 수업</span><span style="background:#fffbe0">빈 실(이용가능)</span><span style="background:#d9f2df">배정된 수업</span>확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</div>
+  <div class="legend"><span style="background:#e9e9ee">전공 수업</span><span style="background:#fffbe0">빈 실(이용가능)</span><span style="background:#d9f2df">배정된 수업</span><span style="background:#d3d3d9">수업 불가 실</span>확정 시간표 기준이며 교체·대강으로 옮겨진 수업은 반영되지 않습니다.</div>
   <div id="note" class="err" style="font-weight:600"></div>
   <div class="wrap" id="grid"></div>
 
@@ -119,6 +123,7 @@ function addDays(iso, n) {   // 주말은 건너뛴다
   do { d = new Date(d.getTime() + n * 864e5); } while ([0, 6].includes(d.getUTCDay()));
   return d.toISOString().slice(0, 10);
 }
+const minDate = () => (data.start > data.today ? data.start : data.today);
 const roomName = code => (data.rooms.find(r => r[0] === code) || ['', ''])[1].replace('실습실', '');
 const slotOrder = k => DAYS.indexOf(k[0]) * 10 + Number(k[1]);
 // 이용가능 실은 이용 시작일부터만 이용가능
@@ -196,8 +201,9 @@ async function load() {
     const first = !data;
     data = await r.json();
     if (first) {
-      const d0 = [0, 6].includes(new Date(data.today + 'T00:00:00Z').getUTCDay()) ? addDays(data.today, 1) : data.today;
-      $('vdate').value = d0; $('from').value = addDays(data.today, 1); $('from').min = data.today;   // 시작일 기본값: 다음 수업일
+      // 이동 시작일(11/25) 앞 날짜는 고를 수도 볼 수도 없다. 기본값은 그날(지났으면 오늘, 주말이면 다음 월요일)
+      const m = minDate(), d0 = [0, 6].includes(new Date(m + 'T00:00:00Z').getUTCDay()) ? addDays(m, 1) : m;
+      $('vdate').value = d0; $('vdate').min = m; $('from').value = d0; $('from').min = m;
       let saved = ''; try { saved = localStorage.getItem('winterTeacher') || ''; } catch {}
       if (data.tt[saved]) choose(saved); else renderMine();
     } else renderMine();
@@ -220,18 +226,19 @@ function render() {
   if (!n) h = '<div style="padding:14px">수업이 없는 날입니다.</div>';
   else {
     h = '<table><thead><tr><th class="r">실습실</th>' + Array.from({ length: 7 }, (_, i) => `<th>${i + 1}</th>`).join('') + '</tr></thead><tbody>';
-    const rooms = [...data.rooms].sort((a, b) => availOn(b[0], iso) - availOn(a[0], iso));
+    const rank = c => (availOn(c, iso) ? 2 : data.fixed[c] ? 1 : 0);   // 이용가능 실 → 전용실(음악실) → 수업 불가 실
+    const rooms = [...data.rooms].sort((a, b) => rank(b[0]) - rank(a[0]));
     for (const [code, name] of rooms) {
-      const ok = availOn(code, iso), from = data.avail[code];
-      h += `<tr><th class="r">${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능"> ` : ''}${code}${ok ? '<span class="badge">이용가능</span>' : from ? `<span class="soon">${md(from).split('(')[0]}부터</span>` : ''}<small>${esc(name.replace('실습실', ''))}</small></th>`;
+      const ok = availOn(code, iso), from = data.avail[code], fix = data.fixed[code], shut = !ok && !fix;
+      h += `<tr${shut ? ' class="closed"' : ''}><th class="r">${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능"> ` : ''}${code}${ok ? '<span class="badge">이용가능</span>' : fix ? `<span class="badge fix">${esc(fix)}</span>` : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : '수업 불가'}</span>`}<small>${esc(name.replace('실습실', ''))}</small></th>`;
       for (let p = 1; p <= 7; p++) {
         const slot = p <= n && slotAt(iso, p);
         const b = slot && data.base[code] && data.base[code][slot];
         const a = slot && data.reqs.find(r => r.room === code && r.slot === slot && iso >= startOf(r));
         if (p > n) h += '<td class="out"></td>';
-        else if (b) { const [c, s, t] = b.split(' '); h += `<td class="busy">${esc(c)}<small>${esc(s)} ${esc(t)}</small></td>`; }
+        else if (b) { const [c, s, t] = b.split(' '); h += `<td class="${shut ? 'shut' : 'busy'}">${esc(c)}<small>${esc(s)} ${esc(t)}</small></td>`; }
         else if (a) h += `<td class="done">${esc(a.cls)}<small>${esc(a.subject)} ${esc(a.teacher)}</small></td>`;
-        else h += ok ? '<td class="free">빈 실</td>' : '<td class="na"></td>';
+        else h += ok ? '<td class="free">빈 실</td>' : `<td class="${shut ? 'shut' : 'na'}"></td>`;
       }
       h += '</tr>';
     }
@@ -300,8 +307,8 @@ $('grid').addEventListener('change', async e => {
   load();
 });
 $('pw').addEventListener('input', render);
-$('vdate').addEventListener('change', render);
-$('prev').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, -1); render(); });
+$('vdate').addEventListener('change', () => { if (data && $('vdate').value < minDate()) $('vdate').value = minDate(); render(); });
+$('prev').addEventListener('click', () => { const d = addDays($('vdate').value, -1); if (d >= minDate()) { $('vdate').value = d; render(); } });
 $('next').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, 1); render(); });
 
 load();

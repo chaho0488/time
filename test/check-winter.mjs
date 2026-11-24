@@ -37,23 +37,28 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       .then(async r => ({ status: r.status, ...(await r.json()) }));
   const A = { 'X-Dev': 'a'.repeat(20) }, B = { 'X-Dev': 'b'.repeat(20) }, PW = { 'X-Pw': 'pw' };
   const D = '2026-11-25';
-  const req = (o = {}) => ({ teacher: '신지은', from: D, slots: ['수3', '수4'], ...o });
+  const req = (o = {}) => ({ teacher: '성준혁', from: D, slots: ['수3', '수4'], ...o });
 
   let r = await call('GET');
   assert.equal(r.status, 200);
-  assert.equal(r.rooms.length, 23, '실습실 23곳');
+  assert.equal(r.rooms.length, 24, '실습실 23곳 + 1층 프로젝트실(음악실)');
+  assert.deepEqual([r.start, r.fixed], [D, { '1P': '음악실' }]);
   assert.deepEqual(r.avail, { '2D': D, '3B': D, '3C': D }, '처음에는 2D·3B·3C 가 11/25부터 이용가능');
   assert.equal(r.today, '2026-11-24');
   assert.equal(Object.keys(r.tt).length, 43, '교사 43명');
-  assert.equal(r.tt['신지은']['수3'], '1신2|음악|');
-  assert.equal(r.tt['신지은']['수4'], '1전1|음악|');
+  assert.equal(r.tt['성준혁']['수3'], '1신3|과학|');
+  assert.equal(r.tt['성준혁']['수4'], '1신1|과학|');
+  assert.equal(r.tt['신지은']['수3'], '1신2|음악|1P', '음악은 1층 프로젝트실');
+  assert.equal(r.tt['신지은']['화7'], '2신2|HR|', '음악 선생님의 HR 은 그대로');
+  assert.equal(Object.keys(r.base['1P']).length, 18, '음악 18시간이 프로젝트실에');
+  assert.equal(r.base['1P']['수4'], '1전1 음악 신지은');
   assert.equal(r.tt['김동후']['목4'], '1신1|자동|4C');
-  assert.equal(Object.values(r.base).reduce((n, v) => n + Object.keys(v).length, 0), 273, '전공 수업 칸 273개');
+  assert.equal(Object.values(r.base).reduce((n, v) => n + Object.keys(v).length, 0), 273 + 18, '전공 수업 칸 273개 + 음악 18개');
   assert.equal(r.base['2D']['수1'], '3전2 선택 이선영');
   assert.equal(r.base['1B']['목1'], '3전3·3신1 배관 박은선·정재정', '두 반이 같이 쓰는 칸');
   for (const c of ['2D', '3B', '3C']) assert.deepEqual(Object.keys(r.base[c]).sort(), ['화3', '화4', '화5', '화6', '수1', '수2', '수3', '금1', '금2', '금3', '금4', '금5'].sort(), c + ' 전공 수업은 화3~6·수1~3·금1~5');
   // 수4 에 실습실 없는 수업이 있는 다른 교사 두 명(점검용)
-  const others = Object.keys(r.tt).filter(t => t !== '신지은' && r.tt[t]['수4'] && r.tt[t]['수4'].endsWith('|'));
+  const others = Object.keys(r.tt).filter(t => t !== '성준혁' && r.tt[t]['수4'] && r.tt[t]['수4'].endsWith('|'));
   assert.ok(others.length >= 2);
 
   // 신청: 잘못된 값은 저장하지 않음
@@ -64,7 +69,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('POST', req({ from: '2026-11-23' }), A)).status, 400, '지난 날짜');
   assert.equal((await call('POST', req({ from: '2027-03-02' }), A)).status, 400, '60일 뒤');
   assert.equal((await call('POST', req({ slots: [] }), A)).status, 400);
-  assert.equal((await call('POST', req({ slots: ['월1'] }), A)).status, 400, '신지은 선생님은 월1 수업이 없음');
+  assert.equal((await call('POST', req({ from: '2026-11-24' }), A)).status, 400, '11/25 앞 날짜(오늘)는 신청 불가');
+  assert.equal((await call('POST', req({ slots: ['월2'] }), A)).status, 400, '성준혁 선생님은 월2 수업이 없음');
+  assert.equal((await call('POST', { teacher: '신지은', from: D, slots: ['수3'] }, A)).status, 400, '음악은 이미 프로젝트실에서 하므로 신청 불가');
   r = await call('POST', req({ teacher: '김동후', slots: ['목4'] }), A);
   assert.equal(r.status, 400, '이미 실습실(4C)에서 하는 수업은 신청 불가');
   assert.equal((await call('GET')).reqs.length, 0);
@@ -75,10 +82,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   r = await call('POST', req({ slots: ['수6', '수4'] }), B);
   assert.equal(r.status, 409, '수4 가 이미 신청됨');
   r = await call('GET', null, A);
-  assert.deepEqual(r.reqs.map(x => [x.slot, x.cls, x.subject, x.from, x.room, x.mine]), [['수3', '1신2', '음악', D, null, true], ['수4', '1전1', '음악', D, null, true]], '겹친 묶음은 한 줄도 저장되지 않음');
+  assert.deepEqual(r.reqs.map(x => [x.slot, x.cls, x.subject, x.from, x.room, x.mine]), [['수3', '1신3', '과학', D, null, true], ['수4', '1신1', '과학', D, null, true]], '겹친 묶음은 한 줄도 저장되지 않음');
   assert.ok(r.reqs.every(x => !('dev' in x)), '기기 값은 내보내지 않음');
   const [id3, id4] = r.reqs.map(x => x.id);
-  assert.equal((await call('POST', { teacher: others[0], from: '2026-11-24', slots: ['수4'] }, B)).status, 200);
+  assert.equal((await call('POST', { teacher: others[0], from: D, slots: ['수4'] }, B)).status, 200);
   const idB = (await call('GET')).reqs.find(x => x.teacher === others[0]).id;
 
   // 배정: 관리자만, 이용가능 실만, 전공 수업·다른 배정이 없는 시간만
@@ -90,7 +97,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.match(r.error, /3전2 선택/);
   assert.equal((await call('PATCH', { id: id4, room: '2D' }, PW)).status, 200);
   assert.equal((await call('PATCH', { id: idB, room: '2D' }, PW)).status, 409, '같은 요일교시 같은 실에 두 번 배정 불가');
-  assert.equal((await call('PATCH', { id: idB, room: '3B' }, PW)).status, 200, '시작일이 실의 이용 시작일보다 빨라도 배정됨(화면이 11/25부터로 표시)');
+  assert.equal((await call('PATCH', { id: idB, room: '3B' }, PW)).status, 200);
+  assert.equal((await call('PATCH', { id: id4, room: '1P' }, PW)).status, 400, '음악실은 배정 대상이 아님');
   assert.equal((await call('PATCH', { id: id4, room: '' }, PW)).status, 200, '배정 취소');
   assert.equal((await call('GET')).reqs.find(x => x.id === id4).room, null);
 
@@ -111,7 +119,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('DELETE', null, PW, '?id=' + idB)).status, 200, '관리자는 모두 취소 가능');
 
   // 동시에 같은 수업 신청: 하나만 저장
-  const both = await Promise.all([call('POST', req({ slots: ['목1'] }), A), call('POST', req({ slots: ['목1'] }), B)]);
+  const both = await Promise.all([call('POST', req({ slots: ['목2'] }), A), call('POST', req({ slots: ['목2'] }), B)]);
   assert.deepEqual(both.map(x => x.status).sort(), [200, 409]);
   console.log('✅ /api/winter 점검 통과');
 }
