@@ -109,7 +109,7 @@
   .moregrid td.no { color: var(--frost-ink); background: var(--frost); }
   .moregrid td.req { color: var(--pine); background: var(--pine-bg); }
   .moregrid td.out { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }
-  .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 1.5px solid var(--warm); border-radius: 6px; background: var(--warm-bg); color: var(--ink); font: inherit; cursor: pointer; }
+  .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 1.5px dashed var(--pine); border-radius: 6px; background: var(--pine-bg); color: var(--pine); font: inherit; cursor: pointer; }
   .moregrid td button[aria-pressed=true] { background: var(--ink); border-color: var(--ink); color: #fff; }
   .popbody .pfl { font-size: .78rem; font-weight: 800; margin: 5px 0 2px; }
   .popbody .prow { height: 40px; }
@@ -561,7 +561,7 @@ function renderPop() {
       $('popTitle').textContent = `${more.room} ${roomName(more.room)} — 다른 시간에도 비어 있습니다`;
       for (const k of [...moreSel]) if (!ks.includes(k)) moreSel.delete(k);
       const sc = data.tt[me];   // 내 시간표 모양 그대로: 이 실이 비어 있는 수업 칸만 눌린다
-      let g = `<p class="fine">${more.room} 이(가) 비어 있는 수업 칸(노란색)을 누르면 함께 신청됩니다. (${md(more.from)}부터)</p><table class="moregrid"><thead><tr><th class="p"></th>` + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+      let g = `<p class="fine">${more.room} 이(가) 비어 있는 수업 칸(초록색 점선)을 누르면 함께 신청됩니다. (${md(more.from)}부터)</p><table class="moregrid"><thead><tr><th class="p"></th>` + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
       for (let p = 1; p <= 7; p++) {
         g += `<tr><th class="p">${p}</th>`;
         for (const d of DAYS) {
@@ -654,6 +654,7 @@ $('popBody').addEventListener('click', async e => {
     for (const k of ks) { const r = await api('POST', { teacher: me, from, slots: [k], room }); if (r.ok) { n++; picked.delete(k); } else err = r.error; }
     say(err ? `${n}칸 신청, 나머지는 안 됨: ${err}` : `${n}칸을 ${room}(으)로 신청했습니다`, !err);
     if (err) popErr = err; else { pop = ''; popErr = ''; }
+    if (n) { moreSel.clear(); more = { room, from }; }   // 그 실이 내 다른 수업 시간에도 비어 있으면 이어서 알려 준다
     return load();
   }
   const room = b.dataset.room, k = pop, r0 = data.reqs.find(q => q.teacher === me && q.slot === k);
