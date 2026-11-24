@@ -10,13 +10,13 @@
   /* 색: 차가운 남색 바탕에, 쓸 수 있는 따뜻한 실만 호박색으로 — 화면에서 '따뜻한 실'이 먼저 눈에 들어오게 */
   :root { --ink: #14213D; --sub: #5A6478; --paper: #F3F6FA; --card: #FFFFFF; --line: #D9E0EA;
           --warm: #F2A93B; --warm-bg: #FFF2D9; --warm-ink: #7A4E00; --pine: #1F7A5C; --pine-bg: #DDF1E8;
-          --frost: #E4E9F0; --frost-ink: #8B95A5; --red: #C0392B; }
+          --edge: #8B95A5; --frost: #E4E9F0; --frost-ink: #8B95A5; --red: #C0392B; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
   main { max-width: 1080px; margin: 0 auto; padding: 14px 20px 48px; }
-  h1 { font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; margin: 0; }
+  h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; margin: 0; }
   .top { display: flex; align-items: center; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 10px; }
-  h2 { font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; margin: 28px 0 10px; }
+  h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; margin: 28px 0 10px; }
   button, input, select { font: inherit; color: inherit; }
   :focus-visible { outline: 3px solid var(--warm); outline-offset: 2px; }
   .ok { color: var(--pine); } .err { color: var(--red); }
@@ -32,11 +32,11 @@
   #msg:empty { display: none; }
   .step > label { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
   .num { flex: none; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-  #teacher, #from { font-size: .95rem; padding: 7px 10px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; width: 100%; max-width: 17em; }
+  #teacher, #from { font-size: .95rem; padding: 7px 10px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; width: 100%; max-width: 17em; }
   .pick { position: relative; max-width: 17em; }
-  .closeme { padding: 7px 18px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--ink); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; }
+  .closeme { padding: 7px 18px; border: 1px solid var(--ink); border-radius: 8px; background: var(--ink); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; }
   .closerow { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-  #tlist { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: #fff; border: 1.5px solid var(--ink); border-radius: 8px; max-height: 15em; overflow-y: auto; }
+  #tlist { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: #fff; border: 1px solid var(--edge); border-radius: 8px; max-height: 15em; overflow-y: auto; }
   #tlist button { display: block; width: 100%; text-align: left; padding: 9px 10px; font-size: .95rem; border: 0; border-bottom: 1px solid var(--line); background: #fff; cursor: pointer; }
   #tlist button:last-child { border-bottom: 0; }
   #tlist button:hover, #tlist button:focus { background: var(--warm-bg); }
@@ -63,7 +63,7 @@
   #mytt td button.req.sel { box-shadow: 0 0 0 2px var(--ink); }
   /* 실 고르기 창: 화면 위에 떠 있고 제목 줄을 끌어 옮긴다(뒤의 화면은 그대로 쓸 수 있음) */
   .pop { position: fixed; z-index: 20; left: 50%; top: 3vh; transform: translateX(-50%); width: min(560px, 94vw); max-height: 94vh; display: flex; flex-direction: column;
-         background: #fff; border: 1.5px solid var(--ink); border-radius: 12px; box-shadow: 0 12px 40px rgba(20, 33, 61, .28); overflow: hidden; }
+         background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 12px 40px rgba(20, 33, 61, .28); overflow: hidden; }
   .pop[hidden] { display: none; }
   .pop.notice { z-index: 30; top: 30vh; left: 50%; right: auto; transform: translateX(-50%); width: min(380px, 90vw); text-align: center; }   /* 안내 창은 언제나 화면 가운데 */
   .notice p { margin: 8px 0 14px; font-size: 1rem; }
@@ -77,7 +77,7 @@
   .mine { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
   .mine ul { margin: 6px 0 8px; padding-left: 1.2em; font-size: .9rem; }
   .mine button:disabled { opacity: .45; cursor: default; } .mine button.x { border-color: var(--err, #B3261E); color: var(--err, #B3261E); }
-  .mine button { padding: 6px 12px; margin-right: 6px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  .mine button { padding: 6px 12px; margin-right: 6px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
   /* 인쇄: 교실에 붙일 안내 한 장만 */
   #printArea { display: none; }
   @media print {
@@ -88,7 +88,7 @@
     #printArea table { border-collapse: collapse; width: 100%; } #printArea th, #printArea td { border: 1px solid #000; padding: 2.5mm 2mm; text-align: center; font-size: 12pt; }
     #printArea table.big td { font-size: 15pt; font-weight: 700; padding: 4mm 2mm; } #printArea th { background: #eee; }
     #printArea th small { display: block; font-size: 9pt; font-weight: 400; } #printArea h2 small { font-size: 11pt; font-weight: 400; }
-    #printArea td small { display: block; font-size: 9pt; font-weight: 400; } #printArea td.mv { font-weight: 800; background: #f3f3f3; }
+    #printArea td small { display: block; font-size: 9pt; font-weight: 400; } #printArea td.mv { font-weight: 700; background: #f3f3f3; }
   }
   @media (min-width: 1500px) { .pop { left: auto; right: 3vw; transform: none; } }   /* 넓은 화면: 시간표를 가리지 않게 오른쪽에 */
   .pophead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 14px; background: var(--ink); color: #fff; cursor: move; touch-action: none; user-select: none; }
@@ -97,10 +97,10 @@
   .popbody { padding: 8px 14px 10px; overflow-y: auto; }
   .popbody .fine { margin: 0 0 8px; }
   .multi { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 2px; font-size: .88rem; font-weight: 600; }
-  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 800; color: var(--red); }
+  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 700; color: var(--red); }
   .multi label input { width: 1.1em; height: 1.1em; }
   .multi button { padding: 5px 12px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
-  .multi button:not(:disabled) { padding: 9px 18px; background: var(--red); font-size: 1.05rem; font-weight: 800; box-shadow: 0 2px 8px rgba(192, 57, 43, .35); }
+  .multi button:not(:disabled) { padding: 9px 18px; background: var(--red); font-size: 1.05rem; font-weight: 700; box-shadow: 0 2px 8px rgba(192, 57, 43, .35); }
   .multi button:disabled { background: var(--frost); color: var(--frost-ink); cursor: default; }
   .pophint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .pophint .fine { margin: 0; } .pophint .x { flex: none; }
@@ -116,8 +116,8 @@
   .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 2px dashed var(--frost-ink); border-radius: 6px; background: #fff; color: var(--sub); font: inherit; cursor: pointer; }
   .moregrid td button[aria-pressed=true] { background: var(--pine-bg); border-color: var(--red); color: var(--pine); }
   .moreask { font-size: 1rem; line-height: 1.6; margin: 4px 0 10px; }
-  #moreYes, #moreSend { padding: 9px 22px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 1rem; font-weight: 800; cursor: pointer; }
-  .popbody .pfl { font-size: .78rem; font-weight: 800; margin: 5px 0 2px; }
+  #moreYes, #moreSend { padding: 9px 22px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
+  .popbody .pfl { font-size: .78rem; font-weight: 700; margin: 5px 0 2px; }
   .popbody .prow { height: 40px; }
   .popbody .pmid { height: 14px; font-size: 10px; }
   .popbody .pc:not(.pr) span { display: none; }
@@ -127,7 +127,7 @@
   .popfoot { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   #popMsg { font-size: .85rem; font-weight: 700; }
   #mytt td button.sel small { color: #C9D3E6; }
-  #mytt .all { margin-top: 6px; padding: 5px 12px; font-size: .85rem; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
+  #mytt .all { margin-top: 6px; padding: 5px 12px; font-size: .85rem; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
   #mytt td.lab { background: var(--frost); color: var(--frost-ink); }            /* 이미 실습실에서 하는 수업 */
   #mytt td.lab small { color: var(--frost-ink); }
   #mytt td.req { background: var(--pine-bg); color: var(--pine); }                /* 이미 신청한 수업 */
@@ -137,9 +137,9 @@
   /* 실습실 시간표: 실 이름을 한 줄 크게 쓰고, 그 아래 1~7교시를 한 줄로 */
   .nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 14px 0 6px; }
   .nav h2 { margin: 0 8px 0 0; }
-  .nav > button { width: 2.2em; height: 2.2em; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; cursor: pointer; font-size: .9rem; }
-  .nav input { font-size: .95rem; padding: 5px 8px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; }
-  #vday { font-size: 1.05rem; font-weight: 800; margin: 0 6px 0 4px; }
+  .nav > button { width: 2.2em; height: 2.2em; border: 1px solid var(--edge); border-radius: 8px; background: #fff; cursor: pointer; font-size: .9rem; }
+  .nav input { font-size: .95rem; padding: 5px 8px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; }
+  #vday { font-size: 1.05rem; font-weight: 700; margin: 0 6px 0 4px; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--sub); margin: 0 0 8px; }
   .legend span::before { content: ""; display: inline-block; width: .9em; height: .9em; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); border: 1px solid var(--line); }
   .fine { font-size: .8rem; color: var(--sub); margin: 8px 0; }
@@ -147,16 +147,16 @@
   #grid { display: block; }
   #grid[hidden], #list[hidden], .legend[hidden] { display: none; }
   /* 같은 층의 실은 표 하나로 묶는다: 바깥 테두리 하나, 실 사이는 가는 줄 */
-  .ftable { background: var(--card); border: 1.5px solid var(--ink); border-radius: 12px; overflow: hidden; }
+  .ftable { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; overflow: hidden; }
   /* 층별 묶음 제목 */
-  .floor { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 800; margin: 18px 0 8px; }
+  .floor { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 700; margin: 18px 0 8px; }
   .floor:first-child { margin-top: 4px; }
   .floor span { font-size: .82rem; font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 999px; padding: 2px 10px; }
-  .tabs { display: inline-flex; margin: 0; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
+  .tabs { display: inline-flex; margin: 0; border: 1px solid var(--edge); border-radius: 8px; overflow: hidden; }
   .tabs button { padding: 6px 14px; font-size: .9rem; border: 0; background: #fff; font-weight: 700; cursor: pointer; }
   .tabs button[aria-selected=true] { background: var(--ink); color: #fff; }
   /* 신청내역 확인: 보기 탭과 따로, 초록색 단추(눌러 둔 동안은 진한 초록) */
-  .nav > #tabList { width: auto; height: auto; padding: 6px 14px; margin-left: 6px; font-size: .9rem; font-weight: 800; border: 1.5px solid var(--pine); border-radius: 8px; background: var(--pine-bg); color: var(--pine); cursor: pointer; }
+  .nav > #tabList { width: auto; height: auto; padding: 6px 14px; margin-left: 6px; font-size: .9rem; font-weight: 700; border: 1.5px solid var(--pine); border-radius: 8px; background: var(--pine-bg); color: var(--pine); cursor: pointer; }
   .nav > #tabList[aria-pressed=true] { background: var(--pine); color: #fff; }
   /* 층별 배치도: 층 이름은 왼쪽, 그림은 오른쪽 — 4층~2층이 PC 한 화면에 들어오도록 칸을 낮게 */
   .frow { display: grid; grid-template-columns: 5.2em 1fr; gap: 0 6px; align-items: start; margin-bottom: 8px; }
@@ -164,7 +164,7 @@
   .frow > .floor span { padding: 1px 6px; font-size: .7rem; white-space: nowrap; }
   .frow > div { min-width: 0; }
   .frow .ftable { margin-top: 6px; }
-  .plan { container-type: inline-size; display: flex; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; background: #fff; }
+  .plan { container-type: inline-size; display: flex; border: 1px solid var(--edge); border-radius: 8px; overflow: hidden; background: #fff; }
   .plan + .plan { margin-top: 6px; }
   .pcol { display: flex; flex-direction: column; min-width: 0; }
   .pside { display: flex; min-width: 0; }
@@ -177,10 +177,10 @@
   .pc span { font-size: 11px; overflow-wrap: anywhere; }
   .pr { min-width: 50px; }   /* 실습실 칸은 너무 좁아지지 않게(옆의 계단·화장실 칸이 대신 줄어든다) */
   .pr span:not(.pcmark) { font-size: 13px; font-weight: 600; letter-spacing: -.03em; white-space: nowrap; }
-  .pc b { font-size: 16px; font-weight: 800; display: inline-flex; align-items: center; gap: 4px; }   /* 실 코드 옆에 PC 표시 */
+  .pc b { font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }   /* 실 코드 옆에 PC 표시 */
   .pc em { font-style: normal; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .pc em.wait { color: var(--red); }
-  .pcmark { display: inline-block; font-size: 10px; font-weight: 800; line-height: 1.3; padding: 0 3px; border: 1.5px solid currentColor; border-radius: 4px; white-space: nowrap; }
+  .pcmark { display: inline-block; font-size: 10px; font-weight: 700; line-height: 1.3; padding: 0 3px; border: 1.5px solid currentColor; border-radius: 4px; white-space: nowrap; }
   /* 폰: 칸이 좁아 이름이 두 줄이 되므로 칸을 높이고 글자는 화면 폭에 비례(cqw) */
   @media (max-width: 600px) {
     .frow { grid-template-columns: 1fr; }
@@ -217,7 +217,7 @@
   .room.open { box-shadow: inset 5px 0 0 var(--warm); }   /* 이용가능 실: 왼쪽 호박색 띠 */
   .room header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .room header input { width: 1.25em; height: 1.25em; margin: 0; accent-color: var(--ink); }
-  .code { font-size: .95rem; font-weight: 800; background: var(--ink); color: #fff; border-radius: 6px; padding: 2px 8px; }
+  .code { font-size: .95rem; font-weight: 700; background: var(--ink); color: #fff; border-radius: 6px; padding: 2px 8px; }
   .rname { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
   .badge { font-size: .82rem; font-weight: 700; color: var(--ink); background: var(--warm); border-radius: 999px; padding: 2px 10px; }
   .shutlab { font-size: .82rem; font-weight: 700; color: var(--frost-ink); border: 1.5px solid var(--frost-ink); border-radius: 999px; padding: 1px 9px; }
@@ -251,11 +251,11 @@
   /* 신청 내역 */
   #list { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
   #list table { border-collapse: collapse; width: 100%; }
-  #list th { font-size: .82rem; font-weight: 700; color: var(--sub); text-align: left; padding: 10px 8px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+  #list th { font-size: .82rem; font-weight: 700; color: var(--sub); text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
   #list td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: .95rem; white-space: nowrap; }
   #list tr:last-child td { border-bottom: 0; }
   #list td.l { white-space: normal; }
-  #list select { padding: 7px 8px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; max-width: 12em; }
+  #list select { padding: 7px 8px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; max-width: 12em; }
   #list .empty { padding: 18px; color: var(--sub); }
   .x { font-size: .85rem; font-weight: 700; color: var(--red); background: none; border: 1.5px solid var(--red); border-radius: 6px; cursor: pointer; padding: 3px 9px; }
   .wait { color: var(--warm-ink); font-weight: 700; }
@@ -263,7 +263,7 @@
   .admin span { display: inline-flex; align-items: center; gap: 6px; }
   .admin span[hidden] { display: none; }   /* 위 display 가 hidden 을 덮어쓰지 않게 */
   .admin input { width: 9.5em; padding: 7px 9px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; }
-  .admin button { padding: 7px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .admin button { padding: 7px 12px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; white-space: nowrap; }
   #login { background: var(--ink); color: #fff; }
   #adminMsg { font-size: .85rem; font-weight: 700; margin-top: 4px; }
   #adminMsg:empty { display: none; }
@@ -274,7 +274,7 @@
   .strip li.free:has(button[aria-expanded=true]) { box-shadow: inset 0 0 0 2.5px var(--ink); }
   .strip li.free small { color: var(--warm-ink); font-weight: 700; }
   .putbox { margin-top: 10px; padding: 10px 12px; background: var(--warm-bg); border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
+  .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
   .putbox button small { font-weight: 500; color: var(--sub); }
   @media (max-width: 600px) {
     .pc:not(.pr) span { display: none; }   /* 폰: 실습실이 아닌 칸의 이름만 숨김(실습실은 줄인 이름이 나옴) */
@@ -289,6 +289,36 @@
     #list select { max-width: 8.5em; padding: 5px 4px; }
   }
   .home { display: inline-block; margin-bottom: 6px; font-size: .85rem; font-weight: 600; color: #5A6478; text-decoration: none; } .home:hover { text-decoration: underline; }
+
+  /* ── 다듬기(unslop): 기능은 그대로, 보이는 것만 ── */
+  /* 1) 관리자 로그인은 대부분 쓰지 않으므로 조용하게 */
+  #login { background: #fff; color: var(--sub); border-color: var(--line); font-weight: 600; }
+  .admin input { border-width: 1px; }
+  /* 2) 빨간색은 오류·취소에만 쓰고, 눈에 띄어야 하는 곳은 호박색(빈 실과 같은 색)으로 강조한다 */
+  /* '여러 수업을 한 번에 고르기': 호박색 띠로 감싸 한눈에 보이게 */
+  .multi { padding: 10px 12px; margin: 10px 0 6px; background: var(--warm-bg); border: 1.5px solid var(--warm); border-radius: 8px; }
+  .multi label { color: var(--ink); font-size: 1.1rem; font-weight: 700; }
+  .multi label input { width: 1.3em; height: 1.3em; accent-color: var(--ink); }
+  /* '실습실 선택하기' 단추: 누를 수 있게 되면 호박색으로 크게 */
+  .multi button:not(:disabled) { padding: 10px 20px; background: var(--warm); color: var(--ink); font-size: 1.1rem; font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .multi button:disabled { background: #fff; color: var(--sub); }
+  .notice .red { color: var(--ink); background: var(--warm-bg); padding: 0 4px; border-radius: 4px; }
+  /* 3단계 '옮길 수업을 누르고 실습실 고르기': 제목을 키우고 호박색 형광펜으로 */
+  #steps > .step:last-child > label { font-size: 1.1rem; }
+  #steps > .step:last-child > label .num { background: var(--warm); color: var(--ink); }
+  /* 4) 이용할 수 없는 실·이미 실습실인 수업도 이름은 읽히게 */
+  .pr.off, #mytt td.lab, #mytt td.lab small { color: var(--sub); }
+  /* 3) 휴대폰: 누르는 칸을 44px 이상으로 */
+  @media (max-width: 600px) {
+    #mytt td, #mytt td button { height: 44px; min-height: 44px; }
+    #mytt td small, #mytt td button small { display: block; margin-left: 0; }
+    .nav > button { width: 44px; height: 44px; }
+    .nav h2 { flex-basis: 100%; }   /* 제목을 한 줄로 올려 날짜 단추가 한 줄에 들어가게 */
+    .closeme { white-space: nowrap; flex: none; }   /* '닫기'가 두 줄로 꺾이지 않게 */
+    .nav input, #from, #teacher { min-height: 44px; }
+    .multi label input, .morelist input, .room header input { width: 1.4em; height: 1.4em; }
+    .mine button, .closeme, .tabs button, .nav > #tabList { min-height: 44px; }
+  }
 </style>
 </head>
 <body>
