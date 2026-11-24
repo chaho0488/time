@@ -357,6 +357,8 @@ const startOf = r => (data.avail[r.room] && data.avail[r.room] > r.from ? data.a
 function slotAt(iso, p) { const sh = data.shift[iso], bp = sh ? sh[p] : p; return bp ? dayOf(iso) + bp : null; }
 // 배정할 수 있는 실: 이용가능 표시가 있고, 그 요일교시에 전공 수업도 다른 배정도 없는 실 (서버와 같은 규칙)
 const freeRooms = slot => data.rooms.map(r => r[0]).filter(c => typeof data.avail[c] === 'string' && !(data.base[c] && data.base[c][slot]) && !data.reqs.some(r => r.room === c && r.slot === slot));
+// 선생님이 고를 수 있는 실: 이동 시작일(from)에 이미 열려 있는 실만. 관리자는 아직 안 열린 실에도 미리 배정할 수 있다
+const canUse = (c, from) => data.admin || data.avail[c] <= from;
 const roomLabel = (r, c) => `${c} ${esc(roomName(c))}` + (data.avail[c] && data.avail[c] > r.from ? ` (${md(data.avail[c])}부터)` : '');
 
 // ── 교사 이름 찾기: 이름 일부나 초성(ㅎㄱㄷ), 쓰는 도중의 글자(홍기 → 홍길동)로도 찾는다 ──
@@ -416,7 +418,7 @@ function renderPop() {
   if (!v) { pop = ''; popErr = ''; el.hidden = true; return; }
   const [c, s] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === pop);
   const can = !r || r.mine || data.admin, from = r ? r.from : $('from').value, cur = (r && r.room) || '';
-  const free = freeRooms(pop), pick = { free, cur, from, can };
+  const free = freeRooms(pop).filter(c => canUse(c, from)), pick = { free, cur, from, can };
   $('popTitle').textContent = `${pop[0]}요일 ${pop[1]}교시 · ${c} ${s}`;
   const late = code => (data.avail[code] > from ? ` <small>${md(data.avail[code]).split('(')[0]}부터</small>` : '');
   const btn = code => `<button type="button" data-room="${code}" aria-pressed="${cur === code}"${can && cur !== code ? '' : ' disabled'}><b>${code}</b>${SHORT[code] || esc(roomName(code))}${data.pc.includes(code) ? ' ' + PCMARK : ''}${late(code)}</button>`;
@@ -555,7 +557,7 @@ function render() {
     for (const r of g.rows) {
       let cell;
       if (admin || r.mine) {   // 실은 신청한 선생님이 직접 고른다(관리자도 가능)
-        const opts = freeRooms(r.slot);
+        const opts = freeRooms(r.slot).filter(c => canUse(c, r.from));
         cell = `<select data-assign="${r.id}"><option value="">${r.room ? '실 선택 취소' : '실 선택'}</option>`
           + (r.room ? `<option value="${r.room}" selected>${roomLabel(r, r.room)}</option>` : '')
           + opts.map(c => `<option value="${c}">${roomLabel(r, c)}</option>`).join('') + '</select>'
@@ -579,7 +581,7 @@ function planHtml(pl, iso, n, admin, pick) {
     }
     const ok = availOn(code, iso), never = !ok && data.never.includes(code), from = data.avail[code];
     let wait = 0;   // 이 실이 비는 교시에 아직 실을 고르지 않은 내 신청 수(관리자는 모든 신청) — 누르면 고를 수 있다는 표시
-    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine)).length; }
+    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from)).length; }
     const st = ok ? (wait ? `${admin ? '대기' : '내 신청'} ${wait}` : '') : from ? md(from).split('(')[0] + '~' : '';
     const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
     return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}${data.pc.includes(code) ? ' · PC 사용가능' : ''}"><b>${code}${data.pc.includes(code) ? PCMARK : ''}</b><span>${SHORT[code] || esc(roomName(code))}</span>${st ? `<em${ok ? ' class="wait"' : ''}>${st}</em>` : ''}</button>`;
@@ -605,15 +607,15 @@ function roomHtml(code, iso, n, admin, inPlan) {
     if (p > n) h += `<li class="out" aria-label="${p}교시 없음"></li>`;
     else if (b) { const [c, s, t] = b.split(' '); h += `<li class="${shut ? 'shut' : 'busy'}">${no}<b>${esc(c)}</b><small>${esc(s)}</small><small>${esc(t)}</small></li>`; }
     else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${esc(a.teacher)}</small></li>`;
-    else if (ok && (admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine))) {   // 누를 수 있는 빈 실 칸: 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
-      const wait = data.reqs.filter(r => !r.room && r.slot === slot && (admin || r.mine)).length, key = code + '|' + slot;
+    else if (ok && (admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine && canUse(code, r.from)))) {   // 누를 수 있는 빈 실 칸: 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
+      const wait = data.reqs.filter(r => !r.room && r.slot === slot && (admin || r.mine) && canUse(code, r.from)).length, key = code + '|' + slot;
       h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>${admin ? '대기' : '내 신청'} ${wait}건</small>` : ''}</button></li>`;
     }
     else h += ok ? `<li class="free">${no}<b>빈 실</b></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
   }
   h += '</ol>';
   if (openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 실을 고르지 않은 내 신청(관리자는 모든 신청)
-    const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine));
+    const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from));
     h += `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>`
       + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 실을 고르지 않은 신청이 없습니다.</span>')
       + '<button type="button" class="x" data-put="">닫기</button></div>';

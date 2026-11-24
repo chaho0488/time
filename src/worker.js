@@ -224,9 +224,12 @@ const wInit = env => wReady || (wReady = (async () => {
 })().catch(e => { wReady = null; throw e; }));
 
 // 고른 실을 쓸 수 있는지: 있는 실 · 이용가능 표시 · 그 요일교시에 전공 수업 없음 (다른 신청과 겹치는지는 DB 의 UNIQUE 가 막는다)
-async function wRoomBad(env, room, slot) {
+// 선생님은 이동 시작일에 이미 쓸 수 있는 실만 고른다(아직 안 열린 실을 미리 잡아 두지 못함). 관리자는 미리 배정할 수 있다
+async function wRoomBad(env, room, slot, from, admin) {
   if (!W_CODES.has(room)) return json({ error: '없는 실습실입니다' }, 400);
-  if (typeof (await wAvail(env))[room] !== 'string') return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);
+  const open = (await wAvail(env))[room];
+  if (typeof open !== 'string') return json({ error: `${room}은(는) 이용가능으로 표시되지 않은 실입니다` }, 400);
+  if (!admin && open > from) return json({ error: `${room}은(는) ${Number(open.slice(5, 7))}/${Number(open.slice(8))}부터 쓸 수 있어 아직 신청할 수 없습니다` }, 400);
   const busy = W_BASE[room] && W_BASE[room][slot];
   if (busy) return json({ error: `${room}은(는) 그 시간에 전공 수업이 있습니다 (${busy})` }, 409);
   return null;
@@ -273,7 +276,7 @@ async function winterApi(req, env, url) {
     const room = String(body.room || '');
     if (room) {
       if (slots.length !== 1) return json({ error: '실습실은 수업 한 칸씩 골라 주세요' }, 400);
-      const bad = await wRoomBad(env, room, slots[0]); if (bad) return bad;
+      const bad = await wRoomBad(env, room, slots[0], from, admin); if (bad) return bad;
       if (await env.DG.prepare('SELECT 1 FROM winter2 WHERE slot = ? AND room = ?').bind(slots[0], room).first()) return json({ error: `${room}은(는) 그 시간에 방금 다른 수업이 들어왔습니다. 다른 실을 골라 주세요` }, 409);
     }
     const rows = [];
@@ -307,11 +310,11 @@ async function winterApi(req, env, url) {
   // 배정: 이용가능으로 표시된 실 중, 그 요일교시에 전공 수업도 다른 배정도 없는 실만.
   // 실의 이용 시작일이 신청 시작일보다 늦으면 화면이 실의 시작일부터 배정된 것으로 보여 준다
   const id = Number(body.id), room = String(body.room || '');
-  const row = Number.isInteger(id) ? await env.DG.prepare('SELECT slot, dev FROM winter2 WHERE id = ?').bind(id).first() : null;
+  const row = Number.isInteger(id) ? await env.DG.prepare('SELECT slot, dev, from_date FROM winter2 WHERE id = ?').bind(id).first() : null;
   if (!row) return json({ error: '취소된 신청입니다' }, 404);
   // 실은 신청한 선생님이 직접 고른다: 신청한 기기(또는 관리자)만 바꿀 수 있다 — 취소와 같은 규칙
   if (!admin && !(dev && row.dev === dev)) return json({ error: '신청한 기기에서만 실을 고를 수 있습니다' }, 403);
-  if (room) { const bad = await wRoomBad(env, room, row.slot); if (bad) return bad; }
+  if (room) { const bad = await wRoomBad(env, room, row.slot, row.from_date, admin); if (bad) return bad; }
   try {
     await env.DG.prepare('UPDATE winter2 SET room = ? WHERE id = ?').bind(room || null, id).run();
   } catch { return json({ error: `${room}은(는) 그 시간에 이미 다른 수업이 배정되어 있습니다` }, 409); }

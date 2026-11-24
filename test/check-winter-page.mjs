@@ -134,6 +134,15 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   ok('수3(세 실 모두 전공 수업): 창에 "비어 있는 실습실이 없습니다", 고를 실 없음', v.open && v.title === '수요일 3교시 · 1신3 과학' && v.text.includes('비어 있는 실습실이 없습니다') && v.list === '' && v.plan === '', v);
   await page.click('#mytt button[data-slot="수4"]'); v = await popState();
   ok('수4: 창에 빈 실 2D·3B·3C 목록과 그 실이 있는 3층·2층 배치도(같은 세 곳만 눌림), 화면 안에 들어옴', v.open && v.title === '수요일 4교시 · 1신1 과학' && v.list === '2D,3B,3C' && v.plan === '2D,3B,3C' && v.floors === '3층,2층' && v.inView && v.text.includes('11/25(수)부터'), v);
+  // 아직 안 열린 실(3C 를 11/27부터로 바꿔 봄)은 11/25 시작 신청에서는 고를 수 없음(목록에 없고 배치도에서도 꺼짐)
+  { const put = avail => worker.fetch(new Request('https://x/api/winter', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Pw': 'pw' }, body: JSON.stringify({ avail }) }), env);
+    await put({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-27' }); await page.evaluate(() => load()); await page.waitForFunction(() => !document.querySelector('#pop .rooms button[data-room="3C"]'));
+    v = await popState(); const off = await page.evaluate(() => document.querySelector('#pop .plan .pr[data-room="3C"]').disabled);
+    ok('11/27부터 열리는 3C 는 11/25 시작 신청에서 고를 수 없음(2D·3B 만)', v.list === '2D,3B' && v.plan === '2D,3B' && off, v);
+    await page.fill('#from', '2026-11-27'); await page.dispatchEvent('#from', 'change'); v = await popState();
+    ok('시작일을 11/27 로 바꾸면 3C 도 고를 수 있음', v.list === '2D,3B,3C', v);
+    await page.fill('#from', '2026-11-25'); await page.dispatchEvent('#from', 'change');
+    await put({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' }); await page.evaluate(() => load()); await page.waitForFunction(() => !!document.querySelector('#pop .rooms button[data-room="3C"]')); }
   // 창 옮기기: 제목 줄을 끌면 따라옴
   const at = () => page.evaluate(() => { const r = document.getElementById('pop').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top)]; });
   await page.setViewportSize({ width: 1100, height: 900 }); const p0 = await at(), hb = await page.locator('#popHead').boundingBox();

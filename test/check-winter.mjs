@@ -108,6 +108,21 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     assert.equal((await call('PATCH', { id: id4, room: '3C' }, A)).status, 409, '다른 선생님이 고른 실은 못 고름');
     assert.equal((await call('DELETE', null, C, '?id=' + made.id)).status, 200); }
 
+  // 아직 안 열린 실(3C 가 11/27부터)은 선생님이 미리 잡을 수 없고, 관리자만 미리 배정할 수 있음
+  { const t2 = others[1], C = { 'X-Dev': 'c'.repeat(20) };
+    assert.equal((await call('PUT', { avail: { '2D': D, '3B': D, '3C': '2026-11-27' } }, PW)).status, 200);
+    const x = await call('POST', { teacher: t2, from: D, slots: ['수4'], room: '3C' }, C);
+    assert.equal(x.status, 400); assert.match(x.error, /11\/27부터/);
+    assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4'] }, C)).status, 200, '실 없이 신청');
+    const id = (await call('GET')).reqs.find(q => q.teacher === t2).id;
+    assert.equal((await call('PATCH', { id, room: '3C' }, C)).status, 400, '신청한 기기도 아직 안 열린 실은 못 고름');
+    assert.equal((await call('PATCH', { id, room: '2D' }, C)).status, 200, '열려 있는 실은 고름');
+    assert.equal((await call('PATCH', { id, room: '3C' }, PW)).status, 200, '관리자는 미리 배정 가능');
+    assert.equal((await call('DELETE', null, PW, '?id=' + id)).status, 200);
+    assert.equal((await call('POST', { teacher: t2, from: '2026-11-27', slots: ['수4'], room: '3C' }, C)).status, 200, '시작일이 실이 열리는 날 이후면 고를 수 있음');
+    assert.equal((await call('DELETE', null, PW, '?id=' + (await call('GET')).reqs.find(q => q.teacher === t2).id)).status, 200);
+    assert.equal((await call('PUT', { avail: { '2D': D, '3B': D, '3C': D } }, PW)).status, 200, '점검용 값으로 되돌림'); }
+
   // 실 고르기·배정: 신청한 기기 또는 관리자만, 이용가능 실만, 전공 수업·다른 배정이 없는 시간만
   assert.equal((await call('PATCH', { id: id4, room: '2D' }, B)).status, 403, '다른 기기는 남의 신청에 실을 고를 수 없음');
   assert.equal((await call('PATCH', { id: id4, room: '2D' }, {})).status, 403, '기기 표시가 없으면 고를 수 없음');
