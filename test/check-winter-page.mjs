@@ -182,6 +182,24 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   await page.click('#mytt button[data-slot="수4"]'); await page.click('#pop button[data-cancel]'); await page.waitForFunction(() => document.getElementById('msg').textContent === '신청을 취소했습니다');
   ok('창에서 "이 수업 신청 취소"를 누르면 취소되고 칸이 원래대로', (await cellText('수4')) === '1신1과학/' && !(await popState()).open && (await page.locator('#list tr.g').count()) === 0); }
 
+// 여러 수업을 한 번에 고르기: 고른 시간 모두에 비어 있는 실만 배치도에 켜지고, 실을 누르면 한꺼번에 신청
+{ const g = await (await worker.fetch(new Request('https://x/api/winter'), env)).json(), my = g.tt['성준혁'];
+  const other = Object.keys(my).find(k => k !== '수4' && my[k].endsWith('|') && !g.base['3C'][k]);   // 3C 가 비는 다른 칸
+  const both = ['2D', '3B', '3C'].filter(c => !g.base[c]['수4'] && !g.base[c][other]);
+  await page.check('#multiOn'); await page.click('#mytt button[data-slot="수4"]');
+  ok('여러 칸 고르기를 켜면 칸을 눌러도 창이 뜨지 않고 선택만 됨', await page.evaluate(() => document.getElementById('pop').hidden && document.querySelector('#mytt button[data-slot="수4"]').classList.contains('sel') && document.getElementById('multiGo').textContent === '고른 1칸에 모두 비어 있는 실습실 보기'));
+  await page.click('#mytt button[data-slot="수3"]'); await page.click('#multiGo');
+  ok('수3(빈 실 없음)을 함께 고르면 "모두 비어 있는 실습실이 없습니다"', (await page.textContent('#popBody')).includes('고른 시간에 모두 비어 있는 실습실이 없습니다') && (await page.locator('#pop .plan').count()) === 0);
+  await page.click('#popClose'); await page.click('#mytt button[data-slot="수3"]'); await page.click(`#mytt button[data-slot="${other}"]`); await page.click('#multiGo');
+  let v = await page.evaluate(() => ({ title: document.getElementById('popTitle').textContent, on: [...document.querySelectorAll('#pop .plan .pr:not(:disabled)')].map(b => b.dataset.room).sort().join(), text: document.getElementById('popBody').textContent }));
+  ok('두 칸을 고르면 두 시간 모두 비어 있는 실만 켜짐(노란색 안내 문구)', v.title === '고른 수업 2칸 — 모두 비어 있는 실습실' && v.on === both.join() && both.includes('3C') && v.text.includes('실습실(노란색)을 누르면') && !v.text.includes('호박색'), { v, both, other });
+  await page.click('#pop .plan .pr[data-room="3C"]'); await page.waitForFunction(() => document.getElementById('msg').textContent.includes('2칸'));
+  v = { msg: await page.textContent('#msg'), rooms: (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.map(r => r.room).join() };
+  ok('3C 를 누르면 고른 2칸이 모두 3C 로 신청됨', v.msg === '2칸을 3C(으)로 신청했습니다' && v.rooms === '3C,3C', v);
+  if (await page.locator('#moreNo').count()) await page.click('#moreNo');
+  await page.uncheck('#multiOn');
+  for (const k of ['수4', other]) { await page.click(`#mytt button[data-slot="${k}"]`); await page.click('#pop button[data-cancel]'); await page.waitForFunction(k => !document.querySelector(`#mytt button[data-slot="${k}"]`).classList.contains('req'), k); } }
+
 // (아래 점검용) 실을 고르지 않은 신청 2건을 이 기기 이름으로 넣어 둔다: 예전 방식 신청·관리자 대신 배정 흐름 확인
 { const dev = await page.evaluate(() => localStorage.getItem('dgDev'));
   const r = await (await worker.fetch(new Request('https://x/api/winter', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Dev': dev }, body: JSON.stringify({ teacher: '성준혁', from: '2026-11-25', slots: ['수3', '수4'] }) }), env)).json();

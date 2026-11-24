@@ -89,6 +89,10 @@
   #popClose { border: 0; background: none; color: #fff; font-size: 1rem; width: 2em; height: 2em; cursor: pointer; border-radius: 6px; }
   .popbody { padding: 8px 14px 10px; overflow-y: auto; }
   .popbody .fine { margin: 0 0 8px; }
+  .multi { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 2px; font-size: .88rem; font-weight: 600; }
+  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .multi button { padding: 5px 12px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  .multi button:disabled { background: var(--frost); color: var(--frost-ink); cursor: default; }
   .pophint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .pophint .fine { margin: 0; } .pophint .x { flex: none; }
   .popfoot:has(#popMsg:empty):not(:has(button, .hint)) { display: none; }
@@ -361,6 +365,7 @@ const PLAN = {
   4: [{ left: ['전공심화 동아리실', 5043], top: [['화장실', 3179], ['계단', 4010], ['', 10043, '4B'], ['', 10043, '4A'], ['계단', 4156]], mid: '복도',
         bottom: [['', 3179], ['', 11765, '4C'], ['', 12331, '4D'], ['약품실', 4156]], right: ['체력단련실', 11709] }],
 };
+let multi = false; const picked = new Set();   // 여러 수업을 한 번에 고르기: 켜면 수업 칸이 여러 개 골라지고, 고른 시간 모두에 비어 있는 실을 본다(pop === '*')
 const moreSel = new Set();         // '다른 시간에도 비어 있음' 창에서 고른 칸
 let more = null;                   // 방금 고른 실이 내 다른 수업 시간에도 비어 있을 때 띄우는 안내 { room, from }
 let pop = '', popErr = '';         // 실 고르기 창을 띄운 내 시간표 칸(요일교시)과 그 창에 보일 오류
@@ -414,11 +419,11 @@ function showNames() {
   $('tlist').innerHTML = names.map(n => `<button type="button" data-name="${esc(n)}">${esc(n)}</button>`).join('');
 }
 function choose(name) {
-  me = name; pop = ''; more = null; $('notice').hidden = false; $('noticeOk').focus();   // 이름을 고르면 '1주 단위' 안내
+  me = name; pop = ''; more = null; picked.clear(); $('notice').hidden = false; $('noticeOk').focus();   // 이름을 고르면 '1주 단위' 안내
   $('teacher').value = name; $('tlist').hidden = true;
   renderMine();
 }
-$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; more = null; $('notice').hidden = true; renderMine(); } showNames(); });
+$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; more = null; picked.clear(); $('notice').hidden = true; renderMine(); } showNames(); });
 $('teacher').addEventListener('focus', showNames);
 $('teacher').addEventListener('keydown', e => { if (e.key === 'Enter') { const b = $('tlist').querySelector('button'); if (b && !$('tlist').hidden) choose(b.dataset.name); } });
 $('tlist').addEventListener('click', e => { const b = e.target.closest('button[data-name]'); if (b) choose(b.dataset.name); });
@@ -430,7 +435,9 @@ function renderMine() {
   if (!data || !me) { $('mytt').innerHTML = ''; renderPop(); return; }
   const sc = data.tt[me];
   let h = '<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업입니다.</div>'
+    + `<div class="multi"><label><input type="checkbox" id="multiOn"${multi ? ' checked' : ''}> 여러 수업을 한 번에 고르기</label>${multi ? `<button type="button" id="multiGo"${picked.size ? '' : ' disabled'}>${picked.size ? `고른 ${picked.size}칸에 모두 비어 있는 실습실 보기` : '수업 칸을 여러 개 누르세요'}</button>` : ''}</div>`
     + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  for (const k of [...picked]) if (!sc[k] || data.reqs.some(x => x.teacher === me && x.slot === k)) picked.delete(k);   // 그사이 신청된 칸은 선택에서 뺌
   for (let p = 1; p <= 7; p++) {
     h += `<tr><th class="p">${p}</th>`;
     for (const d of DAYS) {
@@ -438,6 +445,8 @@ function renderMine() {
       if (p > NP[d]) { h += '<td class="out"></td>'; continue; }
       if (!v) { h += '<td></td>'; continue; }
       const [c, s, room] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === k);
+      if (multi && !room && !r) { h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}" class="${picked.has(k) ? 'sel' : ''}">${esc(c)}<small>${esc(s)}</small></button></td>`; continue; }   // 여러 칸 고르기: 아직 신청하지 않은 수업만
+      if (multi && r) { h += `<td class="req">${esc(c)}<small>${r.room ? esc(r.room) : '신청됨'}</small></td>`; continue; }
       if (room) h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${esc(room)}</small></td>`;
       else if (r && !(r.mine || data.admin)) h += `<td class="req">${esc(c)}<small>${r.room ? esc(r.room) : '신청됨'}</small></td>`;   // 다른 기기에서 한 신청: 보기만
       else h += `<td><button type="button" data-slot="${k}" aria-pressed="${pop === k}" class="${r ? 'req' : ''}${pop === k ? ' sel' : ''}">${esc(c)}<small>${r ? (r.room ? esc(r.room) : '실 선택 전') : esc(s)}</small></button></td>`;
@@ -508,13 +517,27 @@ function renderPop() {
     }
     more = null;
   }
+  if (pop === '*' && data && me && picked.size) {   // 고른 여러 수업 시간에 '모두' 비어 있는 실만 켠 배치도
+    const ks = [...picked].sort((a, b) => slotOrder(a) - slotOrder(b)), from = $('from').value;
+    const free = data.rooms.map(r => r[0]).filter(c => canUse(c, from) && ks.every(k => freeRooms(k).includes(c)));
+    $('popTitle').textContent = `고른 수업 ${ks.length}칸 — 모두 비어 있는 실습실`;
+    let h = `<div class="pophint"><p class="fine">${ks.map(k => k[0] + k[1]).join(', ')} · ${from ? md(from) + '부터 · ' : ''}${free.length ? '배치도에서 실습실(노란색)을 누르면 고른 수업이 모두 그 실로 신청됩니다.' : ''}</p></div>`;
+    if (!free.length) h += '<p class="err" style="font-weight:700;margin:0 0 8px">고른 시간에 모두 비어 있는 실습실이 없습니다. 수업을 나눠서 골라 주세요.</p>';
+    for (const f of ['4', '3', '2', '1']) {
+      if (!free.some(x => x[0] === f)) continue;
+      h += `<div class="pfl">${f}층</div>` + PLAN[f].filter(pl => [pl.left, pl.right, ...(pl.top || []), ...pl.bottom].some(x => x && x[2] && free.includes(x[2]))).map(pl => planHtml(pl, from, 0, false, { free, cur: '', from, can: true })).join('');
+    }
+    $('popBody').innerHTML = h + `<div class="popfoot"><span id="popMsg" class="err" role="alert">${esc(popErr)}</span></div>`; el.hidden = false;
+    return;
+  }
+  if (pop === '*') pop = '';
   const v = data && me && pop && data.tt[me][pop];
   if (!v) { pop = ''; popErr = ''; el.hidden = true; return; }
   const [c, s] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === pop);
   const can = !r || r.mine || data.admin, from = r ? r.from : $('from').value, cur = (r && r.room) || '';
   const free = freeRooms(pop).filter(c => canUse(c, from)), pick = { free, cur, from, can };
   $('popTitle').textContent = `${pop[0]}요일 ${pop[1]}교시 · ${c} ${s}`;
-  let h = `<div class="pophint"><p class="fine">${from ? md(from) + '부터 · ' : ''}${cur ? `지금 고른 실: <b>${cur}</b>. 다른 실을 누르면 바뀝니다.` : free.length ? '배치도에서 수업할 실습실(호박색)을 누르면 바로 신청됩니다.' : ''}</p>${r && can ? `<button type="button" class="x" data-cancel="${r.id}">이 수업 신청 취소</button>` : ''}</div>`;
+  let h = `<div class="pophint"><p class="fine">${from ? md(from) + '부터 · ' : ''}${cur ? `지금 고른 실: <b>${cur}</b>. 다른 실을 누르면 바뀝니다.` : free.length ? '배치도에서 수업할 실습실(노란색)을 누르면 바로 신청됩니다.' : ''}</p>${r && can ? `<button type="button" class="x" data-cancel="${r.id}">이 수업 신청 취소</button>` : ''}</div>`;
   if (!cur && !free.length) h += '<p class="err" style="font-weight:700;margin:0 0 8px">이 시간에는 비어 있는 실습실이 없습니다.</p>';
   for (const f of ['4', '3', '2', '1']) {   // 고를 수 있는 실이 있는 층만 그린다
     if (![cur, ...free].some(x => x && x[0] === f)) continue;
@@ -530,12 +553,15 @@ function renderPop() {
 $('mytt').addEventListener('click', e => {
   if (e.target.closest('#printMine')) return printMine();
   if (e.target.closest('#xlsMine')) return void csvMine();
+  if (e.target.closest('#multiGo')) { if (picked.size) { pop = '*'; popErr = ''; more = null; renderMine(); } return; }
   const b = e.target.closest('button[data-slot]');
   if (!b) return;
+  if (multi) { const k = b.dataset.slot; if (picked.has(k)) picked.delete(k); else picked.add(k); if (pop === '*') pop = ''; return renderMine(); }   // 여러 칸 고르기: 창을 띄우지 않고 표시만
   pop = pop === b.dataset.slot ? '' : b.dataset.slot; popErr = ''; more = null;
   renderMine();
 });
 $('from').addEventListener('change', () => renderPop());
+$('mytt').addEventListener('change', e => { if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
 $('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); } });
@@ -558,6 +584,15 @@ $('popBody').addEventListener('click', async e => {
     return load();
   }
   if (!b || b.disabled) return;
+  if (pop === '*') {   // 고른 수업들을 같은 실로 한 칸씩 신청
+    const room = b.dataset.room, from = $('from').value, ks = [...picked].sort((a, b) => slotOrder(a) - slotOrder(b));
+    if (!from) { popErr = '언제부터 이동할지 날짜를 먼저 골라 주세요'; return renderPop(); }
+    let n = 0, err = '';
+    for (const k of ks) { const r = await api('POST', { teacher: me, from, slots: [k], room }); if (r.ok) { n++; picked.delete(k); } else err = r.error; }
+    say(err ? `${n}칸 신청, 나머지는 안 됨: ${err}` : `${n}칸을 ${room}(으)로 신청했습니다`, !err);
+    if (err) popErr = err; else { pop = ''; popErr = ''; }
+    return load();
+  }
   const room = b.dataset.room, k = pop, r0 = data.reqs.find(q => q.teacher === me && q.slot === k);
   if (!r0 && !$('from').value) { popErr = '언제부터 이동할지 날짜를 먼저 골라 주세요'; return renderPop(); }
   const r = r0 ? await api('PATCH', { id: r0.id, room }) : await api('POST', { teacher: me, from: $('from').value, slots: [k], room });
