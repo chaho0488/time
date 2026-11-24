@@ -49,16 +49,16 @@
 
   /* 내 시간표: 옮기고 싶은 수업 칸을 눌러 고른다 */
   .wrap { overflow-x: auto; }
-  #mytt table { border-collapse: separate; border-spacing: 4px; width: 100%; table-layout: fixed; margin: 8px -4px 0; }
-  #mytt th { font-size: .9rem; font-weight: 700; color: var(--sub); padding: 2px 0; }
+  #mytt table { border-collapse: separate; border-spacing: 3px; width: 100%; max-width: 660px; table-layout: fixed; margin: 6px -3px 0; }   /* PC 에서 너무 커지지 않게 폭을 제한 */
+  #mytt th { font-size: .8rem; font-weight: 700; color: var(--sub); padding: 2px 0; }
   #mytt th.p { width: 1.8em; }
-  #mytt td { padding: 0; height: 3.3em; border-radius: 6px; text-align: center; font-weight: 700; font-size: .95rem; background: transparent; }
-  #mytt td small, #mytt td button small { display: block; font-weight: 500; font-size: .78rem; color: var(--sub); }
-  #mytt td button { width: 100%; height: 100%; min-height: 3.3em; border: 1.5px solid var(--line); border-radius: 6px; background: #fff; font-weight: 700; cursor: pointer; padding: 2px; }
+  #mytt td { padding: 0; height: 2.2em; border-radius: 6px; text-align: center; font-weight: 700; font-size: .85rem; background: transparent; }
+  #mytt td small, #mytt td button small { display: inline; margin-left: 4px; font-weight: 500; font-size: .75rem; color: var(--sub); }   /* 학급 옆에 과목을 한 줄로: 칸을 낮게 */
+  #mytt td button { width: 100%; height: 100%; min-height: 2.2em; border: 1.5px solid var(--line); border-radius: 6px; background: #fff; font-weight: 700; cursor: pointer; padding: 2px; }
   #mytt td button:hover { border-color: var(--ink); }
   #mytt td button.sel { background: var(--ink); border-color: var(--ink); color: #fff; }
   #mytt td button.sel small { color: #C9D3E6; }
-  #mytt .all { margin-top: 8px; padding: 8px 14px; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
+  #mytt .all { margin-top: 6px; padding: 5px 12px; font-size: .85rem; border: 1.5px solid var(--ink); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
   #mytt td.lab { background: var(--frost); color: var(--frost-ink); }            /* 이미 실습실에서 하는 수업 */
   #mytt td.lab small { color: var(--frost-ink); }
   #mytt td.req { background: var(--pine-bg); color: var(--pine); }                /* 이미 신청한 수업 */
@@ -211,7 +211,7 @@
     .room { padding: 10px 10px 12px; }
     .strip { gap: 3px; }
     .strip li b { font-size: .8rem; } .strip li small { font-size: .66rem; }
-    #mytt td { font-size: .85rem; } #mytt td small, #mytt td button small { font-size: .7rem; }
+    #mytt td { font-size: .82rem; height: 3em; } #mytt td button { min-height: 3em; } #mytt td small, #mytt td button small { display: block; margin: 0; font-size: .7rem; }   /* 폰: 칸이 좁아 두 줄 */
     #list th, #list td { padding: 8px 3px; font-size: .78rem; white-space: normal; word-break: keep-all; }
     #list select { max-width: 8.5em; padding: 5px 4px; }
   }
