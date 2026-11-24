@@ -4575,7 +4575,8 @@ function xlImportNotice(res){
    결보강 엑셀과 같은 폴더에 '수업장소변경 내역.xlsx'를 1분마다 확인해, 신청이 바뀐 때만 통째로 다시 쓴다.
    취소된 신청은 빠진다. 엑셀에서 파일을 열어 둔 동안에는 못 쓰므로 다음 차례에 다시 시도한다. */
 const WX_FILE='수업장소변경 내역.xlsx';
-let wxLast=null, wxBusy=false;
+let wxLast=null, wxBusy=false, wxSaid='';   // wxSaid = 마지막으로 알린 상태(같은 알림을 되풀이하지 않음)
+function wxSay(key, icon, title, html){ if(wxSaid===key) return; wxSaid=key; if(typeof syncPopup==='function' && !document.getElementById('syncPopup')) syncPopup({icon, title, html}); }
 function wxXlsxBytes(rows) {
   const x = v => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const wide = v => [...String(v)].reduce((t, ch) => t + (ch.charCodeAt(0) > 0x2E7F ? 2 : 1.1), 0);   // 한글은 두 칸 너비
@@ -4626,15 +4627,16 @@ async function wxSync(){
   if(wxBusy||!FS.connected||!FS.dirHandle||!/^https?:$/.test(location.protocol)) return;
   wxBusy=true;
   try{
-    const res=await fetch('/api/winter',{cache:'no-store'}); if(!res.ok) return;
+    const res=await fetch('/api/winter',{cache:'no-store'}); if(!res.ok){ wxSay('http','⚠️','수업 장소 변경 내역을 받지 못했습니다',`서버 응답 ${res.status}. 1분 뒤 다시 시도합니다.`); return; }
     const rows=wxRows(await res.json()), sig=JSON.stringify(rows);
     if(wxLast===null){ try{ await FS.dirHandle.getFileHandle(WX_FILE); }catch(e){ wxLast=''; } }   // 파일이 없으면 신청이 0건이어도 한 번 만든다
     if(sig===wxLast) return;
     if(wxLast===null && rows.length===1){ wxLast=sig; return; }   // 처음 확인인데 신청이 없으면 있던 파일을 건드리지 않음
     const fh=await FS.dirHandle.getFileHandle(WX_FILE,{create:true});
     const w=await fh.createWritable(); await w.write(wxXlsxBytes(rows)); await w.close();
-    wxLast=sig;
-  }catch(e){}   // 엑셀에서 열려 있음·오프라인 등: 1분 뒤 다시
+    const first=wxSaid!=='ok'; wxLast=sig;
+    if(first) wxSay('ok','📗','수업 장소 변경 내역 저장',`<b>${_esc(FS.dirName||'연결된')}</b> 폴더에 <b>${WX_FILE}</b> 을(를) 저장했습니다(${rows.length-1}건). 신청이 바뀌면 1분 안에 다시 저장합니다.`);
+  }catch(e){ wxSay('err:'+(e&&e.name),'⚠️','수업 장소 변경 내역을 저장하지 못했습니다',`${WX_FILE} — ${_esc((e&&e.message)||String(e))}<div style="margin-top:6px;font-size:12px;">엑셀에서 이 파일을 열어 두었다면 닫아 주세요. 1분 뒤 다시 시도합니다.</div>`); }   // 엑셀에서 열려 있음·오프라인 등: 1분 뒤 다시
   finally{ wxBusy=false; }
 }
 /* 엑셀 파일이 다른 곳(엑셀 프로그램·다른 기기)에서 바뀌었는지 10초마다 확인 */
