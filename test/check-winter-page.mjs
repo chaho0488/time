@@ -67,10 +67,10 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
   t = await page.evaluate(() => { const rs = [...document.querySelectorAll('#grid .pr')];
     return { plans: document.querySelectorAll('#grid .plan').length, floors: [...document.querySelectorAll('#grid .floor')].map(f => f.textContent).join(), rooms: rs.map(b => b.dataset.plan).sort().join(' '),
       on: rs.filter(b => !b.disabled).map(b => b.dataset.plan).sort().join(), onCls: rs.filter(b => b.classList.contains('on')).map(b => b.dataset.plan).sort().join(), never: rs.filter(b => b.classList.contains('never')).map(b => b.dataset.plan).sort().join(),
-      free: document.querySelector('#grid .pr[data-plan="2D"] em').textContent, etc: [...document.querySelectorAll('#grid .pc:not(.pr) span')].map(e => e.textContent).filter(Boolean).length,
+      free: [...document.querySelectorAll('#grid .pr em')].map(e => e.textContent).filter(x => x.includes('빈') || x.includes('대기')).join(), tabsInNav: !!document.querySelector('.nav .tabs') && Math.abs(document.querySelector('.tabs').getBoundingClientRect().top - document.getElementById('vdate').getBoundingClientRect().top) < 60, etc: [...document.querySelectorAll('#grid .pc:not(.pr) span')].map(e => e.textContent).filter(Boolean).length,
       order4: [...document.querySelectorAll('#grid .plan')][0].textContent.replace(/\s+/g, ' '), table: document.querySelectorAll('#grid .room').length, over: document.getElementById('grid').scrollWidth > document.getElementById('grid').clientWidth + 1 }; });
   ok('배치도: 4층 → 1층 순서로 5장(2층은 실습동 1·별관), 실습실 23곳이 모두 그림에 있음', t.plans === 5 && t.floors === '4층,3층이용가능 2곳,2층이용가능 1곳,1층' && t.rooms === '1A 1B 1C 1D 2A 2B 2C 2D 2E 2F 2G 2X 2Y 3A 3B 3C 3D 3E 3F 4A 4B 4C 4D' && t.etc > 20 && !t.table, t);
-  ok('배치도: 이용가능 실(2D·3B·3C)만 호박색으로 눌리고, 교실 이용불가 6곳은 어둡게, 2D 는 "빈 4"', t.on === '2D,3B,3C' && t.onCls === '2D,3B,3C' && t.never === '1C,1D,2E,2X,2Y,4A' && t.free === '빈 4', t);
+  ok('배치도: 이용가능 실(2D·3B·3C)만 호박색으로 눌리고, 교실 이용불가 6곳은 어둡게, "빈 N" 숫자는 없음(관리자가 아니면 "대기"도 없음), 보기 탭은 날짜 줄에', t.on === '2D,3B,3C' && t.onCls === '2D,3B,3C' && t.never === '1C,1D,2E,2X,2Y,4A' && t.free === '' && t.tabsInNav, t);
   ok('배치도 4층: 전공심화 동아리실 | 화장실·계단·4B·4A·계단 / 복도 / 4C·4D·약품실 | 체력단련실 순서', /^전공심화 동아리실.*화장실.*계단.*4B.*4A.*계단.*복도.*4C.*4D.*약품실.*체력단련실$/.test(t.order4) && !t.over, t);
   { const v = await page.evaluate(() => { const vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0, nm = c => document.querySelector(`#grid .pr[data-plan="${c}"] span:not(.pcmark)`);
       const fits = [...document.querySelectorAll('#grid .pr')].filter(b => b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.plan);
@@ -78,15 +78,17 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
         pc: [...document.querySelectorAll('#grid .pr')].filter(b => b.querySelector('.pcmark')).map(b => b.dataset.plan).sort().join(), pcText: document.querySelector('#grid .pr .pcmark').textContent }; });
     ok('폰 폭(390px)에서도 배치도에 줄인 실 이름이 모두 보이고 칸 밖으로 넘치지 않음', v.w === 390 && v.names === '송변전,전기기기,생산자동화1,제어기기,전기설비1' && v.all && !v.fits.length, v);
     ok('PC 사용가능 실 7곳(2E·2G·2X·2Y·3B·3C·3F)에 PC 표시', v.pc === '2E,2G,2X,2Y,3B,3C,3F' && v.pcText === 'PC', v);
-    // 배치도 글자는 화면 폭에 따라 커짐: 390px → 760px → 1100px
-    const sizes = async w => { await page.setViewportSize({ width: w, height: 900 }); return page.evaluate(() => { const px = q => Math.round(parseFloat(getComputedStyle(document.querySelector(q)).fontSize) * 10) / 10;
-      return { code: px('#grid .pr[data-plan="2D"] b'), name: px('#grid .pr[data-plan="2D"] span:not(.pcmark)'), free: px('#grid .pr[data-plan="2D"] em'),
+    // PC 화면(1920×910): 글자는 작게 고정, 4층~2층 배치도가 스크롤 없이 한 화면에 / 폰은 칸을 높이고 글자를 폭에 비례
+    const sizes = async (w, hh) => { await page.setViewportSize({ width: w, height: hh }); return page.evaluate(() => { const px = q => Math.round(parseFloat(getComputedStyle(document.querySelector(q)).fontSize) * 10) / 10;
+      return { code: px('#grid .pr[data-plan="2D"] b'), name: px('#grid .pr[data-plan="2D"] span:not(.pcmark)'), h1: px('h1'),
+        bottom2: Math.round([...document.querySelectorAll('#grid .frow')][2].getBoundingClientRect().bottom), vh: innerHeight,
         fits: [...document.querySelectorAll('#grid .pr')].filter(b => b.scrollHeight > b.clientHeight + 1 || b.scrollWidth > b.clientWidth + 1).map(b => b.dataset.plan), over: document.documentElement.scrollWidth > innerWidth + 1 }; }); };
-    const a = await sizes(390), b = await sizes(760), c = await sizes(1100); await page.setViewportSize({ width: 390, height: 800 });
-    ok('배치도 글자가 화면 폭에 비례해 커짐(폰에서도 실 코드 15px·이름 12px 이상), 어느 폭에서도 칸 밖으로 넘치지 않음', a.code >= 15 && a.name >= 12 && b.name > a.name && c.name > b.name && c.code > b.code && c.code >= 24 && ![a, b, c].some(x => x.fits.length || x.over), { a, b, c }); }
+    const a = await sizes(390, 800), b = await sizes(760, 900), c = await sizes(1920, 910); if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT + '-first.png' }); await page.setViewportSize({ width: 390, height: 800 });
+    ok('배치도 글자: 폰에서도 실 코드 15px·이름 12px 이상, PC 에서는 코드 16px·이름 13px·제목 20px 로 작게, 어느 폭에서도 칸 밖으로 넘치지 않음', a.code >= 15 && a.name >= 12 && c.code === 16 && c.name === 13 && c.h1 === 20 && ![a, b, c].some(x => x.fits.length || x.over), { a, b, c });
+    ok('PC 화면(1920×910) 첫 화면에 4층~2층 배치도가 스크롤 없이 모두 보임', c.bottom2 <= c.vh, c); }
   await page.click('#grid .pr[data-plan="2D"]');
   t = await page.evaluate(() => ({ rooms: [...document.querySelectorAll('#grid .room')].map(r => r.dataset.room).join(), cells: [...document.querySelectorAll('#grid .room .strip li')].map(li => li.className).join(), name: document.querySelector('#grid .room .rname').textContent,
-    pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: document.querySelector('#grid .ftable').previousElementSibling.querySelector('[data-plan="2D"]') !== null || document.querySelector('#grid .ftable').previousElementSibling.classList.contains('plan') }));
+    pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: document.querySelector('#grid .ftable').previousElementSibling.classList.contains('plan') && !!document.querySelector('#grid .ftable').closest('.frow').querySelector('[data-plan="2D"]') }));
   ok('배치도에서 2D 를 누르면 그 층 배치도 아래에 2D 시간표만 나옴', t.rooms === '2D' && t.cells === 'busy,busy,busy,free,free,free,free' && t.name === '송변전배전설비운영실습실' && t.pressed === 'true' && t.after, t);
   await page.click('#grid .room .more');
   ok('"닫기"를 누르면 시간표가 닫힘', (await page.locator('#grid .room').count()) === 0);
@@ -154,6 +156,16 @@ ok('맞는 비밀번호: "관리자 로그인됨"과 로그아웃 단추·관리
 // 관리자: 수3 은 세 곳 모두 전공 수업이라 빈 실 없음, 수4 는 2D·3B·3C 중에서 고름
 s = await page.evaluate(() => [...document.querySelectorAll('#list select')].map(x => [...x.options].map(o => o.value).join('/')));
 ok('배정 칸에는 그 요일교시에 빈 이용가능 실만 (수3: 없음, 수4: 2D·3B·3C)', s.join() === ',/2D/3B/3C' && (await page.textContent('#list tr.d tbody tr')).includes('빈 실 없음'), s);
+// 배치도형(기본 화면)에서도 배정할 수 있음: 관리자에게는 기다리는 신청이 있는 실에 '대기 N', 실을 누르면 빈 실 칸 → 신청 목록
+{ const was = await page.evaluate(() => document.getElementById('tabPlan').getAttribute('aria-selected'));
+  await page.click('#tabPlan');
+  const w = await page.evaluate(() => [...document.querySelectorAll('#grid .pr em.wait')].map(e => e.closest('.pr').dataset.plan + ':' + e.textContent).sort().join());
+  if (await page.evaluate(() => document.querySelector('#grid .pr[data-plan="3B"]').getAttribute('aria-pressed')) !== 'true') await page.click('#grid .pr[data-plan="3B"]');
+  await page.click('#grid .room[data-room="3B"] .strip li:nth-child(4) button');
+  const c = await page.evaluate(() => [...document.querySelectorAll('#grid .putbox button[data-put]:not(.x)')].map(b => b.textContent));
+  ok('배치도형(관리자): 기다리는 신청이 있는 빈 실에 "대기 1", 실 → 빈 실 칸을 누르면 신청한 반을 고를 수 있음', w === '2D:대기 1,3B:대기 1,3C:대기 1' && c.length === 1 && c[0].startsWith('1신1 과학 성준혁'), { w, c });
+  await page.click('#grid .putbox button.x'); await page.click('#grid .room[data-room="3B"] .more');
+  if (was !== 'true') await page.click('#tabTable'); }
 // 빈 실 칸을 눌러 배정: 3B 수4 칸에 '대기 1건' → 누르면 그 시간 신청 목록 → 신청을 누르면 3B 에 배정
 const cell3B = '#grid .room[data-room="3B"] .strip li:nth-child(4)';
 s = await page.evaluate(q => ({ code: '3B', t: document.querySelector(q).textContent, hint: document.getElementById('adminHint').hidden,
