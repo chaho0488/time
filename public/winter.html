@@ -338,7 +338,7 @@
 <!-- 수업 칸을 누르면 뜨는 창: 그 시간에 비어 있는 실습실과 위치(배치도). 제목 줄을 끌어 옮길 수 있다 -->
 <!-- 이름을 고르면 뜨는 안내(화면 안의 창이라 팝업 차단과 상관없이 나온다) -->
 <div id="notice" class="pop notice" role="alertdialog" aria-labelledby="noticeText" hidden>
-  <div class="popbody"><p id="noticeText"><b>수업 장소 이동은 1주 단위로 신청할 수 있습니다.</b></p><p id="noticeMulti"><b class="red">여러 수업을 한 번에 고르기</b>를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.</p><button type="button" id="noticeOk">확인</button> <button type="button" id="noticeNever">더 이상 안 보기</button></div>
+  <div class="popbody"><p id="noticeText"><b>수업 장소 이동은 1주 단위로 신청할 수 있습니다.</b></p><p id="noticeMulti"><b class="red">여러 수업을 한 번에 고르기</b>를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.</p><button type="button" id="noticeOk">확인</button> <button type="button" id="noticeNever">이번 주 더 이상 안 보기</button></div>
 </div>
 <div id="printArea"></div>
 <div id="pop" class="pop" role="dialog" aria-labelledby="popTitle" hidden>
@@ -429,10 +429,12 @@ function showNames() {
   $('tlist').hidden = !names.length || (names.length === 1 && names[0] === me && q === me);
   $('tlist').innerHTML = names.map(n => `<button type="button" data-name="${esc(n)}">${esc(n)}</button>`).join('');
 }
+// 이번 주를 가리키는 값: 서버가 알려 준 오늘(한국 날짜)이 속한 주의 월요일
+function weekKey() { const d = new Date((data ? data.today : new Date().toISOString().slice(0, 10)) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }
 function choose(name) {
   me = name; pop = ''; more = null; picked.clear();
-  // 이름을 고를 때마다 '1주 단위' 안내 창('더 이상 안 보기'를 누른 기기만 빼고). 단추에 바로 초점을 주면 이름을 고른 Enter 가 '확인'까지 눌러 창이 곧바로 닫히므로 조금 뒤에 준다
-  let off = false; try { off = localStorage.getItem('winterNoNotice') === '1'; } catch {}
+  // 이름을 고를 때마다 '1주 단위' 안내 창('이번 주 더 이상 안 보기'를 누른 기기는 그 주에만 빼고, 다음 주 월요일부터 다시 뜬다). 단추에 바로 초점을 주면 이름을 고른 Enter 가 '확인'까지 눌러 창이 곧바로 닫히므로 조금 뒤에 준다
+  let off = false; try { off = localStorage.getItem('winterNoNotice') === weekKey(); } catch {}
   $('notice').hidden = off; if (!off) setTimeout(() => { if (!$('notice').hidden) $('noticeOk').focus(); }, 200);
   $('teacher').value = name; $('tlist').hidden = true;
   renderMine();
@@ -615,7 +617,7 @@ $('from').addEventListener('change', () => renderPop());
 $('mytt').addEventListener('change', e => { if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
 $('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
-$('noticeNever').addEventListener('click', () => { try { localStorage.setItem('winterNoNotice', '1'); } catch {} $('notice').hidden = true; });   // 이 기기에서는 다시 띄우지 않음
+$('noticeNever').addEventListener('click', () => { try { localStorage.setItem('winterNoNotice', weekKey()); } catch {} $('notice').hidden = true; });   // 이 기기에서 이번 주에는 다시 띄우지 않음
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); } });
 $('popBody').addEventListener('click', async e => {
   const b = e.target.closest('button[data-room]'), x = e.target.closest('button[data-cancel]');

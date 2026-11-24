@@ -133,7 +133,11 @@ ok('Enter 로 이름을 골라도 안내 창이 닫히지 않고 떠 있음', aw
 await page.click('#noticeOk'); await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
 ok('"확인"으로 닫은 뒤 다른 이름을 고르면 다시 뜸', await page.evaluate(() => !document.getElementById('notice').hidden));
 await page.click('#noticeNever'); await page.fill('#teacher', '김동후'); await page.press('#teacher', 'Enter'); await page.waitForTimeout(300);
-ok('"더 이상 안 보기"를 누르면 그 뒤로는 이름을 골라도 안 뜸', await page.evaluate(() => document.getElementById('notice').hidden && localStorage.getItem('winterNoNotice') === '1' && !!document.getElementById('mytt').offsetParent));
+ok('"이번 주 더 이상 안 보기"를 누르면 이번 주(11/23 월요일 주)에는 이름을 골라도 안 뜸', await page.evaluate(() => document.getElementById('noticeNever').textContent === '이번 주 더 이상 안 보기' && document.getElementById('notice').hidden && localStorage.getItem('winterNoNotice') === '2026-11-23' && !!document.getElementById('mytt').offsetParent));
+// 다음 주(12/1 화)가 되면 다시 뜸
+await page.evaluate(() => { data.today = '2026-12-01'; }); await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
+ok('다음 주가 되면 안내 창이 다시 뜸', await page.evaluate(() => !document.getElementById('notice').hidden));
+await page.click('#noticeOk'); await page.evaluate(() => { data.today = '2026-11-24'; });
 await page.evaluate(() => localStorage.removeItem('winterNoNotice'));   // 아래 점검은 안내 창이 뜨는 기본 상태로
 await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]'); await page.click('#noticeOk');
 s = await page.evaluate(() => ({ v: document.getElementById('teacher').value, btn: document.querySelectorAll('#mytt button[data-slot]').length, hidden: document.getElementById('tlist').hidden,
