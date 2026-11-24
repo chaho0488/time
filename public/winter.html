@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>한파 수업 장소 이동 신청</title>
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Malgun Gothic", sans-serif; background: #f0f2f8; color: #222; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.3rem; color: #5B3FA8; margin: 4px 0 12px; }
+  h2 { font-size: 1.05rem; color: #5B3FA8; margin: 20px 0 6px; }
+  .box { background: #fff; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px #0001; line-height: 1.7; }
+  .form { display: grid; grid-template-columns: 5em 1fr; gap: 8px 10px; align-items: center; }
+  .form label { font-weight: 600; }
+  .form input[type=text], .form input[type=date], .form select { font-size: 1rem; padding: 7px 8px; border: 2px solid #5B3FA8; border-radius: 6px; width: 100%; max-width: 16em; box-sizing: border-box; }
+  #periods label { display: inline-block; margin: 0 10px 4px 0; font-weight: 400; white-space: nowrap; }
+  #periods input { width: 1.2em; height: 1.2em; vertical-align: -3px; }
+  #send { margin-top: 10px; padding: 9px 22px; font-size: 1rem; border: 0; border-radius: 6px; background: #5B3FA8; color: #fff; cursor: pointer; }
+  #msg { margin-top: 8px; min-height: 1.4em; font-weight: 600; }
+  .ok { color: #1a7f37; } .err { color: #c62828; }
+  .nav { display: flex; align-items: center; gap: 8px; margin: 6px 0; flex-wrap: wrap; }
+  .nav button { padding: 6px 12px; font-size: 1rem; border: 1px solid #5B3FA8; border-radius: 6px; background: #fff; color: #5B3FA8; cursor: pointer; }
+  .nav input { font-size: 1rem; padding: 5px 6px; border: 1px solid #5B3FA8; border-radius: 6px; }
+  .legend { font-size: .8rem; color: #555; margin: 4px 0 6px; }
+  .legend span { display: inline-block; padding: 1px 6px; border-radius: 4px; margin-right: 6px; border: 1px solid #d5d8e3; }
+  .wrap { overflow-x: auto; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px #0001; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #d5d8e3; padding: 5px 4px; text-align: center; font-size: .85rem; }
+  thead th { background: #ece8f7; }
+  #grid table { table-layout: fixed; }   /* 폰에서도 1~7교시가 옆으로 넘기지 않고 한 화면에 보이게 칸 너비를 고르게 나눔 */
+  #grid th.r { width: 9.5em; text-align: left; position: sticky; left: 0; background: #ece8f7; z-index: 1; font-weight: 600; }
+  #grid th.r small { display: block; font-weight: 400; color: #555; font-size: .72rem; overflow-wrap: anywhere; }
+  .badge { display: inline-block; font-size: .7rem; font-weight: 700; color: #fff; background: #1a7f37; border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+  td.busy { background: #e9e9ee; color: #444; }                 /* 전공 수업 */
+  td.free { background: #fffbe0; color: #8a6d00; }              /* 이용가능 실의 빈 시간 */
+  td.done { background: #d9f2df; font-weight: 600; }            /* 배정된 수업 */
+  td.na { background: #f7f7f9; }                                /* 이용가능 표시가 없는 실의 빈 시간 */
+  td.out { background: #ddd; }                                  /* 그 요일에 없는 교시 */
+  td small { display: block; font-weight: 400; font-size: .72rem; color: #555; }
+  #list td.l { text-align: left; }
+  #list select { font-size: .9rem; padding: 4px; max-width: 11em; }
+  #list td, #list th { white-space: nowrap; } #list td.l { white-space: normal; }
+  .x { font-size: .8rem; color: #c62828; background: none; border: 1px solid #c62828; border-radius: 4px; cursor: pointer; padding: 2px 6px; }
+  .wait { color: #b26a00; font-weight: 600; }
+  .admin { margin-top: 16px; font-size: .85rem; color: #777; }
+  .admin input { width: 9em; }
+  @media (max-width: 600px) {
+    main { padding: 10px; }
+    th, td { padding: 4px 2px; font-size: .75rem; }
+    #grid th.r { width: 5.4em; }
+    #grid td, #grid td small { font-size: .68rem; overflow-wrap: anywhere; }
+    .badge { margin-left: 2px; padding: 0 3px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>한파 관련 수업 장소 이동 신청</h1>
+  <div class="box">
+    요 며칠 기온이 더 내려가 교실에서 수업을 진행하시기에 어려움이 크실 줄 압니다.<br>
+    추위로 수업 진행이 어려워 다른 장소에서 수업하기를 희망하시는 선생님께서는 아래에 적어 주십시오.<br>
+    신청을 먼저 받은 뒤, 사용 가능한 실습실을 확인하여 배정해 드리겠습니다. 배정 결과는 이 화면의 신청 내역에 표시됩니다.
+  </div>
+
+  <div class="box">
+    <div class="form">
+      <label for="teacher">교사명</label><input id="teacher" type="text" placeholder="홍길동" maxlength="10" autocomplete="off">
+      <label for="cls">학급</label><select id="cls"><option value="">학급 선택</option></select>
+      <label for="subject">과목</label><input id="subject" type="text" placeholder="수학" maxlength="15" autocomplete="off">
+      <label for="date">날짜</label><input id="date" type="date">
+      <label>교시</label><div id="periods"></div>
+    </div>
+    <button id="send">신청</button>
+    <div id="msg"></div>
+  </div>
+
+  <h2>실습실 시간표</h2>
+  <div class="nav">
+    <button id="prev" aria-label="전날">◀</button>
+    <input id="vdate" type="date" aria-label="볼 날짜">
+    <button id="next" aria-label="다음날">▶</button>
+    <b id="vday"></b>
+  </div>
+  <div class="legend"><span style="background:#e9e9ee">전공 수업</span><span style="background:#fffbe0">빈 실(이용가능)</span><span style="background:#d9f2df">배정된 수업</span>확정 시간표 기준이며 교체·대강으로 옮겨진 전공 수업은 반영되지 않습니다.</div>
+  <div id="note" class="err" style="font-weight:600"></div>
+  <div class="wrap" id="grid"></div>
+
+  <h2>신청 내역</h2>
+  <div class="wrap" id="list"></div>
+
+  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 실습실 배정·이용가능 표시·모든 신청 취소를 할 수 있습니다)</div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let data = null;
+
+// 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
+let DEV = '';
+try { DEV = localStorage.getItem('dgDev') || ''; if (!DEV) { DEV = crypto.randomUUID(); localStorage.setItem('dgDev', DEV); } } catch {}
+const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': $('pw').value, ...extra });
+try { $('teacher').value = localStorage.getItem('winterTeacher') || ''; } catch {}
+
+function say(text, ok) { $('msg').textContent = text; $('msg').className = ok ? 'ok' : 'err'; }
+const dayOf = iso => { const d = new Date(iso + 'T00:00:00Z'); return isNaN(d) ? '' : '일월화수목금토'[d.getUTCDay()]; };
+const md = iso => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}(${dayOf(iso)})`;
+function addDays(iso, n) {   // 주말은 건너뛴다
+  let d = new Date(iso + 'T00:00:00Z');
+  do { d = new Date(d.getTime() + n * 864e5); } while ([0, 6].includes(d.getUTCDay()));
+  return d.toISOString().slice(0, 10);
+}
+const roomName = code => (data.rooms.find(r => r[0] === code) || ['', ''])[1];
+// 그 날짜·교시에 그 실에서 하는 전공 수업 (서버의 wBase 와 같은 규칙)
+function baseAt(room, iso, p) {
+  const sh = data.shift[iso], bp = sh ? sh[p] : p;
+  return (bp && data.base[room] && data.base[room][dayOf(iso) + bp]) || null;
+}
+const assigned = (room, iso, p) => data.reqs.find(r => r.room === room && r.date === iso && r.period === p);
+// 배정할 수 있는 실: 이용가능 표시가 있고, 그 시간에 전공 수업도 다른 배정도 없는 실
+const freeRooms = (iso, p) => data.avail.filter(c => !baseAt(c, iso, p) && !assigned(c, iso, p));
+
+async function load() {
+  try {
+    const r = await fetch('/api/winter', { cache: 'no-store', headers: H() });
+    if (!r.ok) throw new Error((await r.json()).error || r.status);
+    data = await r.json();
+    if (!$('cls').options[1]) for (const c of data.classes) $('cls').add(new Option(c, c));
+    if (!$('vdate').value) { const d0 = [0, 6].includes(new Date(data.today + 'T00:00:00Z').getUTCDay()) ? addDays(data.today, 1) : data.today; $('vdate').value = d0; $('date').value = d0; periodBoxes(); }
+    if (document.activeElement && document.activeElement.tagName === 'SELECT' && document.activeElement.closest('#list')) return;   // 배정 실을 고르는 중이면 다시 그리지 않음
+    render();
+  } catch (e) { say('불러오지 못했습니다: ' + e.message); }
+}
+
+// 신청 칸의 교시 체크박스: 고른 날짜의 요일에 맞춰 1~N교시
+function periodBoxes() {
+  const n = data ? (data.np[dayOf($('date').value)] || 0) : 0;
+  const on = new Set([...document.querySelectorAll('#periods input:checked')].map(i => i.value));
+  $('periods').innerHTML = n ? Array.from({ length: n }, (_, i) => `<label><input type="checkbox" value="${i + 1}"${on.has(String(i + 1)) ? ' checked' : ''}> ${i + 1}교시</label>`).join('')
+    : '<span class="err">월~금 날짜를 골라 주세요</span>';
+}
+$('date').addEventListener('change', periodBoxes);
+
+function render() {
+  if (!data) return;
+  const iso = $('vdate').value, day = dayOf(iso), n = data.np[day] || 0, admin = $('pw').value !== '';
+  $('vday').textContent = iso ? md(iso) : '';
+  $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 전공 수업은 옮겨진 교시로 표시했습니다.' : '';
+
+  // 실습실 시간표: 이용가능 실을 위에, 그 아래 나머지 실
+  let h = '';
+  if (!n) h = '<div style="padding:14px">수업이 없는 날입니다.</div>';
+  else {
+    h = '<table><thead><tr><th class="r">실습실</th>' + Array.from({ length: 7 }, (_, i) => `<th>${i + 1}</th>`).join('') + '</tr></thead><tbody>';
+    const rooms = [...data.rooms].sort((a, b) => data.avail.includes(b[0]) - data.avail.includes(a[0]));
+    for (const [code, name] of rooms) {
+      const ok = data.avail.includes(code);
+      h += `<tr><th class="r">${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능"> ` : ''}${code}${ok ? '<span class="badge">이용가능</span>' : ''}<small>${esc(name.replace('실습실', ''))}</small></th>`;
+      for (let p = 1; p <= 7; p++) {
+        const b = p <= n && baseAt(code, iso, p), a = p <= n && assigned(code, iso, p);
+        if (p > n) h += '<td class="out"></td>';
+        else if (b) { const [c, s, t] = b.split(' '); h += `<td class="busy">${esc(c)}<small>${esc(s)} ${esc(t)}</small></td>`; }
+        else if (a) h += `<td class="done">${esc(a.cls)}<small>${esc(a.subject)} ${esc(a.teacher)}</small></td>`;
+        else h += ok ? '<td class="free">빈 실</td>' : '<td class="na"></td>';
+      }
+      h += '</tr>';
+    }
+    h += '</tbody></table>';
+  }
+  $('grid').innerHTML = h;
+
+  // 신청 내역: 오늘 이후 전부(날짜·교시 순). 관리자는 빈 실을 골라 배정
+  const reqs = data.reqs.filter(r => r.date >= data.today);
+  if (!reqs.length) { $('list').innerHTML = '<div style="padding:14px">아직 신청이 없습니다.</div>'; return; }
+  h = '<table><thead><tr><th>날짜</th><th>교시</th><th>학급</th><th>과목</th><th>교사</th><th>배정 실습실</th><th></th></tr></thead><tbody>';
+  for (const r of reqs) {
+    let cell;
+    if (admin) {
+      const opts = freeRooms(r.date, r.period);
+      cell = `<select data-assign="${r.id}"><option value="">${r.room ? '배정 취소' : '대기 (실 선택)'}</option>`
+        + (r.room ? `<option value="${r.room}" selected>${r.room} ${esc(roomName(r.room).replace('실습실', ''))}</option>` : '')
+        + opts.map(c => `<option value="${c}">${c} ${esc(roomName(c).replace('실습실', ''))}</option>`).join('') + '</select>'
+        + (!r.room && !opts.length ? ' <small class="err">빈 실 없음</small>' : '');
+    } else cell = r.room ? `<b class="ok">${r.room} ${esc(roomName(r.room))}</b>` : '<span class="wait">배정 대기</span>';
+    h += `<tr><td>${md(r.date)}</td><td>${r.period}교시</td><td>${esc(r.cls)}</td><td>${esc(r.subject)}</td><td>${esc(r.teacher)}</td><td class="l">${cell}</td>`
+      + `<td>${r.mine || admin ? `<button class="x" data-del="${r.id}">취소</button>` : ''}</td></tr>`;
+  }
+  $('list').innerHTML = h + '</tbody></table>';
+}
+
+const api = (method, body, q = '') => fetch('/api/winter' + q, { method, headers: H({ 'Content-Type': 'application/json' }), body: body && JSON.stringify(body) })
+  .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
+
+$('send').addEventListener('click', async () => {
+  const body = { teacher: $('teacher').value.trim(), cls: $('cls').value, subject: $('subject').value.trim(), date: $('date').value,
+    periods: [...document.querySelectorAll('#periods input:checked')].map(i => Number(i.value)) };
+  // 빈 칸은 보내기 전에 바로 알려 준다 (서버도 같은 내용을 다시 확인)
+  if (!body.teacher) { say('교사명을 적어 주세요'); $('teacher').focus(); return; }
+  if (!body.cls) { say('학급을 골라 주세요'); $('cls').focus(); return; }
+  if (!body.subject) { say('과목을 적어 주세요'); $('subject').focus(); return; }
+  if (!body.periods.length) { say('교시를 하나 이상 골라 주세요'); return; }
+  $('send').disabled = true;
+  const r = await api('POST', body);
+  $('send').disabled = false;
+  if (r.ok) {
+    try { localStorage.setItem('winterTeacher', body.teacher); } catch {}
+    say(`신청되었습니다: ${md(body.date)} ${body.periods.join('·')}교시 ${body.cls} ${body.subject}`, true);
+    document.querySelectorAll('#periods input:checked').forEach(i => { i.checked = false; });
+    $('vdate').value = body.date;
+  } else say(r.error);
+  load();
+});
+
+$('list').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-del]');
+  if (!b || !confirm('이 신청을 취소할까요?')) return;
+  const r = await api('DELETE', null, '?id=' + b.dataset.del);
+  say(r.ok ? '취소했습니다' : r.error, r.ok);
+  load();
+});
+$('list').addEventListener('change', async e => {
+  const s = e.target.closest('select[data-assign]');
+  if (!s) return;
+  const r = await api('PATCH', { id: Number(s.dataset.assign), room: s.value });
+  say(r.ok ? (s.value ? `${s.value}에 배정했습니다` : '배정을 취소했습니다') : r.error, r.ok);
+  s.blur(); load();
+});
+$('grid').addEventListener('change', async e => {
+  const c = e.target.closest('input[data-avail]');
+  if (!c) return;
+  const avail = data.avail.filter(x => x !== c.dataset.avail).concat(c.checked ? [c.dataset.avail] : []);
+  const r = await api('PUT', { avail });
+  say(r.ok ? `${c.dataset.avail} 이용가능 표시를 ${c.checked ? '켰습니다' : '껐습니다'}` : r.error, r.ok);
+  load();
+});
+$('pw').addEventListener('input', render);
+$('vdate').addEventListener('change', render);
+$('prev').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, -1); render(); });
+$('next').addEventListener('click', () => { $('vdate').value = addDays($('vdate').value, 1); render(); });
+
+load();
+setInterval(load, 20000);   // 다른 선생님 신청·배정 결과가 20초마다 보이도록
+</script>
+</body>
+</html>

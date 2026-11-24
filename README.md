@@ -6,6 +6,7 @@
 - `public/index.html` — 앱. 컴퓨터의 `G:\내 드라이브\결보강 프로그램\timetable_2학기.html`과 같은 파일에 클라우드 동기화·휴대폰 화면(CSS)을 더한 것.
 - `src/worker.js` — `/api/data` GET/PUT (KV, 비밀번호 `APP_PW`). 그 밖은 정적 파일.
 - `public/dg.html` — 대강 신청 화면(https://time.uehs.workers.dev/dg). 선착순 신청은 D1 `time-dg`의 `dg` 표에 저장(같은 칸·같은 교시 중복은 DB가 막음). 칸 목록은 `src/worker.js`의 `DG`; 다음 신청 때는 `DG`를 바꾸고 `DELETE FROM dg`로 표를 비운다. `DG.closed`가 `true`이면 마감 — 신청·수정·취소 모두 관리자 비밀번호로만 되고, 다시 받을 때 `false`로 되돌린다. 마감 전 취소·수정은 신청한 기기(브라우저가 만든 임의 값 `X-Dev`, 표의 `dev` 열 — 응답으로는 내보내지 않음) 또는 화면 아래 관리자 비밀번호(APP_PW).
+- `public/winter.html` — 한파 수업 장소 이동 신청·실습실 배정 화면(https://time.uehs.workers.dev/winter). 선생님이 교사명·학급·과목·날짜·교시를 적어 신청하면 D1 `time-dg`의 `winter` 표(처음 부를 때 자동 생성)에 한 교시 한 줄로 저장된다. 화면에는 날짜별 실습실 시간표(전공 수업·빈 실·배정된 수업)가 함께 보인다. 관리자 비밀번호(APP_PW)를 넣으면 신청마다 빈 실을 골라 배정하고, 실마다 '이용가능' 표시를 켜고 끌 수 있다(KV `winterAvail`, 처음 값은 2D·3B·3C). 배정은 이용가능 표시가 있고 그 시간에 전공 수업·다른 배정이 없는 실만 된다. 전공 수업 표는 `src/worker.js`의 `W_BASE`(기본 시간표 기준 — 교체·대강으로 옮겨진 전공 수업은 반영하지 않음), 교시가 옮겨진 날은 `W_SHIFT`.
 - `wrangler.toml` — Worker 이름(time)·KV 바인딩(DATA)·D1 바인딩(DG).
 
 비밀번호는 Cloudflare 대시보드 → Worker `time` → Settings → Variables and Secrets → `APP_PW`(Secret) 로 넣는다.
@@ -13,6 +14,8 @@
 ## 올리기 전 점검
 
 `node test/check-dg.mjs` — 점검용 칸 목록을 끼운 사본으로(실제 `DG`를 바꿔도 고칠 필요 없음) 대강 신청 API(선착순·같은 교시 중복·수업 없는 칸·취소 비밀번호·동시 신청)를 node:sqlite로 확인한다.
+
+`node test/check-winter.mjs` — 한파 신청 API(잘못된 값·겹치는 신청·관리자만 배정·전공 수업이 있는 실·같은 실 중복 배정·교시가 옮겨진 날·취소 권한·동시 신청)를 node:sqlite로 확인한다. `node test/check-winter-page.mjs` — 화면에서 신청 → 관리자 배정 → 시간표 반영까지와 폰 폭을 확인한다(playwright 필요).
 
 `node test/check-dg-phone.mjs` — 대강 신청 화면이 날짜별 표로 나뉘어 폰 폭(360·390px)에서도 옆으로 넘기지 않고 다 보이는지 확인한다(playwright 필요).
 
