@@ -179,9 +179,13 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; }); await page.click('#printMine');
   v = await page.evaluate(() => ({ n: window.__printed, h1: document.querySelector('#printArea h1').textContent, ps: [...document.querySelectorAll('#printArea p')].map(p => p.textContent), all: document.getElementById('printArea').textContent, rows: [...document.querySelectorAll('#printArea table.big tbody tr')].map(tr => tr.textContent), grid: document.querySelectorAll('#printArea table:not(.big) td.mv').length, shown: getComputedStyle(document.getElementById('printArea')).display }));
   ok('"교실 안내용 인쇄": 인쇄 창을 부르고, 안내문에 옮긴 수업 3줄(요일·교시·학급·과목·층과 실 이름·시작일)과 주간 시간표, 화면에는 안 보임', v.n === 1 && v.h1 === '수업 장소 변경 안내' && v.ps.join('|') === '성준혁 선생님 11/25(수)부터 수업은 아래 장소에서 합니다.|반장은 쉬는 시간에 학과 사무실에서 열쇠를 받아 수업 시작 종이 울리기 전에 문을 열어주세요.' && !v.all.includes('한파') && v.rows.length === 3 && v.rows.some(r => r === '수요일 4교시1신1과학3층 자동화설비실습실 (3C)11/25(수)부터') && v.grid === 3 && v.shown === 'none', v);
-  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#xlsMine')]); const csv = await page.evaluate(() => csvMine());
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#xlsMine')]);
+  // 내려받은 xlsx(압축 없이 묶은 zip)를 그대로 읽어 본다: 열 너비·월/일 시작일·한글 내용
   // (이 점검 환경의 크롬은 한글 파일 이름을 'download' 로만 알려 줘서 파일 이름은 확인하지 않는다)
-  ok('"엑셀로 받기": 파일이 내려받아지고 내용은 제목 줄 + 3줄(한글 깨짐 방지 BOM)', !!dl && csv.charCodeAt(0) === 0xFEFF && csv.trim().split('\r\n').length === 4 && csv.includes('"성준혁","수","4","1신1","과학","3C","자동화설비실습실","3층","2026-11-25"'), [dl.suggestedFilename(), csv.charCodeAt(0), csv.trim().split('\r\n').length]);
+  const xb = fs.readFileSync(await dl.path()), xt = xb.toString('utf8'), ws = [...xt.matchAll(/<col min="(\d+)" max="\d+" width="([\d.]+)"/g)].map(m => Number(m[2]));
+  if (process.env.SHOT) fs.writeFileSync(process.env.SHOT + '.xlsx', xb);
+  ok('"엑셀로 받기": xlsx 파일(PK…)이 내려받아지고 제목 줄 + 3줄, 시작일은 "11/25", 열 너비는 글자 수에 맞게(교시 열 좁게, 실습실 이름 열 넓게, 모두 30 미만)',
+    xb[0] === 0x50 && xb[1] === 0x4B && (xt.match(/<row /g) || []).length === 4 && xt.includes('<t>11/25</t>') && !xt.includes('2026-11-25') && xt.includes('<t>자동화설비실습실</t>') && ws.length === 9 && ws[2] < 8 && ws[6] > ws[2] * 2 && Math.max(...ws) < 30, ws);
   for (const k of two) { await page.click(`#mytt button[data-slot="${k}"]`); await page.click('#pop button[data-cancel]'); await page.waitForFunction(k => !document.querySelector(`#mytt button[data-slot="${k}"]`).classList.contains('req'), k); }
   await page.click('#mytt button[data-slot="수4"]'); v = await popState();
   ok('신청한 칸을 다시 누르면 지금 고른 실(3C)이 표시되고 남은 빈 실(2D·3B)로 바꿀 수 있음', v.list === '3C*,2D,3B' && v.plan === '2D,3B' && v.text.includes('지금 고른 실: 3C') && v.text.includes('이 수업 신청 취소'), v);
