@@ -883,6 +883,7 @@ $('adminForm').addEventListener('submit', async e => {
   e.preventDefault();
   const v = $('pw').value;
   if (!v) { $('adminMsg').textContent = '비밀번호를 입력해 주세요'; $('pw').focus(); return; }
+  if (/[^\x20-\x7E]/.test(v)) { $('adminMsg').textContent = '비밀번호가 맞지 않습니다 (한/영 키를 확인해 주세요)'; $('pw').select(); return; }   // 한글이 섞이면 서버에 보낼 수도 없다
   PW = v; $('adminMsg').textContent = ''; $('login').disabled = true;
   await load();
   $('login').disabled = false;

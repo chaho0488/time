@@ -31,7 +31,11 @@
   .e { margin-top: 4px; font-size: .8rem; color: #5B3FA8; background: none; border: 1px solid #5B3FA8; border-radius: 4px; cursor: pointer; }
   .x { margin-top: 4px; font-size: .8rem; color: #c62828; background: none; border: 1px solid #c62828; border-radius: 4px; cursor: pointer; }
   .admin { margin-top: 16px; font-size: .85rem; color: #777; }
-  .admin input { width: 9em; }
+  .admin input { width: 9em; padding: 6px 8px; }
+  .admin span[hidden] { display: none; }
+  #login, #logout { padding: 6px 12px; font-size: .85rem; font-weight: 700; border: 0; border-radius: 6px; background: #5B3FA8; color: #fff; cursor: pointer; }
+  #logout { background: #fff; color: #5B3FA8; border: 1px solid #5B3FA8; }
+  #adminMsg { font-weight: 700; }
   .arow { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: .9rem; }
   .arow input { padding: 6px 8px; font-size: .95rem; border: 1px solid #999; border-radius: 6px; } #dT { width: 10em; }
   #adminBox button { padding: 6px 12px; font-size: .9rem; border: 1px solid #5B3FA8; border-radius: 6px; background: #fff; color: #5B3FA8; cursor: pointer; font-weight: 600; }
@@ -70,7 +74,12 @@
     <div id="msg"></div>
   </div>
   <div id="tbl"></div>
-  <div class="admin">관리자: <input id="pw" type="password" placeholder="비밀번호"> (입력하면 모든 칸에 신청·수정·취소 단추가 보입니다)</div>
+  <!-- 관리자 로그인: 단추를 눌러 서버가 비밀번호를 확인해 준 뒤에만 관리자 화면이 된다(입력이 됐는지 알 수 있게) -->
+  <form class="admin" id="adminForm">관리자:
+    <span id="adminIn"><input id="pw" type="password" placeholder="관리자 비밀번호" autocomplete="off" aria-label="관리자 비밀번호"> <button id="login">관리자 로그인</button></span>
+    <span id="adminOn" hidden><b class="ok">관리자 로그인됨</b> <button type="button" id="logout">로그아웃</button> (모든 칸에 신청·수정·취소 단추가 보입니다)</span>
+    <span id="adminMsg" class="err" role="alert"></span>
+  </form>
   <!-- 관리자 전용(비밀번호가 맞을 때만 보임): 날짜와 결강 교사를 고르면 그날 수업 칸이 자동으로 만들어진다 -->
   <div class="box" id="adminBox" hidden>
     <b>관리자: 대강 표 만들기</b>
@@ -92,13 +101,27 @@ let data = null;
 // 이 기기 표시: 처음 열 때 한 번 만들어 두고, 신청·취소·수정 때 함께 보내 '내 신청'을 알아본다
 let DEV = '';
 try { DEV = localStorage.getItem('dgDev') || ''; if (!DEV) { DEV = crypto.randomUUID(); localStorage.setItem('dgDev', DEV); } } catch {}
-const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': $('pw').value, ...extra });   // 비밀번호를 함께 보내면 서버가 관리자인지 알려 준다
+// 관리자 비밀번호: '관리자 로그인'을 눌러 서버가 맞다고 한 값만 쓴다. 이 탭을 닫을 때까지 기억
+let PW = '';
+try { PW = sessionStorage.getItem('dgPw') || ''; } catch {}
+const H = (extra = {}) => ({ 'X-Dev': DEV, 'X-Pw': PW, ...extra });
 
 // 이름-과목은 이 기기에 기억해 두어 다시 열어도 그대로
 try { $('me').value = localStorage.getItem('dgMe') || ''; } catch {}
 $('me').addEventListener('input', () => { try { localStorage.setItem('dgMe', $('me').value); } catch {} });
-let pwT = 0;
-$('pw').addEventListener('input', () => { render(); clearTimeout(pwT); pwT = setTimeout(load, 400); });   // 비밀번호를 다 치면 서버에 관리자인지 확인
+$('adminForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = $('pw').value, m = $('adminMsg');
+  if (!v) { m.textContent = '비밀번호를 입력해 주세요'; $('pw').focus(); return; }
+  if (/[^\x20-\x7E]/.test(v)) { $('adminMsg').textContent = '비밀번호가 맞지 않습니다 (한/영 키를 확인해 주세요)'; $('pw').select(); return; }   // 한글이 섞이면 서버에 보낼 수도 없다
+  m.textContent = '';
+  const r = await fetch('/api/dg', { cache: 'no-store', headers: { 'X-Dev': DEV, 'X-Pw': v } }).then(r => r.json()).catch(() => null);
+  if (!r) { m.textContent = '인터넷 연결을 확인해 주세요'; return; }
+  if (!r.admin) { m.textContent = '비밀번호가 맞지 않습니다'; $('pw').select(); return; }
+  PW = v; try { sessionStorage.setItem('dgPw', v); } catch {}
+  $('pw').value = ''; data = r; render();
+});
+$('logout').addEventListener('click', () => { PW = ''; try { sessionStorage.removeItem('dgPw'); } catch {} load(); });
 
 function say(text, ok) { $('msg').textContent = text; $('msg').className = ok ? 'ok' : 'err'; }
 
@@ -116,7 +139,8 @@ function render() {
   $('title').textContent = data.title;
   document.title = data.title;
   const got = Object.fromEntries(data.signups.map(s => [s.slot, s]));
-  const admin = $('pw').value !== '';
+  const admin = !!data.admin;   // 서버가 확인해 준 관리자만
+  $('adminIn').hidden = admin; $('adminOn').hidden = !admin;
   const locked = data.closed && !admin;   // 마감 뒤에는 관리자만 단추가 보인다 (서버도 같은 규칙으로 막음)
   $('closed').hidden = !data.closed;
   renderAdmin();
@@ -197,19 +221,19 @@ $('tbl').addEventListener('click', async e => {
     const cls = data.rows.find(r => r[0] === t)[1][col];
     if (!confirm(`${colName} ${t} ${cls}\n→ ${me} (으)로 신청할까요?`)) return;
     b.disabled = true;
-    const r = await fetch('/api/dg', { method: 'POST', headers: H({ 'Content-Type': 'application/json', 'X-Pw': $('pw').value }), body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
+    const r = await fetch('/api/dg', { method: 'POST', headers: H({ 'Content-Type': 'application/json'}), body: JSON.stringify({ slot: b.dataset.slot, label: me }) })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
     say(r.ok ? `신청되었습니다: ${colName} ${t} ${cls} → ${r.label}` : r.error, r.ok);
   } else if (b.dataset.edit) {
     const old = data.signups.find(s => s.slot === b.dataset.edit).label;
     const label = prompt('이름-과목을 고쳐 적어 주세요 (신청 순서는 그대로입니다)', old);
     if (label === null || label.trim() === old) return;
-    const r = await fetch('/api/dg', { method: 'PATCH', headers: H({ 'Content-Type': 'application/json', 'X-Pw': $('pw').value }), body: JSON.stringify({ slot: b.dataset.edit, label }) })
+    const r = await fetch('/api/dg', { method: 'PATCH', headers: H({ 'Content-Type': 'application/json'}), body: JSON.stringify({ slot: b.dataset.edit, label }) })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
     say(r.ok ? `수정했습니다: ${r.label}` : r.error, r.ok);
   } else if (b.dataset.del) {
     if (!confirm('이 신청을 취소할까요?')) return;
-    const r = await fetch('/api/dg?slot=' + encodeURIComponent(b.dataset.del), { method: 'DELETE', headers: H({ 'X-Pw': $('pw').value }) })
+    const r = await fetch('/api/dg?slot=' + encodeURIComponent(b.dataset.del), { method: 'DELETE', headers: H() })
       .then(r => r.json()).catch(() => ({ error: '인터넷 연결을 확인해 주세요' }));
     say(r.ok ? '취소했습니다' : r.error, r.ok);
   }
