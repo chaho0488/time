@@ -67,7 +67,12 @@
   .legend span::before { content: ""; display: inline-block; width: .9em; height: .9em; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); border: 1px solid var(--line); }
   .fine { font-size: .82rem; color: var(--sub); margin: 0 0 12px; }
   #note { font-weight: 700; margin-bottom: 8px; }
-  #grid { display: grid; gap: 10px; }
+  #grid { display: grid; gap: 8px; }
+  /* 층별 묶음 제목 */
+  .floor { display: flex; align-items: center; gap: 10px; font-size: 1.1rem; font-weight: 800; margin: 18px 0 2px; padding-bottom: 6px; border-bottom: 2px solid var(--ink); }
+  .floor:first-child { margin-top: 4px; }
+  .floor span { font-size: .82rem; font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 999px; padding: 2px 10px; }
+  .more { margin-left: auto; font-size: .82rem; font-weight: 700; color: var(--frost-ink); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; }
   .room { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px 14px; }
   .room.open { border: 2px solid var(--warm); }
   .room header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -90,7 +95,8 @@
   .strip li.out { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }       /* 그 요일에 없는 교시 */
   /* 수업 불가 실: 줄 전체를 회색으로 닫고 낮게 */
   .room.closed { background: var(--frost); border-color: var(--frost); padding: 9px 14px 10px; }
-  .room.closed header { margin-bottom: 6px; }
+  .room.closed header { margin-bottom: 0; }
+  .room.closed .strip { margin-top: 8px; }
   .room.closed .code { background: var(--frost-ink); }
   .room.closed .rname { color: var(--frost-ink); font-size: 1rem; }
   .room.closed .strip li { background: #D8DEE7; min-height: 2.9em; color: var(--frost-ink); }
@@ -191,6 +197,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const DAYS = ['월', '화', '수', '목', '금'], NP = { 월: 6, 화: 7, 수: 7, 목: 7, 금: 5 };   // 요일별 교시 수
 let data = null, me = '';          // me = 고른 교사
 let openCell = '';                 // 관리자가 누른 빈 실 칸('실|요일교시')
+const shown = new Set();           // 수업 불가 실 중 시간표를 펼쳐 둔 실
 const picked = new Set();          // 내 시간표에서 고른 칸(요일교시)
 
 // 이 기기 표시: 내 신청(취소 단추)을 알아보는 데 쓴다. 대강 신청(/dg)과 같은 값을 쓴다
@@ -309,16 +316,22 @@ function render() {
   $('adminHint').hidden = !admin; if (!admin) openCell = '';
   $('note').textContent = data.shift[iso] ? '⚠ 교시가 옮겨진 날입니다. 수업은 옮겨진 교시로 표시했습니다.' : '';
 
-  // 실습실 시간표: 실마다 이름 한 줄 + 1~7교시 한 줄. 이용가능 실 → 전용실(음악실) → 수업 불가 실 순서
+  // 실습실 시간표: 층별로 묶고, 실마다 이름 한 줄 + 1~7교시 한 줄. 수업 불가 실은 이름 한 줄로 접어 두고 누르면 펼침
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
   else {
-    const rank = c => (availOn(c, iso) ? 2 : data.fixed[c] ? 1 : 0);
-    const rooms = [...data.rooms].sort((a, b) => rank(b[0]) - rank(a[0]));
-    for (const [code, name] of rooms) {
+    let floor = '';
+    for (const [code, name] of data.rooms) {   // 실 코드 순 = 층 순
+      if (code[0] !== floor) {
+        floor = code[0];
+        const cnt = data.rooms.filter(r => r[0][0] === floor && availOn(r[0], iso)).length;
+        h += `<h3 class="floor">${floor}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3>`;
+      }
       const ok = availOn(code, iso), from = data.avail[code], fix = data.fixed[code], shut = !ok && !fix;
       const tag = ok ? '<span class="badge">이용가능</span>' : fix ? `<span class="badge fix">${esc(fix)}</span>` : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : '수업 불가'}</span>`;
-      h += `<section class="room${shut ? ' closed' : ok ? ' open' : ''}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}</header><ol class="strip">`;
+      h += `<section class="room${shut ? ' closed' : ok ? ' open' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${tag}${shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
+      if (shut && !shown.has(code)) { h += '</section>'; continue; }   // 접힌 수업 불가 실
+      h += '<ol class="strip">';
       for (let p = 1; p <= 7; p++) {
         const slot = p <= n && slotAt(iso, p), no = `<i>${p}</i>`;
         const b = slot && data.base[code] && data.base[code][slot];
@@ -406,7 +419,8 @@ $('grid').addEventListener('change', async e => {
 });
 // 관리자: 빈 실 칸을 누르면 아래에 신청 목록, 신청을 누르면 그 실에 배정
 $('grid').addEventListener('click', async e => {
-  const f = e.target.closest('button[data-free]'), p = e.target.closest('button[data-put]');
+  const f = e.target.closest('button[data-free]'), p = e.target.closest('button[data-put]'), m = e.target.closest('button[data-more]');
+  if (m) { const c = m.dataset.more; if (shown.has(c)) shown.delete(c); else shown.add(c); render(); return; }
   if (f) { openCell = openCell === f.dataset.free ? '' : f.dataset.free; render(); return; }
   if (!p) return;
   if (!p.dataset.put) { openCell = ''; render(); return; }
