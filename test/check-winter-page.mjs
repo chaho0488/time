@@ -128,23 +128,23 @@ ok('이름을 고르면 그 교사의 시간표가 나옴 (수3 = 1신3 과학)'
 ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치지 않음', !(s = await over()).length, s);
 // 수업 칸을 누르면 실 고르기 창: 그 시간에 비어 있는 실 목록 + 그 층 배치도, 실을 누르면 바로 신청
 { const popState = () => page.evaluate(() => { const p = document.getElementById('pop'); return { open: !p.hidden, title: document.getElementById('popTitle').textContent, text: document.getElementById('popBody').textContent,
-    list: [...p.querySelectorAll('.rooms button')].map(b => b.dataset.room + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')).join(), plan: [...p.querySelectorAll('.plan .pr:not(:disabled)')].map(b => b.dataset.room).sort().join(),
+    list: [...p.querySelectorAll('.plan .pr[aria-pressed=true]')].map(b => b.dataset.room + '*').concat([...p.querySelectorAll('.plan .pr:not(:disabled)')].map(b => b.dataset.room).sort()).join(), noList: !p.querySelector('.rooms'), fit: document.getElementById('popBody').scrollHeight <= document.getElementById('popBody').clientHeight + 1, plan: [...p.querySelectorAll('.plan .pr:not(:disabled)')].map(b => b.dataset.room).sort().join(),
     floors: [...p.querySelectorAll('.pfl')].map(e => e.textContent).join(), inView: p.getBoundingClientRect().left >= 0 && p.getBoundingClientRect().right <= innerWidth + 1 }; });
   const cellText = k => page.evaluate(k => { const b = document.querySelector(`#mytt button[data-slot="${k}"]`); return b.textContent + '/' + b.className.trim(); }, k);
   ok('수업 칸을 누르기 전에는 창이 없음', !(await popState()).open);
   await page.click('#mytt button[data-slot="수3"]'); let v = await popState();
   ok('수3(세 실 모두 전공 수업): 창에 "비어 있는 실습실이 없습니다", 고를 실 없음', v.open && v.title === '수요일 3교시 · 1신3 과학' && v.text.includes('비어 있는 실습실이 없습니다') && v.list === '' && v.plan === '', v);
   await page.click('#mytt button[data-slot="수4"]'); v = await popState();
-  ok('수4: 창에 빈 실 2D·3B·3C 목록과 그 실이 있는 3층·2층 배치도(같은 세 곳만 눌림), 화면 안에 들어옴', v.open && v.title === '수요일 4교시 · 1신1 과학' && v.list === '2D,3B,3C' && v.plan === '2D,3B,3C' && v.floors === '3층,2층' && v.inView && v.text.includes('11/25(수)부터'), v);
+  ok('수4: 창에 빈 실 2D·3B·3C 목록과 그 실이 있는 3층·2층 배치도(같은 세 곳만 눌림), 화면 안에 들어옴', v.open && v.title === '수요일 4교시 · 1신1 과학' && v.list === '2D,3B,3C' && v.noList && v.fit && v.plan === '2D,3B,3C' && v.floors === '3층,2층' && v.inView && v.text.includes('11/25(수)부터'), v);
   // 아직 안 열린 실(3C 를 11/27부터로 바꿔 봄)은 11/25 시작 신청에서는 고를 수 없음(목록에 없고 배치도에서도 꺼짐)
   { const put = avail => worker.fetch(new Request('https://x/api/winter', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Pw': 'pw' }, body: JSON.stringify({ avail }) }), env);
-    await put({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-27' }); await page.evaluate(() => load()); await page.waitForFunction(() => !document.querySelector('#pop .rooms button[data-room="3C"]'));
+    await put({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-27' }); await page.evaluate(() => load()); await page.waitForFunction(() => document.querySelector('#pop .plan .pr[data-room="3C"]').disabled);
     v = await popState(); const off = await page.evaluate(() => document.querySelector('#pop .plan .pr[data-room="3C"]').disabled);
     ok('11/27부터 열리는 3C 는 11/25 시작 신청에서 고를 수 없음(2D·3B 만)', v.list === '2D,3B' && v.plan === '2D,3B' && off, v);
     await page.fill('#from', '2026-11-27'); await page.dispatchEvent('#from', 'change'); v = await popState();
     ok('시작일을 11/27 로 바꾸면 3C 도 고를 수 있음', v.list === '2D,3B,3C', v);
     await page.fill('#from', '2026-11-25'); await page.dispatchEvent('#from', 'change');
-    await put({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' }); await page.evaluate(() => load()); await page.waitForFunction(() => !!document.querySelector('#pop .rooms button[data-room="3C"]')); }
+    await put({ '2D': '2026-11-25', '3B': '2026-11-25', '3C': '2026-11-25' }); await page.evaluate(() => load()); await page.waitForFunction(() => !document.querySelector('#pop .plan .pr[data-room="3C"]').disabled); }
   // 창 옮기기: 제목 줄을 끌면 따라옴
   const at = () => page.evaluate(() => { const r = document.getElementById('pop').getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top)]; });
   await page.setViewportSize({ width: 1100, height: 900 }); const p0 = await at(), hb = await page.locator('#popHead').boundingBox();
@@ -153,16 +153,16 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   await page.setViewportSize({ width: 390, height: 800 });
   await page.keyboard.press('Escape'); ok('Esc 로 창이 닫힘', !(await popState()).open);
   await page.click('#mytt button[data-slot="수4"]'); await page.click('#pop .plan .pr[data-room="3C"]');
-  await page.waitForFunction(() => document.getElementById('msg').textContent.includes('3C') && !!document.querySelector('#pop input[data-more]'));
+  await page.waitForFunction(() => document.getElementById('msg').textContent.includes('3C') && !!document.querySelector('#pop button[data-more]'));
   v = { msg: await page.textContent('#msg'), cell: await cellText('수4'), room: (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.map(r => r.slot + r.cls + r.room).join() };
   ok('배치도에서 3C 를 누르면 바로 신청되고, 내 시간표 칸은 초록색 "3C"', v.msg === '수요일 4교시 1신1 → 3C 신청되었습니다' && v.cell === '1신13C/req' && v.room === '수41신13C', v);
   // 고른 실이 내 다른 수업 시간에도 비어 있으면 알려 주고 함께 신청
   const g0 = await (await worker.fetch(new Request('https://x/api/winter'), env)).json();
   const want = Object.keys(g0.tt['성준혁']).filter(k => k !== '수4' && g0.tt['성준혁'][k].endsWith('|') && !g0.base['3C'][k]).sort();
-  v = await page.evaluate(() => ({ title: document.getElementById('popTitle').textContent, ks: [...document.querySelectorAll('#pop input[data-more]')].map(c => c.dataset.more), text: document.getElementById('popBody').textContent }));
+  v = await page.evaluate(() => ({ title: document.getElementById('popTitle').textContent, ks: [...document.querySelectorAll('#pop button[data-more]')].map(c => c.dataset.more), text: document.getElementById('popBody').textContent }));
   ok('신청 뒤 "3C … 다른 시간에도 비어 있습니다" 창: 3C 가 비는 내 다른 수업(전공 수업 시간·이미 신청한 칸 제외)이 모두 나옴', v.title.startsWith('3C 자동화설비') && v.title.includes('다른 시간에도 비어 있습니다') && [...v.ks].sort().join() === want.join() && want.length >= 2, { v, want });
   await page.click('#moreSend'); ok('아무것도 고르지 않고 누르면 안내', (await page.textContent('#popMsg')) === '함께 신청할 수업을 골라 주세요');
-  const two = v.ks.slice(0, 2); for (const k of two) await page.check(`#pop input[data-more="${k}"]`);
+  const two = v.ks.slice(0, 2); for (const k of two) await page.click(`#pop button[data-more="${k}"]`);
   await page.click('#moreSend'); await page.waitForFunction(() => document.getElementById('msg').textContent.includes('함께 신청'));
   v = { msg: await page.textContent('#msg'), open: (await popState()).open, cells: [await cellText(two[0]), await cellText(two[1])], mine: await page.evaluate(() => document.querySelector('#mytt .mine').textContent) };
   ok('고른 2건이 같은 실(3C)로 함께 신청되고 창이 닫힘, 시간표 아래에 "실습실에서 하는 수업 3건"과 인쇄·엑셀 단추', v.msg === '2건을 3C(으)로 함께 신청했습니다' && !v.open && v.cells.every(c => c.endsWith('3C/req')) && v.mine.includes('실습실에서 하는 수업 3건') && v.mine.includes('3C 자동화설비실습실 (3층, 11/25(수)부터)') && v.mine.includes('교실 안내용 인쇄') && v.mine.includes('엑셀로 받기'), v);
@@ -176,8 +176,8 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   for (const k of two) { await page.click(`#mytt button[data-slot="${k}"]`); await page.click('#pop button[data-cancel]'); await page.waitForFunction(k => !document.querySelector(`#mytt button[data-slot="${k}"]`).classList.contains('req'), k); }
   await page.click('#mytt button[data-slot="수4"]'); v = await popState();
   ok('신청한 칸을 다시 누르면 지금 고른 실(3C)이 표시되고 남은 빈 실(2D·3B)로 바꿀 수 있음', v.list === '3C*,2D,3B' && v.plan === '2D,3B' && v.text.includes('지금 고른 실: 3C') && v.text.includes('이 수업 신청 취소'), v);
-  await page.click('#pop .rooms button[data-room="2D"]'); await page.waitForFunction(() => document.getElementById('msg').textContent.includes('2D') && !!document.getElementById('moreNo'));
-  ok('목록에서 2D 를 누르면 실이 바뀜', (await page.textContent('#msg')) === '수요일 4교시 1신1 → 2D (으)로 바꿨습니다' && (await cellText('수4')) === '1신12D/req');
+  await page.click('#pop .plan .pr[data-room="2D"]'); await page.waitForFunction(() => document.getElementById('msg').textContent.includes('2D') && !!document.getElementById('moreNo'));
+  ok('배치도에서 2D 를 누르면 실이 바뀜', (await page.textContent('#msg')) === '수요일 4교시 1신1 → 2D (으)로 바꿨습니다' && (await cellText('수4')) === '1신12D/req');
   await page.click('#moreNo'); ok('"닫기"를 누르면 다른 시간 안내 창이 닫힘', !(await popState()).open);
   await page.click('#mytt button[data-slot="수4"]'); await page.click('#pop button[data-cancel]'); await page.waitForFunction(() => document.getElementById('msg').textContent === '신청을 취소했습니다');
   ok('창에서 "이 수업 신청 취소"를 누르면 취소되고 칸이 원래대로', (await cellText('수4')) === '1신1과학/' && !(await popState()).open && (await page.locator('#list tr.g').count()) === 0); }
