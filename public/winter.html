@@ -361,6 +361,7 @@ const shown = new Set();           // 층별 표에서 시간표를 펼쳐 둔 �
 let sel = '';                      // 배치도에서 누른 실(그 실의 시간표를 배치도 아래에 보여 준다)
 let openReq = '';                  // 신청 내역에서 '자세히'를 펼친 줄('교사|과목')
 let sortBy = 'teacher', sortDir = 1;   // 신청 내역 정렬: 교사·과목·학반, 오름(1)/내림(-1)
+let dSort = 'slot', dDir = 1;       // '자세히' 목록 정렬: 일자(from)·교시(slot)·학급(cls)
 const picks = new Set();           // 신청 내역에서 한 번에 취소하려고 고른 줄('교사|과목')
 // 배치도 칸에 쓰는 줄인 실 이름(좁은 화면에서도 보이게)
 const SHORT = { '1A': '공유압1', '1B': '내선공사1', '1C': '내선공사2', '1D': '설비보전', '2A': '공유압2', '2B': '동력설비', '2C': '반도체', '2D': '송변전', '2E': '자동제어', '2F': '전기기기', '2G': 'CAD1', '2X': '생산자동화1', '2Y': '생산자동화2',
@@ -758,11 +759,11 @@ function render() {
   for (const r of reqs) { const k = r.teacher; if (!groups.has(k))   /* 교사 한 명이 한 줄(과목·학년이 달라도 나누지 않음) */ groups.set(k, []); groups.get(k).push(r); }
   const clsKey = c => c[0] + (c[1] === '전' ? 0 : 1) + c.slice(2);   // 학년 → 전기반 → 신재생반 순
   const list = [...groups].map(([k, rows]) => ({ k, rows, teacher: rows[0].teacher, subject: [...new Set(rows.map(r => r.subject))].join(', '),
-    cls: [...new Set(rows.map(r => r.cls))].sort((a, b) => clsKey(a).localeCompare(clsKey(b))), can: admin }));   // can = 골라서 한 번에 취소(관리자만)
+    cls: [...new Set(rows.map(r => r.cls))].sort((a, b) => clsKey(a).localeCompare(clsKey(b))), can: admin || rows.some(r => r.mine) }));   // can = 골라서 한 번에 취소(관리자는 전부, 선생님은 이 기기에서 한 본인 신청만)
   const sortVal = g => (sortBy === 'cls' ? clsKey(g.cls[0]) : g[sortBy]);
   list.sort((a, b) => sortDir * sortVal(a).localeCompare(sortVal(b), 'ko') || a.teacher.localeCompare(b.teacher, 'ko'));
   for (const k of [...picks]) if (!list.some(g => g.k === k && g.can)) picks.delete(k);   // 없어졌거나 취소할 수 없게 된 줄은 선택에서 뺌
-  const canAny = list.filter(g => g.can), nPick = list.filter(g => picks.has(g.k)).reduce((t, g) => t + g.rows.length, 0);
+  const canAny = list.filter(g => g.can), nPick = list.filter(g => picks.has(g.k)).reduce((t, g) => t + g.rows.filter(r => admin || r.mine).length, 0);
   const th = (key, label) => `<th aria-sort="${sortBy === key ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sort" data-sort="${key}">${label}<span aria-hidden="true">${sortBy === key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</span></button></th>`;
   h = (canAny.length ? `<div class="bulk"><button type="button" id="bulkDel"${nPick ? '' : ' disabled'}>선택한 신청 취소${nPick ? ` (${nPick}건)` : ''}</button></div>` : '')
     + `<table class="sum"><thead><tr><th class="ck">${canAny.length ? `<input type="checkbox" id="pickAllReq" aria-label="취소할 수 있는 신청 모두 선택"${canAny.every(g => picks.has(g.k)) ? ' checked' : ''}>` : ''}</th>${th('teacher', '교사')}${th('subject', '과목')}${th('cls', '학반')}<th></th></tr></thead><tbody>`;
@@ -771,8 +772,11 @@ function render() {
     h += `<tr class="g"><td class="ck">${g.can ? `<input type="checkbox" data-pick="${esc(g.k)}" aria-label="${esc(g.teacher)} ${esc(g.subject)} 신청 선택"${picks.has(g.k) ? ' checked' : ''}>` : ''}</td><td>${esc(g.teacher)}</td><td>${esc(g.subject)}</td><td class="l">${g.cls.map(esc).join(', ')}</td>`
       + `<td><button type="button" class="more" data-open="${esc(g.k)}" aria-expanded="${open}">${open ? '접기' : '자세히'}</button></td></tr>`;
     if (!open) continue;
-    h += '<tr class="d"><td colspan="5"><table><tbody>';
-    for (const r of g.rows) {
+    const dth = (key, label) => `<th aria-sort="${dSort === key ? (dDir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sort" data-dsort="${key}">${label}<span aria-hidden="true">${dSort === key ? (dDir > 0 ? ' ▲' : ' ▼') : ''}</span></button></th>`;
+    const dVal = r => (dSort === 'from' ? r.from : dSort === 'cls' ? clsKey(r.cls) : String(100 + slotOrder(r.slot)));
+    const rows = [...g.rows].sort((a, b) => dDir * dVal(a).localeCompare(dVal(b)) || slotOrder(a.slot) - slotOrder(b.slot));   // 같으면 요일·교시 순
+    h += `<tr class="d"><td colspan="5"><table><thead><tr>${dth('slot', '교시')}${dth('cls', '학급')}${dth('from', '일자')}<th></th><th></th></tr></thead><tbody>`;
+    for (const r of rows) {
       let cell;
       if (admin || r.mine) {   // 실은 신청한 선생님이 직접 고른다(관리자도 가능)
         const opts = freeRooms(r.slot).filter(c => canUse(c, r.from));
@@ -864,9 +868,11 @@ async function cancelIds(ids) {
 $('list').addEventListener('click', async e => {
   const o = e.target.closest('button[data-open]'), so = e.target.closest('button[data-sort]');
   if (o) { openReq = openReq === o.dataset.open ? '' : o.dataset.open; render(); return; }
+  const ds = e.target.closest('button[data-dsort]');
+  if (ds) { if (dSort === ds.dataset.dsort) dDir = -dDir; else { dSort = ds.dataset.dsort; dDir = 1; } render(); return; }
   if (so) { if (sortBy === so.dataset.sort) sortDir = -sortDir; else { sortBy = so.dataset.sort; sortDir = 1; } render(); return; }
   if (e.target.closest('#bulkDel')) {   // 고른 줄의 신청을 한 번에 취소
-    const ids = data.reqs.filter(r => picks.has(r.teacher)).map(r => r.id);
+    const ids = data.reqs.filter(r => picks.has(r.teacher) && (data.admin || r.mine)).map(r => r.id);
     if (!ids.length || !confirm(`선택한 신청 ${ids.length}건을 모두 취소할까요?`)) return;
     picks.clear();
     const { done, err } = await cancelIds(ids);

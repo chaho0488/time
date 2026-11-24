@@ -241,7 +241,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   if (!r.ok) console.log('점검용 신청 실패', r);
   await page.evaluate(() => load()); await showList(); await page.waitForSelector('#list table'); }
 let sum = await page.evaluate(() => ({ head: [...document.querySelectorAll('#list table.sum > thead th')].map(t => t.textContent.trim()).join('|'), rows: [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].map(c => c.textContent).join('|')), detail: document.querySelectorAll('#list tr.d').length }));
-ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역은 접혀 있음), 선생님 화면에는 선택 칸·일괄 취소 단추가 없음', sum.head === '|교사 ▲|과목|학반|' && sum.rows.join() === '|성준혁|과학|1신1, 1신3|자세히' && sum.detail === 0 && !(await page.locator('#bulkDel, #list input[type=checkbox]').count()), sum);
+ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역은 접혀 있음), 이 기기에서 한 내 신청 줄에는 선생님도 선택 칸·일괄 취소 단추가 있음', sum.head === '|교사 ▲|과목|학반|' && sum.rows.join() === '|성준혁|과학|1신1, 1신3|자세히' && sum.detail === 0 && (await page.locator('#bulkDel').count()) === 1 && (await page.locator('#list input[data-pick]').count()) === 1, sum);
 await showList(); await page.click('#list button[data-open]');
 s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent, rows: [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => [...tr.cells].map(c => c.textContent).join('|')),
   req: [...document.querySelectorAll('#mytt button.req')].map(td => td.textContent), del: document.querySelectorAll('#list button[data-del]').length, sel: document.querySelectorAll('#list select').length }));
@@ -269,7 +269,7 @@ ok('맨 위에 "관리자 로그인" 단추가 있음', s.btn === '관리자 로
 await page.click('#login');
 ok('비밀번호 없이 누르면 "비밀번호를 입력해 주세요"', (await page.textContent('#adminMsg')) === '비밀번호를 입력해 주세요');
 await page.fill('#pw', '틀림'); await page.click('#login'); await page.waitForFunction(() => document.getElementById('adminMsg').textContent.includes('맞지'));
-ok('틀린 비밀번호: "비밀번호가 맞지 않습니다", 관리자 화면은 열리지 않음', (await page.locator('#bulkDel').count()) === 0 && (await page.evaluate(() => document.getElementById('adminOn').hidden)));
+ok('틀린 비밀번호: "비밀번호가 맞지 않습니다", 관리자 화면은 열리지 않음', (await page.evaluate(() => document.getElementById('adminOn').hidden && document.getElementById('adminHint').hidden)));
 await login();
 s = await page.evaluate(() => ({ on: document.getElementById('adminOn').textContent, inHidden: !document.getElementById('adminIn').offsetParent && !document.getElementById('login').offsetParent && !!document.getElementById('logout').offsetParent, msg: document.getElementById('adminMsg').textContent, hint: document.getElementById('adminHint').hidden }));
 ok('맞는 비밀번호: "관리자 로그인됨"과 로그아웃 단추·관리자 안내가 보임', s.on.includes('관리자 로그인됨') && s.on.includes('로그아웃') && s.inHidden && !s.msg && !s.hint, s);
@@ -341,7 +341,12 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   ok('다시 접속하면 전에 고른 교사 이름이 남아 있지 않음', (await page.inputValue('#teacher')) === '' && !(await page.locator('#from').evaluate(e => !!e.offsetParent)) && (await page.evaluate(() => localStorage.getItem('winterTeacher'))) === null);
   const col = i => page.evaluate(i => [...document.querySelectorAll('#list tr.g')].map(tr => tr.cells[i].textContent), i);
   let v = { names: await col(1), boxes: await page.locator('#list input[type=checkbox]').count(), bulk: await page.locator('#bulkDel').count() };
-  ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 내 신청이 있어도 선택 칸과 "선택한 신청 취소" 단추가 없음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 0 && v.bulk === 0, v);
+  ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 이 기기에서 한 내 신청 줄(성준혁)에만 선택 칸이 있음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 2 && v.bulk === 1 && (await page.evaluate(() => [...document.querySelectorAll('#list input[data-pick]')].map(c => c.dataset.pick).join())) === '성준혁', v);
+  { await page.click('#list button[data-open="성준혁"]'); const rowsOf = () => page.evaluate(() => [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => tr.cells[0].textContent + ' ' + tr.cells[1].textContent));
+    const a = await rowsOf(); await page.click('#list button[data-dsort="slot"]'); const b = await rowsOf(); await page.click('#list button[data-dsort="cls"]'); const c = await rowsOf();
+    const heads = await page.evaluate(() => [...document.querySelectorAll('#list tr.d thead button')].map(x => x.textContent.trim()).join());
+    ok('자세히 목록: 교시·학급·일자 제목을 눌러 정렬(교시를 다시 누르면 거꾸로)', a.length >= 2 && b.join() === [...a].reverse().join() && heads === '교시,학급 ▲,일자' && c.map(x => x.split(' ').pop()).join() === c.map(x => x.split(' ').pop()).sort().join(), { a, b, c, heads });
+    await page.click('#list button[data-dsort="slot"]'); await page.click('#list button[data-open="성준혁"]'); }
   { const k = await page.evaluate(() => [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].slice(1, 4).map(c => c.textContent).join('|')).find(x => x.startsWith('김학선')));
     ok('신청 내역은 교사 기준 한 줄: 김학선은 1학년 국A·2학년 진로를 신청해도 한 줄에 과목·학반이 함께', /^김학선\|국A, 진로\|1.+, 2.+$/.test(k), k); }
   await showList(); await page.click('#list button[data-sort="teacher"]'); v = await col(1);
