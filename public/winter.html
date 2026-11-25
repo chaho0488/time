@@ -93,7 +93,7 @@
   @media (min-width: 1500px) { .pop { left: auto; right: 3vw; transform: none; } }   /* 넓은 화면: 시간표를 가리지 않게 오른쪽에 */
   .pophead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 14px; background: var(--ink); color: #fff; cursor: move; touch-action: none; user-select: none; }
   .pophead b { font-size: .95rem; }
-  #popClose { border: 0; background: none; color: #fff; font-size: 1rem; width: 2em; height: 2em; cursor: pointer; border-radius: 6px; }
+  #popClose, #rpopClose { border: 0; background: none; color: #fff; font-size: 1rem; width: 2em; height: 2em; cursor: pointer; border-radius: 6px; }
   .popbody { padding: 8px 14px 10px; overflow-y: auto; }
   .popbody .fine { margin: 0 0 8px; }
   .multi { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 2px; font-size: .88rem; font-weight: 600; }
@@ -199,24 +199,6 @@
     .pst { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 6px; height: 13px; overflow: hidden; }
     .pc em.fp { display: inline; font-weight: 600; }
   }
-  .plan .pdet { position: relative; z-index: 1; flex: none; width: 100cqw; margin: 0 0 0 calc(-100cqw * var(--l)) !important; border: 0; border-top: 1.5px solid var(--sub); border-bottom: 1.5px solid var(--sub); border-radius: 0; overflow: visible; background: #fff; }
-  .plan .pdet::before { content: ""; position: absolute; top: -7px; left: calc(100cqw * var(--x) - 7px); border: 7px solid transparent; border-top: 0; border-bottom-color: var(--sub); }
-  .plan .pdet .room, .plan .pdet .room.closed, .plan .pdet .room.never { background: #fff; box-shadow: none; padding: 5px 8px 6px; }
-  .plan .pdet .room header { margin-bottom: 4px; gap: 6px; }
-  .plan .pdet .code { font-size: .8rem; padding: 1px 6px; }
-  .plan .pdet .rname, .plan .pdet .room.closed .rname { font-size: .9rem; }
-  .plan .pdet .badge, .plan .pdet .shutlab { font-size: .72rem; padding: 0 8px; }
-  .plan .pdet .more { padding: 0 2px; color: var(--sub); }
-  /* 교시 칸은 낮게: 교시·학급·과목·교사를 한 줄로(좁으면 줄이 넘어간다) */
-  .plan .pdet .strip { gap: 3px; }
-  .plan .pdet .strip li, .plan .pdet .strip li button { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 5px; min-height: 0; }
-  .plan .pdet .strip li { padding: 4px 3px; border-radius: 4px; }
-  .plan .pdet .strip li.out { min-height: 1.6em; }
-  .plan .pdet .strip li i { position: static; font-size: .7rem; }
-  .plan .pdet .strip li i::after { content: "교시"; }
-  .plan .pdet .strip li b { font-size: .82rem; }
-  .plan .pdet .putbox { margin-top: 6px; padding: 6px 8px; }
-  .plan.hasdet .pside > .pc { justify-content: flex-start; padding-top: 4px; }   /* 시간표가 끼어 통칸이 길어져도 이름은 위쪽에 */
   .pr { cursor: pointer; }
   .pr.on { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 2px var(--warm); }
   .pr.on b { color: var(--ink); }
@@ -294,7 +276,7 @@
   #adminMsg:empty { display: none; }
   #adminHint { margin: -8px 0 16px; }
   /* 관리자: 빈 실 칸을 누르면 그 시간에 기다리는 신청을 골라 배정 */
-  .strip li button { display: block; width: 100%; min-height: 2.2em; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
+  .strip li > button { display: block; width: 100%; min-height: 2.2em; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
   .strip li.free:has(button) { box-shadow: inset 0 0 0 1.5px var(--warm); }
   .strip li.free:has(button[aria-expanded=true]) { box-shadow: inset 0 0 0 2.5px var(--ink); }
   .strip li.free small { color: var(--warm-ink); font-weight: 700; }
@@ -375,6 +357,41 @@
     #grid .pr span:not(.pcmark) { font-size: clamp(10px, 2.4cqw, 13px); line-height: 1.1; }
     #grid .pcmark { font-size: 9px; line-height: 1.2; }
   }
+
+  /* ── 실 시간표 창: 배치도에서 실을 누르면 화면 위에 뜬다(뒤는 어둡게). 빈 실·신청 수업만 색으로, 원래 수업은 작게 ── */
+  #rdim { position: fixed; inset: 0; z-index: 18; background: rgba(20, 33, 61, .32); }
+  #rdim[hidden] { display: none; }
+  .pop.rpop { z-index: 19; top: 12vh; left: 50%; right: auto; transform: translateX(-50%); width: min(420px, 94vw); max-height: 84vh; box-shadow: 0 18px 48px rgba(20, 33, 61, .38); }
+  .rpop .pophead b { display: flex; align-items: center; gap: 8px; font-size: 1rem; }
+  .rpop .pophead small { font-weight: 500; opacity: .85; }
+  .rpop .pophead .code { background: #fff; color: var(--ink); }
+  .rpop .room, .rpop .room.closed, .rpop .room.never { background: none; box-shadow: none; border: 0; padding: 0; }
+  .rpop .room header { margin: 0 0 8px; }
+  .rpop .room header:empty { display: none; }
+  .rpop .room .strip { display: flex; flex-direction: column; gap: 4px; margin: 0 !important; }
+  .rpop .room .strip li, .rpop .room .strip li > button { display: flex; align-items: center; gap: 8px; min-height: 0; text-align: left; }
+  .rpop .room .strip li { padding: 3px 12px; background: none; font-size: .85rem; color: var(--sub); }   /* 원래 수업·쓸 수 없는 교시: 작고 조용하게 */
+  .rpop .room .strip li.out { display: none; }
+  .rpop .room .strip li i { position: static; flex: none; width: 3.2em; font-size: .85rem; font-weight: 600; color: inherit; }
+  .rpop .room .strip li i::after { content: "교시"; }
+  .rpop .room .strip li b { font-size: inherit; font-weight: 600; }
+  .rpop .room .strip li small { font-size: inherit; color: inherit; }
+  .rpop .room .strip li.free, .rpop .room .strip li.done { padding: 10px 12px; border-radius: 8px; font-size: .9rem; }
+  .rpop .room .strip li.free { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 1.5px var(--warm); }
+  .rpop .room .strip li.done { background: var(--pine-bg); color: var(--pine); box-shadow: inset 0 0 0 1.5px var(--pine); }
+  .rpop .room .strip li.free b, .rpop .room .strip li.done b { font-size: 1.05rem; font-weight: 700; }
+  .rpop .room .strip li.done::after { content: "신청 수업"; margin-left: auto; font-size: .78rem; font-weight: 700; border: 1px solid var(--pine); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
+  .rpop .room .strip li.free:has(button) { padding: 0; }
+  .rpop .room .strip li.free button { padding: 10px 12px; min-height: 44px; font: inherit; }
+  .rpop .room .strip li.free button::after { content: "눌러서 신청 ›"; margin-left: auto; font-size: .82rem; font-weight: 700; white-space: nowrap; }
+  .rpop .room .strip li.free button:hover { background: rgba(242, 169, 59, .22); border-radius: 8px; }
+  .rpop .room .strip li.putli { display: block; padding: 0; }
+  .rpop .putbox { margin: 0 0 4px; }
+  .rpop .putbox button[data-new] { padding: 9px 14px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; cursor: pointer; }
+  .rpop .putbox button[data-new] small { color: #fff; opacity: .85; }
+  #rpopMsg { margin: 8px 2px 0; font-size: .88rem; font-weight: 700; }
+  #rpopMsg:empty { display: none; }
+  @media print { #rdim { display: none !important; } }
 </style>
 </head>
 <body>
@@ -440,6 +457,12 @@
   <div class="pophead" id="popHead"><b id="popTitle"></b><button type="button" id="popClose" aria-label="닫기">✕</button></div>
   <div class="popbody" id="popBody"></div>
 </div>
+<!-- 배치도에서 실을 누르면 뜨는 창: 그 실의 교시별 시간표. 노란 '빈 실' 줄을 누르면 바로 신청으로 이어진다 -->
+<div id="rdim" hidden></div>
+<div id="rpop" class="pop rpop" role="dialog" aria-labelledby="rpopTitle" tabindex="-1" hidden>
+  <div class="pophead" id="rpopHead"><b id="rpopTitle"></b><button type="button" id="rpopClose" aria-label="닫기">✕</button></div>
+  <div class="popbody"><div id="rpopBody"></div><div id="rpopMsg" role="alert"></div></div>
+</div>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -450,7 +473,8 @@ let view = 'plan';                 // 아래 탭: 'plan'(배치도형, 기본) |
 let gridView = 'plan';             // 실습실 시간표를 마지막으로 본 모양('신청 내역' 탭에서도 기억)
 try { if (localStorage.getItem('winterView') === 'table') view = gridView = 'table'; } catch {}
 const shown = new Set();           // 층별 표에서 시간표를 펼쳐 둔 수업 불가 실
-let sel = '';                      // 배치도에서 누른 실(그 실의 시간표를 배치도 아래에 보여 준다)
+let sel = '';                      // 배치도에서 누른 실(그 실의 시간표가 창으로 뜬다)
+let roomMsg = null;                // 실 시간표 창 안에 보여 줄 결과([글, 성공?]) — 창이 위쪽 안내 줄을 가리므로
 let openReq = '';                  // 신청 내역에서 '자세히'를 펼친 줄('교사|과목')
 let sortBy = 'teacher', sortDir = 1;   // 신청 내역 정렬: 교사·과목·학반, 오름(1)/내림(-1)
 let dSort = 'slot', dDir = 1;       // '자세히' 목록 정렬: 일자(from)·교시(slot)·학급(cls)
@@ -739,7 +763,7 @@ $('mytt').addEventListener('change', e => { const m = e.target.closest('input[da
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
 $('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
 $('noticeNever').addEventListener('click', () => { try { localStorage.setItem('winterNoNotice', weekKey()); } catch {} $('notice').hidden = true; });   // 이 기기에서 이번 주에는 다시 띄우지 않음
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); return; } if (e.key === 'Escape' && !$('rpop').hidden) closeRoom(); });
 $('popBody').addEventListener('click', async e => {
   const b = e.target.closest('button[data-room]'), x = e.target.closest('button[data-cancel]');
   if (e.target.closest('#moreYes')) { more.yes = true; moreSel.clear(); moreSlots().forEach(k => moreSel.add(k)); popErr = ''; return renderPop(); }   // 2단계: 가능한 칸을 모두 고른 채로 시간표를 보여 준다
@@ -778,20 +802,23 @@ $('popBody').addEventListener('click', async e => {
   load();
 });
 // 창 옮기기: 제목 줄을 끌면 따라오고, 화면 밖으로는 나가지 않는다
-{ let d = null; const el = $('pop');
-  $('popHead').addEventListener('pointerdown', e => {
-    if (e.target.closest('#popClose')) return;
+function dragPop(el, head) {
+  let d = null;
+  head.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
     const r = el.getBoundingClientRect(); d = { x: e.clientX - r.left, y: e.clientY - r.top };
     el.style.transform = 'none'; el.style.right = 'auto'; el.style.left = r.left + 'px'; el.style.top = r.top + 'px';
-    $('popHead').setPointerCapture(e.pointerId);
+    head.setPointerCapture(e.pointerId);
   });
-  $('popHead').addEventListener('pointermove', e => {
+  head.addEventListener('pointermove', e => {
     if (!d) return;
     el.style.left = Math.max(0, Math.min(innerWidth - el.offsetWidth, e.clientX - d.x)) + 'px';
     el.style.top = Math.max(0, Math.min(innerHeight - 40, e.clientY - d.y)) + 'px';
   });
   const end = () => { d = null; };
-  $('popHead').addEventListener('pointerup', end); $('popHead').addEventListener('pointercancel', end); }
+  head.addEventListener('pointerup', end); head.addEventListener('pointercancel', end);
+}
+dragPop($('pop'), $('popHead')); dragPop($('rpop'), $('rpopHead'));
 
 async function load() {
   try {
@@ -845,7 +872,7 @@ function renderInner() {
   $('grid').hidden = isList; $('list').hidden = !isList; document.querySelector('.legend').hidden = isList; $('note').hidden = isList; $('swapNote').hidden = isList;
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
-  else if (gridView === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 그 실 줄 바로 아래에 나온다
+  else if (gridView === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 창으로 뜬다
     for (const f of ['4', '3', '2', '1']) {   // 건물처럼 위층부터
       const cnt = data.rooms.filter(r => r[0][0] === f && availOn(r[0], iso)).length;
       h += `<div class="frow"><h3 class="floor">${f}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3><div>`;
@@ -865,6 +892,16 @@ function renderInner() {
     h += '</div>';
   }
   $('grid').innerHTML = h;
+  // 실 시간표 창(배치도형에서 누른 실)
+  const rp = $('rpop'), showRoom = !!(sel && n && !isList && gridView === 'plan'), was = rp.hidden;
+  rp.hidden = $('rdim').hidden = !showRoom;
+  if (showRoom) {
+    $('rpopTitle').innerHTML = `<span class="code">${sel}</span>${esc((data.rooms.find(r => r[0] === sel) || ['', ''])[1])} <small>${md(iso)}</small>`;
+    $('rpopBody').innerHTML = roomHtml(sel, iso, n, admin, true);
+    $('rpopMsg').textContent = roomMsg ? roomMsg[0] : ''; $('rpopMsg').className = roomMsg && roomMsg[1] ? 'ok' : 'err';
+    if (rp.style.left) { rp.style.left = Math.max(0, Math.min(innerWidth - rp.offsetWidth, parseFloat(rp.style.left))) + 'px'; rp.style.top = Math.max(0, Math.min(innerHeight - 40, parseFloat(rp.style.top))) + 'px'; }   // 옮겨 둔 창이 화면 밖이면 안으로
+    if (was) rp.focus();
+  }
 
   // 신청 내역: 교사·과목·학반만 한 줄씩(제목을 누르면 정렬). 관리자는 여러 줄을 골라 한 번에 취소(선생님은 '자세히'에서 본인 신청만 한 건씩).
   // '자세히'를 누르면 그 교사의 요일·교시별 내역(배정·취소)이 펼쳐진다
@@ -944,20 +981,16 @@ function planHtml(pl, iso, n, admin, pick) {
   };
   const row = cells => `<div class="prow">${cells.map(cell).join('')}</div>`;
   const cw = (pl.top || pl.bottom).reduce((t, c) => t + c[1], 0), side = c => (c ? `<div class="pside" style="flex:${c[1]} 1 0">${cell(c)}</div>` : '');
-  // 누른 실의 시간표: 그 실이 있는 줄 바로 아래에 배치도 폭 전체로 끼우고(--l = 왼쪽 통칸만큼 당김), 꼭지(--x)가 누른 실을 가리킨다
-  const L = pl.left ? pl.left[1] : 0, tot = L + cw + (pl.right ? pl.right[1] : 0), mid = (cells, x0) => { let x = x0; for (const c of cells || []) { if (c[2] === sel) return x + c[1] / 2; x += c[1]; } return -1; };
-  const xt = pick || !sel ? -1 : mid(pl.top, L), xb = pick || !sel ? -1 : Math.max(mid(pl.bottom, L), mid(pl.left && [pl.left], 0), mid(pl.right && [pl.right], L + cw));
-  const det = x => (x < 0 ? '' : `<div class="ftable pdet" style="--l:${(L / tot).toFixed(4)};--x:${(x / tot).toFixed(4)}">${roomHtml(sel, iso, n, admin, true)}</div>`);
-  return `<div class="plan${xt >= 0 || xb >= 0 ? ' hasdet' : ''}">${side(pl.left)}<div class="pcol" style="flex:${cw} 1 0">${pl.top ? row(pl.top) : ''}${det(xt)}<div class="pmid">${pl.name ? esc(pl.name) + ' · ' : ''}${esc(pl.mid)}</div>${row(pl.bottom)}${det(xb)}</div>${side(pl.right)}</div>`;
+  return `<div class="plan">${side(pl.left)}<div class="pcol" style="flex:${cw} 1 0">${pl.top ? row(pl.top) : ''}<div class="pmid">${pl.name ? esc(pl.name) + ' · ' : ''}${esc(pl.mid)}</div>${row(pl.bottom)}</div>${side(pl.right)}</div>`;
 }
 
-// 실 하나의 이름 줄 + 1~7교시 줄. inPlan = 배치도에서 누른 실('닫기' 단추), 아니면 층별 표의 한 줄(수업 불가 실은 접혀 있고 '보기'로 펼침)
+// 실 하나의 이름 줄 + 1~7교시 줄. inPlan = 배치도에서 누른 실(창 안: 이름은 창 제목에 있고, 빈 실 줄은 누구나 눌러 신청으로 이어진다), 아니면 층별 표의 한 줄(수업 불가 실은 접혀 있고 '보기'로 펼침)
 function roomHtml(code, iso, n, admin, inPlan) {
   const name = (data.rooms.find(r => r[0] === code) || ['', ''])[1];
   const ok = availOn(code, iso), from = data.avail[code], shut = !ok;
   const never = shut && data.never.includes(code);   // 교실 이용불가 실: 더 어둡게
   const tag = ok ? '<span class="badge">이용가능</span>' : `<span class="shutlab">${from ? md(from).split('(')[0] + '부터' : never ? '교실 이용불가' : '수업 불가'}</span>`;
-  let h = `<section class="room${shut ? ' closed' : ' open'}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}<span class="code">${code}</span><span class="rname">${esc(name)}</span>${data.pc.includes(code) ? PCMARK : ''}${tag}${inPlan ? `<button type="button" class="more" data-plan="${code}">닫기</button>` : shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
+  let h = `<section class="room${shut ? ' closed' : ' open'}${never ? ' never' : ''}" data-room="${code}"><header>${admin ? `<input type="checkbox" data-avail="${code}"${ok ? ' checked' : ''} aria-label="${code} 이용가능">` : ''}${inPlan ? '' : `<span class="code">${code}</span><span class="rname">${esc(name)}</span>`}${data.pc.includes(code) ? PCMARK : ''}${tag}${inPlan ? '' : shut ? `<button type="button" class="more" data-more="${code}" aria-expanded="${shown.has(code)}">${shown.has(code) ? '접기' : '보기'}</button>` : ''}</header>`;
   if (!inPlan && shut && !shown.has(code)) return h + '</section>';   // 접힌 수업 불가 실
   h += '<ol class="strip">';
   for (let p = 1; p <= 7; p++) {
@@ -974,20 +1007,36 @@ function roomHtml(code, iso, n, admin, inPlan) {
     else if (a) h += `<li class="done">${no}<b>${esc(a.cls)}</b><small>${esc(a.subject)}</small><small>${gone ? esc(gone) + '(대강)' : esc(a.teacher)}</small></li>`;
     else if (slot && data.block[slot]) h += `<li class="${shut ? 'shut' : 'na'}" data-block="1">${no}<b>${data.block[slot]}</b></li>`;   // 창체 시간: 빈 실로 보이지 않게
     else if (swapFree) h += ok ? `<li class="free" data-moved="out">${no}<b>빈 실</b><small>교체</small></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
-    else if (ok && (admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine && canUse(code, r.from)))) {   // 누를 수 있는 빈 실 칸: 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
+    else if (ok && (inPlan || admin || data.reqs.some(r => !r.room && r.slot === slot && r.mine && canUse(code, r.from)))) {   // 누를 수 있는 빈 실 칸: 창 안에서는 항상, 목록형에서는 그 시간에 실을 고르지 않은 내 신청이 있을 때(관리자는 항상)
       const wait = data.reqs.filter(r => !r.room && r.slot === slot && (admin || r.mine) && canUse(code, r.from)).length, key = code + '|' + slot;
       h += `<li class="free"><button type="button" data-free="${key}" aria-expanded="${openCell === key}">${no}<b>빈 실</b>${wait ? `<small>${admin ? '대기' : '내 신청'} ${wait}건</small>` : ''}</button></li>`;
+      if (inPlan && openCell === key) h += `<li class="putli">${putHtml(code, slot, admin, true)}</li>`;   // 창 안: 누른 줄 바로 아래에
     }
     else h += ok ? `<li class="free">${no}<b>빈 실</b></li>` : `<li class="${shut ? 'shut' : 'na'}">${no}</li>`;
   }
   h += '</ol>';
-  if (openCell.startsWith(code + '|')) {   // 누른 빈 실 칸 아래: 그 요일교시에 실을 고르지 않은 내 신청(관리자는 모든 신청)
-    const sl = openCell.split('|')[1], cands = data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from));
-    h += `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>`
-      + (cands.length ? cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('') : '<span class="hint">이 시간에 실을 고르지 않은 신청이 없습니다.</span>')
-      + '<button type="button" class="x" data-put="">닫기</button></div>';
-  }
+  if (!inPlan && openCell.startsWith(code + '|')) h += putHtml(code, openCell.split('|')[1], admin, false);
   return h + '</section>';
+}
+// 누른 빈 실 칸에서 할 수 있는 일: 그 요일교시에 실을 고르지 않은 내 신청(관리자는 모든 신청)을 이 실로 정하기.
+// 창 안(inPlan)에서는 고른 교사의 그 시간 수업을 바로 신청하거나, 다른 실로 한 신청을 이 실로 바꿀 수도 있다
+function putHtml(code, sl, admin, inPlan) {
+  const cands = data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from));
+  let btn = cands.map(r => `<button type="button" data-put="${r.id}|${code}">${esc(r.cls)} ${esc(r.subject)} ${esc(r.teacher)} <small>${md(r.from)}부터</small></button>`).join('');
+  let tip = cands.length ? '' : '이 시간에 실을 고르지 않은 신청이 없습니다.';
+  if (inPlan && !cands.some(r => r.teacher === me)) {
+    const v = me && data.tt[me][sl], mr = me && data.reqs.find(r => r.teacher === me && r.slot === sl), from = $('from').value, late = () => `${code}은(는) ${md(data.avail[code])}부터 쓸 수 있습니다.`;
+    if (!me) { if (!admin) tip = '위쪽 교사명 칸에서 이름을 먼저 고르면 이 시간 수업을 바로 신청할 수 있습니다.'; }
+    else if (!v) tip = cands.length ? '' : `${me} 선생님은 이 시간에 수업이 없습니다.`;
+    else if (v.split('|')[2]) tip = '이 시간 수업은 이미 실습실에서 합니다.';
+    else if (mr && !(mr.mine || admin)) tip = '다른 기기에서 신청한 수업입니다. 신청한 기기에서만 바꿀 수 있습니다.';
+    else if (mr) { if (!canUse(code, mr.from)) tip = late(); else { tip = ''; btn += `<button type="button" data-put="${mr.id}|${code}">${esc(mr.cls)} ${esc(mr.subject)} <small>${mr.room ? `지금 ${mr.room} → ` : ''}${code}(으)로 ${mr.room ? '바꾸기' : '정하기'}</small></button>`; } }
+    else if (!from) tip = '언제부터 이동할지 날짜를 먼저 골라 주세요.';
+    else if (weekDates()[sl[0]] < from) tip = `${sl[0]}요일 수업은 다음 주에 신청할 수 있습니다.`;
+    else if (!canUse(code, from)) tip = late();
+    else { const [c, s] = v.split('|'); tip = ''; btn += `<button type="button" data-new="${sl}|${code}">${esc(c)} ${esc(s)} 신청 <small>${md(from)}부터</small></button>`; }
+  }
+  return `<div class="putbox"><b>${sl[0]} ${sl[1]}교시</b>${btn}${tip ? `<span class="hint">${esc(tip)}</span>` : ''}<button type="button" class="x" data-put="">닫기</button></div>`;
 }
 
 const api = (method, body, q = '') => fetch('/api/winter' + q, { method, headers: H({ 'Content-Type': 'application/json' }), body: body && JSON.stringify(body) })
@@ -1032,7 +1081,7 @@ $('list').addEventListener('change', async e => {
   say(r.ok ? (s.value ? `${s.value}(으)로 정했습니다` : '실 선택을 취소했습니다') : r.error, r.ok);
   s.blur(); load();
 });
-$('grid').addEventListener('change', async e => {
+async function onAvail(e) {
   const c = e.target.closest('input[data-avail]');
   if (!c) return;
   // 교실 이용불가 실습실을 이용가능으로 풀려 하면 한 번 더 묻는다
@@ -1042,23 +1091,35 @@ $('grid').addEventListener('change', async e => {
   const avail = { ...data.avail }, iso = $('vdate').value;
   if (c.checked) avail[c.dataset.avail] = iso; else delete avail[c.dataset.avail];
   const r = await api('PUT', { avail });
-  say(r.ok ? (c.checked ? `${c.dataset.avail}: ${md(iso)}부터 이용가능으로 표시했습니다` : `${c.dataset.avail} 이용가능 표시를 껐습니다`) : r.error, r.ok);
+  note(r.ok ? (c.checked ? `${c.dataset.avail}: ${md(iso)}부터 이용가능으로 표시했습니다` : `${c.dataset.avail} 이용가능 표시를 껐습니다`) : r.error, r.ok);
   load();
-});
-// 관리자: 빈 실 칸을 누르면 아래에 신청 목록, 신청을 누르면 그 실에 배정
-$('grid').addEventListener('click', async e => {
+}
+const note = (text, ok) => { say(text, ok); roomMsg = [text, ok]; };   // 위쪽 안내 줄 + (떠 있으면) 실 시간표 창 안
+function closeRoom() { const b = document.querySelector(`#grid [data-plan="${sel}"]`); sel = ''; openCell = ''; roomMsg = null; render(); if (b) document.querySelector(`#grid [data-plan="${b.dataset.plan}"]`).focus(); }
+// 빈 실 칸을 누르면 아래에 신청 목록, 신청을 누르면 그 실에 배정(창 안에서는 새 신청도)
+async function onRoom(e) {
   const f = e.target.closest('button[data-free]'), p = e.target.closest('button[data-put]'), m = e.target.closest('button[data-plan]');
-  if (m) { sel = sel === m.dataset.plan ? '' : m.dataset.plan; openCell = ''; render(); return; }   // 배치도의 실(또는 '닫기')
+  if (m) { sel = m.dataset.plan; openCell = ''; roomMsg = null; render(); return; }   // 배치도의 실
   const mo = e.target.closest('button[data-more]');
   if (mo) { const c = mo.dataset.more; if (shown.has(c)) shown.delete(c); else shown.add(c); render(); return; }   // 층별 표의 '보기/접기'
-  if (f) { openCell = openCell === f.dataset.free ? '' : f.dataset.free; render(); return; }
+  if (f) { openCell = openCell === f.dataset.free ? '' : f.dataset.free; roomMsg = null; render(); return; }
+  const nw = e.target.closest('button[data-new]');
+  if (nw) {   // 창 안: 고른 교사의 그 시간 수업을 이 실로 바로 신청
+    const [k, room] = nw.dataset.new.split('|'); nw.disabled = true;
+    const r = await api('POST', { teacher: me, from: $('from').value, slots: [k], room });
+    note(r.ok ? `${k[0]}요일 ${k[1]}교시 ${data.tt[me][k].split('|')[0]} → ${room} 신청되었습니다` : r.error, r.ok);
+    if (r.ok) openCell = '';
+    return load();
+  }
   if (!p) return;
   if (!p.dataset.put) { openCell = ''; render(); return; }
   const [id, room] = p.dataset.put.split('|');
   const r = await api('PATCH', { id: Number(id), room });
-  say(r.ok ? `${room}(으)로 정했습니다` : r.error, r.ok);
+  note(r.ok ? `${room}(으)로 정했습니다` : r.error, r.ok);
   openCell = ''; load();
-});
+}
+for (const id of ['grid', 'rpopBody']) { $(id).addEventListener('click', onRoom); $(id).addEventListener('change', onAvail); }
+$('rpopClose').addEventListener('click', closeRoom); $('rdim').addEventListener('click', closeRoom);
 // 관리자 로그인: 비밀번호를 서버에 확인받아 맞을 때만 관리자 화면으로
 $('adminForm').addEventListener('submit', async e => {
   e.preventDefault();
