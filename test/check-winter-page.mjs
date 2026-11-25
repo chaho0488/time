@@ -175,7 +175,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
     ok('신청 뒤 먼저 "다른 시간대 수업 N개도 … 신청하시겠습니까?" 창(예·아니오), 시간표는 아직 없음', /다른 시간대 수업 \d+개\(.+\)도 이번 주 이 실습실\(3C 자동화설비\)로 신청이 가능합니다\.신청하시겠습니까\?예아니오/.test(q.t) && !q.grid, q); }
   await page.click('#moreYes');
   v = { msg: await page.textContent('#msg'), cell: await cellText('수4'), room: (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.map(r => r.slot + r.cls + r.room).join() };
-  ok('배치도에서 3C 를 누르면 바로 신청되고, 내 시간표 칸은 초록색 "3C"', v.msg === '수요일 4교시 1신1 → 3C 신청되었습니다' && v.cell === '1신13C/req' && v.room === '수41신13C', v);
+  ok('배치도에서 3C 를 누르면 바로 신청되고, 내 시간표 칸은 초록색 "3C 자동화설비"(실 이름)', v.msg === '수요일 4교시 1신1 → 3C 신청되었습니다' && v.cell === '1신13C 자동화설비/req' && v.room === '수41신13C', v);
   // 고른 실이 내 다른 수업 시간에도 비어 있으면 알려 주고 함께 신청
   const g0 = await (await worker.fetch(new Request('https://x/api/winter'), env)).json();
   const want = Object.keys(g0.tt['성준혁']).filter(k => k !== '수4' && !'월화'.includes(k[0]) && g0.tt['성준혁'][k].endsWith('|') && !g0.base['3C'][k]).sort();   // 수요일 시작이라 월·화는 다음 주
@@ -187,8 +187,8 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   await page.click('#moreSend'); ok('아무것도 고르지 않고 누르면 안내', (await page.textContent('#popMsg')) === '함께 신청할 수업을 골라 주세요');
   for (const k of two) await page.click(`#pop button[data-more="${k}"]`);
   await page.click('#moreSend'); await page.waitForFunction(() => document.getElementById('msg').textContent.includes('함께 신청'));
-  v = { msg: await page.textContent('#msg'), open: (await popState()).open, cells: [await cellText(two[0]), await cellText(two[1])], mine: await page.evaluate(() => document.querySelector('#mytt .mine').textContent) };
-  ok('고른 2건이 같은 실(3C)로 함께 신청되고 창이 닫힘, 시간표 아래에 "실습실에서 하는 수업 3건"과 인쇄·엑셀 단추', v.msg === '2건을 3C(으)로 함께 신청했습니다' && !v.open && v.cells.every(c => c.endsWith('3C/req')) && v.mine.includes('실습실에서 하는 수업 3건') && v.mine.includes('3C 자동화설비실습실 (3층, 11/25(수)부터)') && v.mine.includes('교실 안내용 인쇄') && v.mine.includes('엑셀로 받기'), v);
+  v = { msg: await page.textContent('#msg'), open: (await popState()).open, cells: [await cellText(two[0]), await cellText(two[1])], mine: await page.evaluate(() => document.querySelector('#mytt .mine').textContent), tip: await page.evaluate(k => document.querySelector(`#mytt [data-slot="${k}"]`).closest('td').title, two[0]) };
+  ok('고른 2건이 같은 실(3C)로 함께 신청되고 창이 닫힘, 시간표 아래에는 목록 없이 "신청한 수업 3건"과 인쇄·엑셀 단추', v.msg === '2건을 3C(으)로 함께 신청했습니다' && !v.open && v.cells.every(c => c.endsWith('3C 자동화설비/req')) && v.mine.includes('신청한 수업 3건') && !v.mine.includes('→') && v.tip === '자동화설비실습실 (3층, 11/25(수)부터)' && v.mine.includes('교실 안내용 인쇄') && v.mine.includes('엑셀로 받기'), v);
   // 인쇄(교실 안내)·엑셀(CSV)
   { await page.click('#tabList'); const t = await page.evaluate(() => ({ tab: document.getElementById('tabList').textContent + ':' + document.getElementById('tabList').getAttribute('aria-pressed'), apart: !document.getElementById('tabList').closest('.tabs'), bg: getComputedStyle(document.getElementById('tabList')).backgroundColor, tabBg: getComputedStyle(document.getElementById('tabPlan')).backgroundColor, list: !!document.getElementById('list').offsetParent, grid: !!document.getElementById('grid').offsetParent, rows: document.querySelectorAll('#list tr.g').length, h2: [...document.querySelectorAll('main h2')].map(h => h.textContent).join() }));
     ok('"신청내역 확인 (3)" 단추(보기 탭과 따로, 초록색)를 누르면 실습실 시간표 자리에 신청 내역만 보임', t.tab === '신청내역 확인 (3):true' && t.apart && t.bg === 'rgb(26, 110, 81)' && t.bg !== t.tabBg && t.list && !t.grid && t.rows === 1 && t.h2 === '실습실 시간표', t);
@@ -207,7 +207,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
   await page.click('#mytt button[data-slot="수4"]'); v = await popState();
   ok('신청한 칸을 다시 누르면 지금 고른 실(3C)이 표시되고 남은 빈 실(2D·3B)로 바꿀 수 있음', v.list === '3C*,2D,3B' && v.plan === '2D,3B' && v.text.includes('지금 고른 실: 3C') && v.text.includes('이 수업 신청 취소'), v);
   await page.click('#pop .plan .pr[data-room="2D"]'); await page.waitForFunction(() => document.getElementById('msg').textContent.includes('2D') && !!document.getElementById('moreNo'));
-  ok('배치도에서 2D 를 누르면 실이 바뀜', (await page.textContent('#msg')) === '수요일 4교시 1신1 → 2D (으)로 바꿨습니다' && (await cellText('수4')) === '1신12D/req');
+  ok('배치도에서 2D 를 누르면 실이 바뀜', (await page.textContent('#msg')) === '수요일 4교시 1신1 → 2D (으)로 바꿨습니다' && (await cellText('수4')) === '1신12D 송변전/req');
   await page.click('#moreNo'); ok('"아니오"를 누르면 다른 시간 안내 창이 닫힘', !(await popState()).open);
   await page.click('#mytt button[data-slot="수4"]'); await page.click('#pop button[data-cancel]'); await page.waitForFunction(() => document.getElementById('msg').textContent === '신청을 취소했습니다');
   ok('창에서 "이 수업 신청 취소"를 누르면 취소되고 칸이 원래대로', (await cellText('수4')) === '1신1과학/' && !(await popState()).open && (await page.locator('#list tr.g').count()) === 0); }
@@ -239,12 +239,12 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
     await page.evaluate(() => { choose('성준혁'); document.getElementById('multiOn').click(); });
     ok('이름 옆에도 "닫기" 단추가 있음', await page.evaluate(() => !document.getElementById('closeMe').hidden && !!document.getElementById('closeMe').offsetParent)); }
   // 교사 본인 일괄 취소: 목록에서 한 건을 골라 취소하면 그 건만 지워지고, 관리자가 아니어도 된다
-  { const b = await page.evaluate(() => ({ n: document.querySelectorAll('#mytt input[data-mine]').length, dis: document.getElementById('mineDel').disabled, admin: !!data.admin }));
+  { const b = await page.evaluate(() => ({ n: document.querySelectorAll('#mytt input[data-mine]').length, inCell: [...document.querySelectorAll('#mytt input[data-mine]')].every(c => c.closest('td.ckc')) && !document.querySelector('#mytt .mine ul'), dis: document.getElementById('mineDel').disabled, admin: !!data.admin }));
     await page.click('#mineAll'); const all = await page.textContent('#mineDel'); await page.click('#mineAll');
     await page.locator('#mytt input[data-mine]').first().check(); await page.click('#mineDel');
     await page.waitForFunction(n => document.querySelectorAll('#mytt input[data-mine]').length === n - 1 && document.getElementById('msg').textContent.includes('1건을 취소'), b.n);
     const left = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.length;
-    ok('교사 본인 일괄 취소: 전체 선택·골라서 취소(관리자 아님), 서버에서도 지워짐', b.n >= 2 && b.dis && !b.admin && all === `선택한 신청 취소 (${b.n}건)` && left === b.n - 1 && asked.at(-1) === '선택한 신청 1건을 취소할까요?', { b, all, left, asked: asked.at(-1) }); }
+    ok('교사 본인 일괄 취소: 시간표 칸의 체크 칸으로 전체 선택·골라서 취소(관리자 아님), 서버에서도 지워짐', b.n >= 2 && b.inCell && b.dis && !b.admin && all === `선택한 신청 취소 (${b.n}건)` && left === b.n - 1 && asked.at(-1) === '선택한 신청 1건을 취소할까요?', { b, all, left, asked: asked.at(-1) }); }
   await page.uncheck('#multiOn');
   for (const k of ['수4', other]) { if (!(await page.locator(`#mytt button.req[data-slot="${k}"]`).count())) continue;   /* 위 일괄 취소에서 이미 지운 칸 */ await page.click(`#mytt button[data-slot="${k}"]`); await page.click('#pop button[data-cancel]'); await page.waitForFunction(k => !document.querySelector(`#mytt button[data-slot="${k}"]`).classList.contains('req'), k); } }
 
@@ -335,7 +335,7 @@ await showList(); await page.selectOption('#list tr.d tbody tr:nth-child(2) sele
 await page.waitForFunction(() => document.querySelector('#grid .room[data-room="2D"] li.done'));
 s = await page.evaluate(() => ({ cells: [...document.querySelectorAll('#grid .room[data-room="2D"] .strip li')].map(li => li.className), cell: [...document.querySelectorAll('#grid li.done b, #grid li.done small')].map(e => e.textContent).join(''),
   mine: [...document.querySelectorAll('#mytt button.req small')].map(e => e.textContent) }));
-ok('11/25(수) 2D: 1~3 전공 수업·4교시 배정(1신1 과학 성준혁)·5~7 빈 실, 내 시간표에도 "2D 배정"', s.cells.join() === 'busy,busy,busy,done,free,free,free' && s.cell === '1신1과학성준혁' && s.mine.join() === '실 선택 전,2D', s);
+ok('11/25(수) 2D: 1~3 전공 수업·4교시 배정(1신1 과학 성준혁)·5~7 빈 실, 내 시간표에도 "2D 배정"', s.cells.join() === 'busy,busy,busy,done,free,free,free' && s.cell === '1신1과학성준혁' && s.mine.join() === '실 선택 전,2D 송변전', s);
 await page.click('#next');
 ok('11/26(목): 수요일 배정은 보이지 않음', (await page.textContent('#vday')) === '11/26(목)' && (await page.evaluate(() => document.querySelectorAll('#grid li.done').length)) === 0);
 

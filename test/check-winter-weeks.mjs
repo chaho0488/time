@@ -48,7 +48,7 @@ ok('저장: 주마다 따로(이번 주 수4, 다음 주 월1·수4, 12/7 주 �
 await week('prev'); v = await st();
 ok('"앞 주": 11/30 주로 돌아오고 그 주 신청 2건이 초록색(실 이름)으로 보임', v.from === '2026-11-30' && v.mon1.includes('2D') && v.wed4.includes('2D'), v);
 const mine = await page.evaluate(() => document.querySelector('#mytt .mine b').textContent);
-ok('아래 "실습실에서 하는 수업"도 보고 있는 주의 것만(2건)', mine.includes('2건'), mine);
+ok('아래 "신청한 수업" 건수도 보고 있는 주의 것만(2건)', mine.includes('2건'), mine);
 await week('this'); v = await st();
 ok('"이번 주": 11/25로 돌아옴, 이번 주 신청(수4 → 2D)만 보임', v.from === '2026-11-25' && v.wed4.includes('2D') && v.blocked === 8 && v.prevOff, v);
 
