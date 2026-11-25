@@ -99,7 +99,7 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
       tap: Math.min(...[...document.querySelectorAll('#rpop .strip li.free button')].map(b => b.getBoundingClientRect().height)) }; });
   ok('배치도에서 2D 를 누르면 2D 시간표가 화면 위에 뜨는 창으로 나옴(뒤는 어둡게, 교시는 세로로, 빈 실 줄은 44px 이상)', t.rooms === '2D' && t.cells === 'busy,busy,busy,free,free,free,free' && t.title.startsWith('2D송변전배전설비운영실습실') && t.title.includes('11/25(수)') && t.pressed === 'true' && !t.inGrid && t.float && t.rows && t.tap >= 44, t);
   await page.click('#rpop .strip li:nth-child(5) button');
-  ok('이름을 고르기 전에 빈 실 줄을 누르면 "교사명 칸에서 이름을 먼저 고르면…" 안내', (await page.textContent('#rpop .putbox')).includes('이름을 먼저 고르면') && !(await page.locator('#rpop button[data-new]').count()));
+  ok('이름을 고르기 전에 빈 실 줄을 누르면 "교사명 칸에 이름을 먼저 입력하면…" 안내', (await page.textContent('#rpop .putbox')).includes('이름을 먼저 입력하면') && !(await page.locator('#rpop button[data-new]').count()));
   await page.keyboard.press('Escape');
   ok('Esc 를 누르면 창이 닫힘', await page.evaluate(() => document.getElementById('rpop').hidden && document.getElementById('rdim').hidden));
   await page.click('#grid .pr[data-plan="2D"]'); await page.click('#rpopClose');

@@ -1071,7 +1071,7 @@ function putHtml(code, sl, admin, inPlan) {
   let tip = cands.length ? '' : '이 시간에 실을 고르지 않은 신청이 없습니다.';
   if (inPlan && !cands.some(r => r.teacher === me)) {
     const v = me && data.tt[me][sl], mr = me && data.reqs.find(r => r.teacher === me && r.slot === sl), from = $('from').value, late = () => `${code}은(는) ${md(data.avail[code])}부터 쓸 수 있습니다.`;
-    if (!me) { if (!admin) tip = '위쪽 교사명 칸에서 이름을 먼저 고르면 이 시간 수업을 바로 신청할 수 있습니다.'; }
+    if (!me) { if (!admin) tip = '위쪽 교사명 칸에 이름을 먼저 입력하면 이곳에서 해당 교시 수업을 바로 선택할 수 있습니다.'; }
     else if (!v) tip = cands.length ? '' : `${me} 선생님은 이 시간에 수업이 없습니다.`;
     else if (v.split('|')[2]) tip = '이 시간 수업은 이미 실습실에서 합니다.';
     else if (mr && !(mr.mine || admin)) tip = '다른 기기에서 신청한 수업입니다. 신청한 기기에서만 바꿀 수 있습니다.';
