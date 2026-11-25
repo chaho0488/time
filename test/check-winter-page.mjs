@@ -268,7 +268,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
 let sum = await page.evaluate(() => ({ head: [...document.querySelectorAll('#list table.sum > thead th')].map(t => t.textContent.trim()).join('|'), rows: [...document.querySelectorAll('#list tr.g')].map(tr => [...tr.cells].map(c => c.textContent).join('|')), detail: document.querySelectorAll('#list tr.d').length }));
 ok('신청 내역은 교사·과목·학반만 한 줄로(요일·교시 내역은 접혀 있음), 이 기기에서 한 내 신청 줄에는 선생님도 선택 칸·일괄 취소 단추가 있음', sum.head === '|교사 ▲|과목|학반|' && sum.rows.join() === '|성준혁|과학|1신1, 1신3|자세히' && sum.detail === 0 && (await page.locator('#bulkDel').count()) === 1 && (await page.locator('#list input[data-pick]').count()) === 1, sum);
 await showList(); await page.click('#list button[data-open]');
-s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent, rows: [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => [...tr.cells].map(c => c.textContent).join('|')),
+s = await page.evaluate(() => ({ msg: document.getElementById('msg').textContent, rows: [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => [...tr.cells].slice(1).map(c => c.textContent).join('|')),
   req: [...document.querySelectorAll('#mytt button.req')].map(td => td.textContent), del: document.querySelectorAll('#list button[data-del]').length, sel: document.querySelectorAll('#list select').length }));
 ok('"자세히"를 누르면 요일·교시별 2줄: 내 신청이라 실 선택 칸(수3 은 빈 실 없음, 수4 는 2D·3B·3C)과 취소 단추, 신청 뒤 "직접 고르세요" 안내', s.rows.length === 2 && s.rows[0].startsWith('수 3교시|1신3|11/25(수)부터|실 선택') && s.rows[0].includes('빈 실 없음') && s.rows[1].includes('2D') && s.rows[1].includes('3C') && s.del === 2 && s.sel === 2, s);
 // 선생님이 직접 실을 고름(관리자 로그인 없이): 배치도에 "내 신청 1" → 3C → 4교시 빈 실 칸 → 내 신청을 눌러 3C 로, 그다음 신청 내역에서 선택 취소
@@ -386,7 +386,7 @@ ok('신청·배정 뒤에도 폰에서 표가 옆으로 넘치지 않음', !(s =
   const col = i => page.evaluate(i => [...document.querySelectorAll('#list tr.g')].map(tr => tr.cells[i].textContent), i);
   let v = { names: await col(1), boxes: await page.locator('#list input[type=checkbox]').count(), bulk: await page.locator('#bulkDel').count() };
   ok('신청 내역 3줄: 교사 이름순. 관리자가 아니면 이 기기에서 한 내 신청 줄(성준혁)에만 선택 칸이 있음', v.names.join() === '김학선,성준혁,정선화' && v.boxes === 2 && v.bulk === 1 && (await page.evaluate(() => [...document.querySelectorAll('#list input[data-pick]')].map(c => c.dataset.pick).join())) === '성준혁', v);
-  { await page.click('#list button[data-open="성준혁"]'); const rowsOf = () => page.evaluate(() => [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => tr.cells[0].textContent + ' ' + tr.cells[1].textContent));
+  { await page.click('#list button[data-open="성준혁"]'); const rowsOf = () => page.evaluate(() => [...document.querySelectorAll('#list tr.d tbody tr')].map(tr => tr.cells[1].textContent + ' ' + tr.cells[2].textContent));
     const a = await rowsOf(); await page.click('#list button[data-dsort="slot"]'); const b = await rowsOf(); await page.click('#list button[data-dsort="cls"]'); const c = await rowsOf();
     const heads = await page.evaluate(() => [...document.querySelectorAll('#list tr.d thead button')].map(x => x.textContent.trim()).join());
     ok('자세히 목록: 교시·학급·일자 제목을 눌러 정렬(교시를 다시 누르면 거꾸로)', a.length >= 2 && b.join() === [...a].reverse().join() && heads === '교시,학급 ▲,일자' && c.map(x => x.split(' ').pop()).join() === c.map(x => x.split(' ').pop()).sort().join(), { a, b, c, heads });

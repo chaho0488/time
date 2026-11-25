@@ -58,9 +58,19 @@ const a = await strip('2026-11-30'), b = await strip('2026-12-09'), c = await st
 ok('실습실 시간표 2D: 11/30(월)에는 월1 신청, 12/9(수, 12/7 주)에는 없음(그 주 수4는 3B), 12/14 주에도 없음', a.includes('1신1') && b === '' && c === '', { a, b, c });
 // 신청 내역: 다른 주 신청에는 주 표시
 await page.click('#tabList'); await page.click('#list button[data-open]');
-const det = await page.evaluate(() => [...document.querySelectorAll('#list tr.d tbody tr')].map(t => t.children[2].textContent));
+const det = await page.evaluate(() => [...document.querySelectorAll('#list tr.d tbody tr')].map(t => t.children[3].textContent));
 ok('신청 내역: 이번 주 → 다음 주 → 12/7 주 순, 뒤 주에는 주 이름 표시', det.length === 4 && !det[0].includes('주') && det[1].includes('다음 주') && det[2].includes('다음 주') && det[3].includes('12/7 주'), det);
-if (process.env.SHOT) { await page.click('#tabPlan'); await week('next'); await page.screenshot({ path: process.env.SHOT + '-next.png' }); await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: process.env.SHOT + '-next-ph.png' }); }
+// 신청 내역 '자세히'에서 한 건씩 골라 취소
+{ const boxes = await page.locator('#list input[data-one]').count();
+  await page.check('#list tr.d tbody tr:nth-child(2) input[data-one]');
+  let s1 = await page.evaluate(() => ({ btn: document.getElementById('bulkDel').textContent, some: document.querySelector('#list input[data-pick]').indeterminate, all: document.getElementById('pickAllReq').checked }));
+  ok('자세히 줄마다 선택 칸(4개). 한 건만 고르면 "선택한 신청 취소 (1건)", 교사 줄 칸은 일부 선택(−) 표시', boxes === 4 && s1.btn === '선택한 신청 취소 (1건)' && s1.some && !s1.all, { boxes, ...s1 });
+  await page.check('#list input[data-pick]'); s1 = await page.textContent('#bulkDel');
+  await page.uncheck('#list input[data-pick]'); const s0 = await page.textContent('#bulkDel');
+  ok('교사 줄 칸은 그 교사 신청 전체(4건)를 고르고 풀기', s1 === '선택한 신청 취소 (4건)' && s0 === '선택한 신청 취소', { s1, s0 });
+  await page.check('#list tr.d tbody tr:nth-child(2) input[data-one]'); await page.click('#bulkDel'); await page.waitForFunction(() => document.querySelectorAll('#list tr.d tbody tr').length === 3);
+  ok('고른 한 건(다음 주 월1)만 취소되고 나머지 3건은 남음', (await reqs()).join() === '2026-11-23 수4 2D,2026-11-30 수4 2D,2026-12-07 수4 3B', await reqs()); }
+if (process.env.SHOT) { await page.screenshot({ path: process.env.SHOT + '-list.png' }); await page.click('#tabPlan'); await week('next'); await page.screenshot({ path: process.env.SHOT + '-next.png' }); await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: process.env.SHOT + '-next-ph.png' }); }
 await browser.close();
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');
 process.exit(fail ? 1 : 0);

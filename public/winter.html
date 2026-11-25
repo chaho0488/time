@@ -500,7 +500,7 @@ let roomMsg = null;                // 실 시간표 창 안에 보여 줄 결과
 let openReq = '';                  // 신청 내역에서 '자세히'를 펼친 줄('교사|과목')
 let sortBy = 'teacher', sortDir = 1;   // 신청 내역 정렬: 교사·과목·학반, 오름(1)/내림(-1)
 let dSort = 'slot', dDir = 1;       // '자세히' 목록 정렬: 일자(from)·교시(slot)·학급(cls)
-const picks = new Set();           // 신청 내역에서 한 번에 취소하려고 고른 줄('교사|과목')
+const picks = new Set();           // 신청 내역에서 한 번에 취소하려고 고른 신청(id). 교사 줄의 칸은 그 교사 신청 전체를, '자세히' 안의 칸은 한 건씩 고른다
 // 배치도 칸에 쓰는 줄인 실 이름(좁은 화면에서도 보이게)
 const SHORT = { '1A': '공유압1', '1B': '내선공사1', '1C': '내선공사2', '1D': '설비보전', '2A': '공유압2', '2B': '동력설비', '2C': '반도체', '2D': '송변전', '2E': '자동제어', '2F': '전기기기', '2G': 'CAD1', '2X': '생산자동화1', '2Y': '생산자동화2',
   '3A': '신재생', '3B': '제어기기', '3C': '자동화설비', '3D': '전기저장', '3E': '전자회로', '3F': 'CAD2', '4A': '기계제어', '4B': '전기설비1', '4C': '전기설비2', '4D': '환경공정' };
@@ -981,20 +981,21 @@ function renderInner() {
     cls: [...new Set(rows.map(r => r.cls))].sort((a, b) => clsKey(a).localeCompare(clsKey(b))), can: admin || rows.some(r => r.mine) }));   // can = 골라서 한 번에 취소(관리자는 전부, 선생님은 이 기기에서 한 본인 신청만)
   const sortVal = g => (sortBy === 'cls' ? clsKey(g.cls[0]) : g[sortBy]);
   list.sort((a, b) => sortDir * sortVal(a).localeCompare(sortVal(b), 'ko') || a.teacher.localeCompare(b.teacher, 'ko'));
-  for (const k of [...picks]) if (!list.some(g => g.k === k && g.can)) picks.delete(k);   // 없어졌거나 취소할 수 없게 된 줄은 선택에서 뺌
-  const canAny = list.filter(g => g.can), nPick = list.filter(g => picks.has(g.k)).reduce((t, g) => t + g.rows.filter(r => admin || r.mine).length, 0);
+  const canIds = g => g.rows.filter(r => admin || r.mine).map(r => r.id), allIds = new Set(list.flatMap(canIds));
+  for (const id of [...picks]) if (!allIds.has(id)) picks.delete(id);   // 없어졌거나 취소할 수 없게 된 신청은 선택에서 뺌
+  const canAny = list.filter(g => g.can), nPick = picks.size, gAll = g => canIds(g).every(id => picks.has(id)), gSome = g => canIds(g).some(id => picks.has(id));
   const th = (key, label) => `<th aria-sort="${sortBy === key ? (sortDir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sort" data-sort="${key}">${label}<span aria-hidden="true">${sortBy === key ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</span></button></th>`;
   h = (canAny.length ? `<div class="bulk"><button type="button" id="bulkDel"${nPick ? '' : ' disabled'}>선택한 신청 취소${nPick ? ` (${nPick}건)` : ''}</button></div>` : '')
-    + `<table class="sum"><thead><tr><th class="ck">${canAny.length ? `<input type="checkbox" id="pickAllReq" aria-label="취소할 수 있는 신청 모두 선택"${canAny.every(g => picks.has(g.k)) ? ' checked' : ''}>` : ''}</th>${th('teacher', '교사')}${th('subject', '과목')}${th('cls', '학반')}<th></th></tr></thead><tbody>`;
+    + `<table class="sum"><thead><tr><th class="ck">${canAny.length ? `<input type="checkbox" id="pickAllReq" aria-label="취소할 수 있는 신청 모두 선택"${allIds.size === picks.size ? ' checked' : ''}>` : ''}</th>${th('teacher', '교사')}${th('subject', '과목')}${th('cls', '학반')}<th></th></tr></thead><tbody>`;
   for (const g of list) {
     const open = openReq === g.k;
-    h += `<tr class="g"><td class="ck">${g.can ? `<input type="checkbox" data-pick="${esc(g.k)}" aria-label="${esc(g.teacher)} ${esc(g.subject)} 신청 선택"${picks.has(g.k) ? ' checked' : ''}>` : ''}</td><td>${esc(g.teacher)}</td><td>${esc(g.subject)}</td><td class="l">${g.cls.map(esc).join(', ')}</td>`
+    h += `<tr class="g"><td class="ck">${g.can ? `<input type="checkbox" data-pick="${esc(g.k)}" aria-label="${esc(g.teacher)} 신청 전체 선택"${gAll(g) ? ' checked' : gSome(g) ? ' data-some="1"' : ''}>` : ''}</td><td>${esc(g.teacher)}</td><td>${esc(g.subject)}</td><td class="l">${g.cls.map(esc).join(', ')}</td>`
       + `<td><button type="button" class="more" data-open="${esc(g.k)}" aria-expanded="${open}">${open ? '접기' : '자세히'}</button></td></tr>`;
     if (!open) continue;
     const dth = (key, label) => `<th aria-sort="${dSort === key ? (dDir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="sort" data-dsort="${key}">${label}<span aria-hidden="true">${dSort === key ? (dDir > 0 ? ' ▲' : ' ▼') : ''}</span></button></th>`;
     const dVal = r => (dSort === 'from' ? r.from : dSort === 'cls' ? clsKey(r.cls) : r.wk + String(100 + slotOrder(r.slot)));   // 교시 순 = 이번 주 먼저
     const rows = [...g.rows].sort((a, b) => dDir * dVal(a).localeCompare(dVal(b)) || a.wk.localeCompare(b.wk) || slotOrder(a.slot) - slotOrder(b.slot));   // 같으면 요일·교시 순
-    h += `<tr class="d"><td colspan="5"><table><thead><tr>${dth('slot', '교시')}${dth('cls', '학급')}${dth('from', '일자')}<th></th><th></th></tr></thead><tbody>`;
+    h += `<tr class="d"><td colspan="5"><table><thead><tr><th class="ck"></th>${dth('slot', '교시')}${dth('cls', '학급')}${dth('from', '일자')}<th></th><th></th></tr></thead><tbody>`;
     for (const r of rows) {
       let cell;
       if (admin || r.mine) {   // 실은 신청한 선생님이 직접 고른다(관리자도 가능)
@@ -1004,12 +1005,13 @@ function renderInner() {
           + opts.map(c => `<option value="${c}">${roomLabel(r, c)}</option>`).join('') + '</select>'
           + (!r.room && !opts.length ? ' <small class="err">빈 실 없음</small>' : '');
       } else cell = r.room ? `<b class="ok">${roomLabel(r, r.room)}</b>` : '<span class="wait">실 선택 전</span>';
-      h += `<tr><td>${r.slot[0]} ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${md(r.from)}부터${r.wk !== data.week.mon ? ` <small class="nx">${weekName(r.wk)}</small>` : ''}</td><td class="l">${cell}</td>`
+      h += `<tr><td class="ck">${admin || r.mine ? `<input type="checkbox" data-one="${r.id}" aria-label="${r.slot[0]} ${r.slot[1]}교시 ${esc(r.cls)} 신청 선택"${picks.has(r.id) ? ' checked' : ''}>` : ''}</td><td>${r.slot[0]} ${r.slot[1]}교시</td><td>${esc(r.cls)}</td><td>${md(r.from)}부터${r.wk !== data.week.mon ? ` <small class="nx">${weekName(r.wk)}</small>` : ''}</td><td class="l">${cell}</td>`
         + `<td>${r.mine || admin ? `<button class="x" data-del="${r.id}">취소</button>` : ''}</td></tr>`;
     }
     h += '</tbody></table></td></tr>';
   }
   $('list').innerHTML = h + '</tbody></table>';
+  $('list').querySelectorAll('input[data-some]').forEach(c => { c.indeterminate = true; });   // 일부만 고른 교사 줄은 '−' 표시
 }
 
 // 그 날짜에 이 실이 비는 교시(실 시간표의 '빈 실' 칸과 같은 기준: 전공 수업·교체로 들어온 수업·배정된 수업·창체 시간이 아닌 교시)
@@ -1127,7 +1129,7 @@ $('list').addEventListener('click', async e => {
   if (ds) { if (dSort === ds.dataset.dsort) dDir = -dDir; else { dSort = ds.dataset.dsort; dDir = 1; } render(); return; }
   if (so) { if (sortBy === so.dataset.sort) sortDir = -sortDir; else { sortBy = so.dataset.sort; sortDir = 1; } render(); return; }
   if (e.target.closest('#bulkDel')) {   // 고른 줄의 신청을 한 번에 취소
-    const ids = data.reqs.filter(r => picks.has(r.teacher) && (data.admin || r.mine)).map(r => r.id);
+    const ids = data.reqs.filter(r => picks.has(r.id) && (data.admin || r.mine)).map(r => r.id);
     if (!ids.length || !confirm(`선택한 신청 ${ids.length}건을 모두 취소할까요?`)) return;
     picks.clear();
     const { done, err } = await cancelIds(ids);
@@ -1141,8 +1143,11 @@ $('list').addEventListener('click', async e => {
 });
 $('list').addEventListener('change', async e => {
   const pk = e.target.closest('input[data-pick]');
-  if (pk) { if (pk.checked) picks.add(pk.dataset.pick); else picks.delete(pk.dataset.pick); render(); return; }
-  if (e.target.id === 'pickAllReq') { picks.clear(); if (e.target.checked) document.querySelectorAll('#list input[data-pick]').forEach(c => picks.add(c.dataset.pick)); render(); return; }
+  const mineOf = t => data.reqs.filter(r => (t === null || r.teacher === t) && (data.admin || r.mine)).map(r => r.id);   // 취소할 수 있는 신청(교사별 / 전체)
+  if (pk) { for (const id of mineOf(pk.dataset.pick)) { if (pk.checked) picks.add(id); else picks.delete(id); } render(); return; }   // 교사 줄: 그 교사 신청 전체
+  const one = e.target.closest('input[data-one]');
+  if (one) { const id = Number(one.dataset.one); if (one.checked) picks.add(id); else picks.delete(id); render(); return; }   // '자세히' 안: 한 건씩
+  if (e.target.id === 'pickAllReq') { picks.clear(); if (e.target.checked) mineOf(null).forEach(id => picks.add(id)); render(); return; }
   const s = e.target.closest('select[data-assign]');
   if (!s) return;
   const r = await api('PATCH', { id: Number(s.dataset.assign), room: s.value });
