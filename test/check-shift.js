@@ -1,4 +1,5 @@
 // 교시 이동(11/26 목: 7교시 부담임 창체 → 1교시, 1~6교시 → 2~7교시) 점검: 교사·학급 시간표 모두 밀리고 다른 주는 그대로인지
+// 같은 날 3학년만 5~7교시 외부활동(창체): 3학년 칸만 창체, 1·2학년은 밀린 수업 그대로
 // 실행: node test/check-shift.js   (playwright 필요, 가짜 서버라 인터넷·클라우드 불필요)
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -21,7 +22,11 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
       const ca = T['목7'] && T['목7'].subject === 'CA' ? T['목7'] : null;
       // 1교시: 부담임(목7 CA)만 그 학급 창체, 나머지 교사는 빈 칸
       if (ca ? !(a['목1'] && a['목1'].subject === '창체' && a['목1'].class === ca.class) : !!a['목1']) out.bad1.push(t);
-      for (let p = 2; p <= 7; p++) { out.n++; if (!same(a['목' + p], T['목' + (p - 1)])) out.badShift.push(t + '목' + p); }   // 2~7교시 = 원래 1~6교시
+      for (let p = 2; p <= 7; p++) {   // 2~7교시 = 원래 1~6교시, 단 3학년 5~7교시는 창체(외부활동)
+        out.n++; const o = T['목' + (p - 1)], g3 = p >= 5 && o && o.class.startsWith('3');
+        if (g3 ? !(a['목' + p] && a['목' + p].subject === '창체' && a['목' + p].class === o.class && a['목' + p].fixed) : !same(a['목' + p], o)) out.badShift.push(t + '목' + p);
+        if (g3) out.n3 = (out.n3 || 0) + 1;
+      }
       for (const d of ['월', '화', '수', '금']) for (let p = 1; p <= 7; p++) if (!same(a[d + p], T[d + p])) out.badOtherDay.push(t + d + p);
       for (let p = 1; p <= 6; p++) if (!same(b['목' + p], T['목' + p])) out.badPrevWeek.push(t + '목' + p);   // 전 주(11/19) 1~6교시는 그대로
     }
@@ -30,7 +35,10 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
     out.nCls = classes.length;
     for (const c of classes) {
       const now = cwClassWeek(c, '2026-11-23'), prev = cwClassWeek(c, '2026-11-09');   // 11/12 주: 예외·기록 없는 기준 주
-      for (let p = 2; p <= 7; p++) { const x = now['목' + p] || {}, y = prev['목' + (p - 1)] || {}; if (x.subject !== y.subject || x.teacher !== y.teacher) out.badCw.push(c + '목' + p); }
+      for (let p = 2; p <= 7; p++) {
+        const x = now['목' + p] || {}, y = prev['목' + (p - 1)] || {};
+        if (c[0] === '3' && p >= 5 ? (x.subject !== '창체' || x.teacher !== '') : (x.subject !== y.subject || x.teacher !== y.teacher)) out.badCw.push(c + '목' + p);
+      }
       const x1 = now['목1'] || {}, y7 = prev['목7'] || {};
       if (x1.subject !== '창체' || x1.teacher !== y7.teacher) out.badCw.push(c + '목1');
     }
@@ -45,9 +53,11 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
     out.noteDay = mTT('t', '', { iso: '2026-11-26', kind: 'cls' }); out.noteWeek = mTT('t', '', { mon: '2026-11-23', kind: 'cls', who: '1전1' });
     out.noteOther = mTT('t', '', { iso: '2026-11-25', kind: 'cls' }) + mTT('t', '', { mon: '2026-11-16', kind: 'cls', who: '1전1' }) + mTT('t', '');
     // 데스크톱 학급 시간표(buildClassTT)는 계산 경로가 달라 따로 확인: 목요일 열의 과목을 화면 그대로 읽음
-    const thu = iso => { document.getElementById('dateInput').value = iso; const t = document.createElement('template'); t.innerHTML = buildClassTT('2전1', null, {});
+    const thu = (iso, c = '2전1') => { document.getElementById('dateInput').value = iso; const t = document.createElement('template'); t.innerHTML = buildClassTT(c, null, {});
       return [...t.content.querySelectorAll('tr')].map(tr => [...tr.querySelectorAll('td.tc')]).filter(c => c.length === 5).map(c => (c[3].querySelector('.cs') || {}).textContent || ''); };
-    out.tt = thu('2026-11-26'); out.ttPrev = thu('2026-11-12');
+    out.tt = thu('2026-11-26'); out.ttPrev = thu('2026-11-12'); out.tt3 = thu('2026-11-26', '3신2'); out.tt3Prev = thu('2026-11-12', '3신2');
+    // 장승하(3신2 화학)는 11/26 5~7교시 고정 활동이라 대강할 칸이 아님
+    out.jang = [5, 6, 7].map(p => (effectiveSlot('장승하', '목' + p, '2026-11-26') || {}).fixed === true);
     return out;
   });
   ok('11/26 1교시: 부담임만 창체, 나머지 빈 칸', r.bad1.length === 0, r.bad1);
@@ -59,6 +69,8 @@ const ok = (name, cond, info) => { console.log(`${cond ? '✅' : '❌'} ${name}`
   ok('시간표 탭 안내 줄: 11/26 일별·그 주 주별에만', r.noteDay.includes('11/26 교시 이동') && r.noteWeek.includes('11/26 교시 이동') && !r.noteOther.includes('교시 이동'), [r.noteDay, r.noteOther]);
   ok('HR↔창체(같은 학급) 교체는 경고 없음: 교시 이동 주·보통 주·반대 방향', r.frShift === '' && r.frNormal === '' && r.frRev === '' && r.cand === '박주란목1', [r.frShift, r.frNormal, r.frRev, r.cand]);
   ok('다른 학급 HR끼리는 여전히 경고', r.frOther.includes('특수 수업'), r.frOther);
+  ok(`3학년 5~7교시 창체(외부활동) ${r.n3}칸`, r.n3 > 0 && r.jang.every(Boolean), [r.n3, r.jang]);
+  ok('데스크톱 학급 시간표 3신2: 2~4교시 밀림, 5~7교시 창체', r.tt3.slice(1, 4).join('|') === r.tt3Prev.slice(0, 3).join('|') && r.tt3.slice(4).every(x => x === '창체'), [r.tt3, r.tt3Prev]);
   ok('데스크톱 학급 시간표 2전1: 1교시 창체, 2~7교시 밀림', r.tt.length === 7 && r.tt[0] === '창체' && r.ttPrev.slice(0, 6).every(Boolean) && r.tt.slice(1).join('|') === r.ttPrev.slice(0, 6).join('|'), [r.tt, r.ttPrev]);
   await browser.close();
   console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');

@@ -1422,6 +1422,7 @@ const BLK=new Set(['HR','CA','선택','분반','창체','귀가']);
    - useDay : 그 날짜에 적용할 요일의 시간표 (1~5교시 등 일반 수업)
    - fixed  : 교시별 특별 활동
        mode:'all'      → 모든 교사 공통 활동(수업 없음). 교체·대강 대상 아님 (예: 귀가, 부담임 창체)
+       mode:'grade'    → 그 학년(grade) 학급만 고정 활동, 다른 학년은 평소 수업 그대로 (예: 3학년 외부활동)
        mode:'homeroom' → 담임 활동. fromKey(예: '화7' HR, '목7' CA)에 담임 학급이 있는 교사만
                          그 학급의 '창체'로 표시. 담임 결강 시 대강 지정 가능(교체는 불가)
    - periodMap : 교시 순서 이동 {그날 교시: 원래 교시}. 예) {2:1,…,7:6} → 1~6교시 수업이 한 시간씩 뒤로
@@ -1434,9 +1435,10 @@ const DATE_DAY_OVERRIDES = {
   '2026-10-29': { useDay:'금', fixed:{ 6:{subject:'창체',mode:'homeroom',fromKey:'목7'},   // 부담임 창체 (10/6 HR ↔ 10/29 6교시 부담임 교체 기록과 같음)
                                        7:{subject:'귀가',class:'',mode:'all'} } },
   '2026-11-19': { fixed:{ 7:{subject:'귀가',class:'',mode:'all'} } },   // 요일표는 그대로(useDay 없음), 7교시 수업만 없음
-  '2026-11-26': { fixed:{ 1:{subject:'창체',mode:'homeroom',fromKey:'목7'} },   // 7교시 부담임 창체(학교폭력예방교육)를 1교시로
+  '2026-11-26': { fixed:{ 1:{subject:'창체',mode:'homeroom',fromKey:'목7'},   // 7교시 부담임 창체(학교폭력예방교육)를 1교시로
+                          5:{subject:'창체',mode:'grade',grade:'3'}, 6:{subject:'창체',mode:'grade',grade:'3'}, 7:{subject:'창체',mode:'grade',grade:'3'} },   // 3학년 외부활동(원래 목4~6)
                   periodMap:{2:1, 3:2, 4:3, 5:4, 6:5, 7:6},                      // 1~6교시 수업은 한 시간씩 뒤로
-                  note:'교시 이동: 7교시 창체 → 1교시, 1~6교시 수업은 한 시간씩 뒤로' },
+                  note:'교시 이동: 7교시 창체 → 1교시, 1~6교시 수업은 한 시간씩 뒤로 · 3학년 5~7교시 외부활동(창체)' },
 };
 function dateOverride(iso){ return (iso && DATE_DAY_OVERRIDES[iso]) || null; }
 /* 요일 머리글에 붙이는 짧은 꼬리표: 평소 요일표와 다른 날임을 알림 */
@@ -1485,6 +1487,10 @@ function baseSlotFor(teacher, key, iso){
   if(!ov) return sc[key]||null;
   const p=key.slice(-1);
   const f=ov.fixed && ov.fixed[p];
+  if(f && f.mode==='grade'){
+    const s=sc[(ov.useDay||key.slice(0,-1))+((ov.periodMap&&ov.periodMap[p])||p)];
+    return s && String(s.class||'').startsWith(f.grade) ? {subject:f.subject, class:s.class, room:'', fixed:true} : (s||null);
+  }
   if(f){
     if(f.mode==='homeroom'){
       const hr=sc[f.fromKey];
@@ -3402,7 +3408,7 @@ function buildClassTT(cls,hlKey,slotColors){
       const colISO = clsBaseDate ? dateISOForWeekday(clsBaseDate, d) : null;
       // 요일 변경일: 고정 활동이면 그대로 표시, 아니면 해당 요일 시간표의 같은 교시
       const dov = dateOverride(colISO);
-      if(dov && dov.fixed && dov.fixed[String(p)]){
+      if(dov && dov.fixed && dov.fixed[String(p)] && !(dov.fixed[String(p)].mode==='grade' && !cls.startsWith(dov.fixed[String(p)].grade))){
         const f=dov.fixed[String(p)];
         if(f.mode==='homeroom'){
           // 담임 활동: 이 학급의 담임(fromKey에 HR/CA가 있는 교사) 표시 (대강 지정돼 있으면 그 교사)
@@ -3413,7 +3419,8 @@ function buildClassTT(cls,hlKey,slotColors){
           else { h+=`<td class="tc empty"></td>`; }
           return;
         }
-        h+=`<td class="tc blk" title="${f.subject}${f.class?' · '+f.class:''} (수업 없음)"><div class="cs">${f.subject}</div><div class="cc">${f.class||''}</div></td>`;
+        const fc=f.mode==='grade'?cls:(f.class||'');
+        h+=`<td class="tc blk" title="${f.subject}${fc?' · '+fc:''} (수업 없음)"><div class="cs">${f.subject}</div><div class="cc">${fc}</div></td>`;
         return;
       }
       const baseKey = ((dov&&dov.useDay)||d) + ((dov&&dov.periodMap&&dov.periodMap[p])||p);   // 요일 변경·교시 이동 반영
@@ -5437,7 +5444,7 @@ function cwClassWeek(cls, mondayISO){
     const iso=dateISOForWeekday(mondayISO,d), ov=dateOverride(iso);
     for(let p=1;p<=7;p++){
       const k=d+p, f=ov&&ov.fixed&&ov.fixed[p];
-      if(f && f.mode==='all') out[k]={subject:f.subject, teacher:'', room:'', changed:false};
+      if(f && (f.mode==='all' || (f.mode==='grade' && cls.startsWith(f.grade)))) out[k]={subject:f.subject, teacher:'', room:'', changed:false};
       if(f && f.mode==='homeroom' && out[k]) out[k].subject=f.subject;   // 담임 창체 시간은 기록의 과목(HR 등) 대신 '창체'로
       const cl=clubLock(iso,k); if(cl) out[k]=Object.assign(out[k]||{teacher:'',room:'',changed:false}, {subject:cl.slice(0,3)});   // 동아리활동: 담당(부담임)은 그대로, 칸이 좁아 앞 3글자만
     }
