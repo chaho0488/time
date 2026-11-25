@@ -77,7 +77,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   assert.equal((await call('POST', req({ from: '' }), A)).status, 400);
   assert.equal((await call('POST', req({ from: '2026-02-30' }), A)).status, 400, '없는 날짜');
   assert.equal((await call('POST', req({ from: '2026-11-23' }), A)).status, 400, '지난 날짜');
-  assert.equal((await call('POST', req({ from: '2027-03-02' }), A)).status, 400, '60일 뒤');
+  assert.equal((await call('POST', req({ from: '2027-03-02' }), A)).status, 200, '먼 뒤 주도 신청 가능(주 제한 없음)');
+  for (const x of (await call('GET')).reqs.filter(x => x.wk === '2027-03-01')) assert.equal((await call('DELETE', null, A, '?id=' + x.id)).status, 200);
   assert.equal((await call('POST', req({ slots: [] }), A)).status, 400);
   assert.equal((await call('POST', req({ from: '2026-11-24' }), A)).status, 400, '11/25 앞 날짜(오늘)는 신청 불가');
   assert.equal((await call('POST', req({ slots: ['월2'] }), A)).status, 400, '성준혁 선생님은 월2 수업이 없음');
@@ -187,9 +188,18 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const both = await Promise.all([call('POST', req({ slots: ['목2'] }), A), call('POST', req({ slots: ['목2'] }), B)]);
   assert.deepEqual(both.map(x => x.status).sort(), [200, 409]);
 
-  // 주 단위 신청: 오늘(11/30 월)이 속한 주(11/30~12/4)만. 다음 주 날짜·시작일보다 앞 요일은 거절
-  r = await call('POST', req({ from: '2026-12-07', slots: ['금1'] }), A);
-  assert.equal(r.status, 400); assert.match(r.error, /이번 주\(11\/30~12\/4\) 수업만/);
+  // 주 제한 없이 신청: 다음 주·그 뒤 주도 받고, 주마다 따로 저장된다(같은 수업을 이번 주와 다음 주에 각각 신청 가능). 지난 주·주말 시작일은 거절
+  { const n0 = (await call('GET')).reqs.length;
+    r = await call('POST', req({ from: '2026-12-07', slots: ['목6'] }), A); assert.equal(r.status, 200, '다음 주 수업 신청');
+    r = await call('POST', req({ from: '2026-12-07', slots: ['목6'] }), A); assert.equal(r.status, 409, '같은 주 같은 수업은 한 번만');
+    r = await call('POST', req({ from: '2026-12-21', slots: ['목6'], room: '2D' }), A); assert.equal(r.status, 200, '3주 뒤 수업도 신청(실까지)');
+    r = await call('POST', { teacher: '김학선', from: '2026-12-21', slots: ['목6'], room: '2D' }, B); assert.equal(r.status, 409, '같은 주 같은 실은 겹치지 않음');
+    r = await call('POST', { teacher: '김학선', from: '2026-12-14', slots: ['목6'], room: '2D' }, B); assert.equal(r.status, 200, '다른 주에는 같은 실을 쓸 수 있음');
+    const g = await call('GET'), add = g.reqs.slice(n0);
+    assert.deepEqual(add.map(x => [x.wk, x.date]), [['2026-12-07', '2026-12-10'], ['2026-12-14', '2026-12-17'], ['2026-12-21', '2026-12-24']], '신청마다 그 주(wk)와 그 주의 날짜');
+    assert.deepEqual(g.next, { mon: '2026-12-07', fri: '2026-12-11' });
+    assert.equal((await call('POST', req({ from: '2026-12-05', slots: ['목6'] }), A)).status, 400, '주말 시작일은 거절');
+    for (const x of add) assert.equal((await call('DELETE', null, PW, '?id=' + x.id)).status, 200); }
   const tt0 = (await call('GET')).tt['성준혁'], monK = Object.keys(tt0).find(k => k[0] === '월' && !tt0[k].split('|')[2]);
   if (monK) { r = await call('POST', req({ from: '2026-12-02', slots: [monK] }), A); assert.equal(r.status, 400); assert.match(r.error, /이동 시작일\(12\/2\)보다 앞/); }
   // 다음 주 월요일이 되면: 지난 주 신청은 목록에서 빠지고(보관 표로 옮김) 같은 수업을 다시 신청할 수 있다
@@ -201,5 +211,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // 주말에는 다가오는 주가 '이번 주'
   Date.now = () => Date.parse('2026-12-12T03:00:00Z');
   assert.deepEqual((await call('GET')).week, { mon: '2026-12-14', fri: '2026-12-18' });
+  // 예전 표(winter2)에 있던 신청은 새 표로 한 번만 옮겨진다
+  { const e2 = fakeEnv();
+    await e2.DG.prepare('CREATE TABLE winter2 (id INTEGER PRIMARY KEY AUTOINCREMENT, slot TEXT NOT NULL, from_date TEXT NOT NULL, teacher TEXT NOT NULL, cls TEXT NOT NULL, subject TEXT NOT NULL, room TEXT, at TEXT NOT NULL, dev TEXT)').run();
+    await e2.DG.prepare("INSERT INTO winter2 (slot, from_date, teacher, cls, subject, room, at, dev) VALUES ('금1', '2026-12-14', '김학선', '1전1', '국A', '2D', '12-14 09:00', 'd')").run();
+    const mod = await import('../src/worker.js?migrate');   // 새로 불러 '처음 부를 때' 준비를 다시 하게 함
+    const get = async () => (await mod.default.fetch(new Request('https://x/api/winter'), e2)).json();
+    const g1 = await get(), g2 = await get();
+    assert.deepEqual(g1.reqs.map(x => [x.wk, x.slot, x.teacher, x.room]), [['2026-12-14', '금1', '김학선', '2D']], '예전 신청이 그 주로 옮겨짐');
+    assert.equal(g2.reqs.length, 1, '두 번 옮기지 않음'); }
   console.log('✅ /api/winter 점검 통과');
 }

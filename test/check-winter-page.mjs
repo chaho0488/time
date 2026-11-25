@@ -127,7 +127,7 @@ ok('이름을 고르기 전에는 시작일·시간표가 나오지 않고 신�
 await page.fill('#teacher', 'ㅅㅈㅇ'); s = await names();
 ok('초성 ㅅㅈㅇ → 신지은 포함', s.includes('신지은'), s);
 await page.click('#tlist button[data-name="신지은"]');
-ok('이름을 고르면 화면 안 안내 창: "수업 장소 이동은 1주 단위로 신청할 수 있습니다." (새 창이 아니라 팝업 차단과 무관)', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('noticeText').textContent === '수업 장소 이동은 1주 단위로 신청할 수 있습니다.'));
+ok('이름을 고르면 화면 안 안내 창: "수업 장소 이동은 1주 단위로 신청할 수 있습니다." (새 창이 아니라 팝업 차단과 무관)', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('noticeText').textContent.startsWith('수업 장소 이동은 1주 단위로 신청할 수 있습니다.') && document.getElementById('noticeText').textContent.includes('다음 주나 그 뒤 주 수업도 미리 신청')));
 ok('안내 창에 "여러 수업을 한 번에 고르기 … 한 실습실에서 계속 할 수 있는지 확인" 문구', (await page.textContent('#noticeMulti')) === '여러 수업을 한 번에 고르기를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.');
 { const m = await page.evaluate(() => { const l = document.querySelector('#mytt .multi label'), c = getComputedStyle(l); return { color: c.color, size: parseFloat(c.fontSize), base: parseFloat(getComputedStyle(document.querySelector('#mytt .hint')).fontSize) }; });
   ok('"여러 수업을 한 번에 고르기"는 큰 글자(호박색 띠 안)', m.size > m.base + 3, m); }
@@ -152,7 +152,7 @@ await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-n
 s = await page.evaluate(() => ({ v: document.getElementById('teacher').value, btn: document.querySelectorAll('#mytt button[data-slot]').length, hidden: document.getElementById('tlist').hidden,
   w3: document.querySelector('#mytt button[data-slot="수3"]').textContent }));
 { const w = await page.evaluate(() => ({ head: [...document.querySelectorAll('#mytt thead th')].map(t => t.textContent).join(' '), next: [...document.querySelectorAll('#mytt td.lab')].filter(t => t.textContent.includes('다음 주')).length, monBtn: document.querySelectorAll('#mytt button[data-slot^="월"], #mytt button[data-slot^="화"]').length, max: document.getElementById('from').max, hint: document.querySelector('#mytt .hint').textContent }));
-  ok('주 단위: 머리줄은 이번 주(월 11/23~금 11/27), 시작일(11/25 수)보다 앞인 월·화 수업 8칸은 "다음 주"로 막힘, 시작일은 금요일까지만', w.head === ' 월11/23 화11/24 수11/25 목11/26 금11/27' && w.next === 8 && w.monBtn === 0 && w.max === '2026-11-27' && w.hint.includes('이번 주(11/23(월)~11/27(금)) 수업만 신청할 수 있고'), w); }
+  ok('주 단위: 머리줄은 이번 주(월 11/23~금 11/27), 시작일(11/25 수)보다 앞인 월·화 수업 8칸은 "다음 주"로 막힘, 시작일은 뒤 주도 고를 수 있음(끝 날짜 제한 없음)', w.head === ' 월11/23 화11/24 수11/25 목11/26 금11/27' && w.next === 8 && w.monBtn === 0 && w.max === '' && w.hint.includes('이번 주(11/23(월)~11/27(금)) 수업을 신청합니다'), w); }
 ok('이름을 고르면 그 교사의 시간표가 나옴 (수3 = 1신3 과학)', s.v === '성준혁' && s.btn === 10 && s.hidden && s.w3 === '1신3과학', s);
 ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치지 않음', !(s = await over()).length, s);
 // 수업 칸을 누르면 실 고르기 창: 그 시간에 비어 있는 실 목록 + 그 층 배치도, 실을 누르면 바로 신청

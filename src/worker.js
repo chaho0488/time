@@ -174,7 +174,7 @@ async function dgApi(req, env, url) {
 //   PUT    /api/winter       → 이용가능 실 목록 {avail:{실 코드: 이용 시작일}}                — 비밀번호(X-Pw)
 //   /winter                  → public/winter.html
 // 신청은 '매주 그 요일·교시 수업을 시작일부터 옮긴다'는 뜻이라 한 줄 = 교사의 수업 한 칸(요일교시).
-// 신청은 D1(DG)의 winter2 표(처음 부를 때 자동 생성), 이용가능 실 목록은 KV(DATA)의 winterAvail2(없으면 W_AVAIL_DEFAULT).
+// 신청은 D1(DG)의 winter3 표(처음 부를 때 자동 생성, 한 줄 = 어느 주(wk)의 요일교시), 이용가능 실 목록은 KV(DATA)의 winterAvail2(없으면 W_AVAIL_DEFAULT).
 const W_ROOMS = [
   ['1A', '공유압실습실_01'], ['1B', '내선공사실습실_01'], ['1C', '내선공사실습실_02'],
   ['1D', '설비보전실습실'], ['2A', '공유압실습실_02'], ['2B', '동력설비공사실습실'],
@@ -272,27 +272,36 @@ async function wAvail(env) {
   try { const a = JSON.parse((await env.DATA.get(W_AVAIL_KEY)) || 'null'); if (a && typeof a === 'object' && !Array.isArray(a)) return a; } catch {}
   return W_AVAIL_DEFAULT;
 }
-// 주 단위 신청: 오늘이 속한 주(월~금)의 수업만 신청하고, 그 주에만 유효하다. 주말에는 다가오는 주가 '이번 주'
+// 주 단위 신청: 이번 주(오늘이 속한 주)부터 앞으로 어느 주든 신청할 수 있고(주 제한 없음), 신청은 그 주에만 유효하다. 주말에는 다가오는 주가 '이번 주'
 const wAdd = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
 function wWeek(iso) { const g = new Date(iso + 'T00:00:00Z').getUTCDay(), mon = wAdd(iso, g === 0 ? 1 : g === 6 ? 2 : 1 - g); return { mon, fri: wAdd(mon, 4) }; }
 const wSlotDate = (mon, slot) => wAdd(mon, '월화수목금'.indexOf(slot[0]));   // 그 주에서 이 요일교시의 날짜
-// 유효하지 않은 신청(지난 주 것 · 시작일보다 앞 요일이라 그 주에 한 번도 해당하지 않는 것)은 보관 표(winter2_old)로 옮긴다 → winter2 에는 이번 주에 유효한 신청만 남는다
+const wNext = wk => ({ mon: wAdd(wk.mon, 7), fri: wAdd(wk.fri, 7) });   // 다음 주
+// 유효하지 않은 신청(지난 주 것 · 시작일보다 앞 요일이라 그 주에 한 번도 해당하지 않는 것)은 보관 표(winter2_old)로 옮긴다 → winter3 에는 이번 주와 그 뒤 주의 유효한 신청만 남는다
 async function wSweep(env, wk) {
-  const { results } = await env.DG.prepare('SELECT id, slot, from_date FROM winter2').all();
-  const dead = results.filter(r => { const m = wWeek(r.from_date).mon; return m !== wk.mon || wSlotDate(m, r.slot) < r.from_date; }).map(r => r.id);
+  const { results } = await env.DG.prepare('SELECT id, wk, slot, from_date FROM winter3').all();
+  const dead = results.filter(r => r.wk < wk.mon || wSlotDate(r.wk, r.slot) < r.from_date).map(r => r.id);
   if (!dead.length) return;
   const q = dead.map(() => '?').join(',');
   await env.DG.batch([
-    env.DG.prepare(`INSERT INTO winter2_old (id, slot, from_date, teacher, cls, subject, room, at, dev) SELECT id, slot, from_date, teacher, cls, subject, room, at, dev FROM winter2 WHERE id IN (${q})`).bind(...dead),
-    env.DG.prepare(`DELETE FROM winter2 WHERE id IN (${q})`).bind(...dead),
+    env.DG.prepare(`INSERT INTO winter2_old (id, slot, from_date, teacher, cls, subject, room, at, dev) SELECT id, slot, from_date, teacher, cls, subject, room, at, dev FROM winter3 WHERE id IN (${q})`).bind(...dead),
+    env.DG.prepare(`DELETE FROM winter3 WHERE id IN (${q})`).bind(...dead),
   ]);
 }
-// winter2 표: 같은 요일교시에 같은 학급·같은 교사·같은 실은 한 번만
+// winter3 표: 같은 주·같은 요일교시에 같은 학급·같은 교사·같은 실은 한 번만 (wk = 그 주 월요일. 주마다 따로 신청된다)
 let wReady = null;
 const wInit = env => wReady || (wReady = (async () => {
-  await env.DG.prepare('CREATE TABLE IF NOT EXISTS winter2 (id INTEGER PRIMARY KEY AUTOINCREMENT, slot TEXT NOT NULL, from_date TEXT NOT NULL, teacher TEXT NOT NULL, cls TEXT NOT NULL, subject TEXT NOT NULL, room TEXT, at TEXT NOT NULL, dev TEXT, UNIQUE(slot, cls), UNIQUE(slot, teacher))').run();
-  await env.DG.prepare('CREATE UNIQUE INDEX IF NOT EXISTS winter2_room ON winter2(slot, room) WHERE room IS NOT NULL').run();
+  await env.DG.prepare('CREATE TABLE IF NOT EXISTS winter3 (id INTEGER PRIMARY KEY AUTOINCREMENT, wk TEXT NOT NULL, slot TEXT NOT NULL, from_date TEXT NOT NULL, teacher TEXT NOT NULL, cls TEXT NOT NULL, subject TEXT NOT NULL, room TEXT, at TEXT NOT NULL, dev TEXT, UNIQUE(wk, slot, cls), UNIQUE(wk, slot, teacher))').run();
+  await env.DG.prepare('CREATE UNIQUE INDEX IF NOT EXISTS winter3_room ON winter3(wk, slot, room) WHERE room IS NOT NULL').run();
   await env.DG.prepare('CREATE TABLE IF NOT EXISTS winter2_old (id INTEGER, slot TEXT, from_date TEXT, teacher TEXT, cls TEXT, subject TEXT, room TEXT, at TEXT, dev TEXT)').run();   // 지난 신청 보관
+  // 예전 표(winter2: 이번 주만 받던 때)의 신청을 한 번만 옮겨 온다 — 옮기면서 이름을 바꿔 두므로 다시 옮기지 않는다(동시에 두 번 불려도 한쪽만 성공)
+  if (await env.DG.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'winter2'").first()) {
+    try {
+      const { results } = await env.DG.prepare('SELECT id, slot, from_date, teacher, cls, subject, room, at, dev FROM winter2').all();
+      await env.DG.batch([...results.map(r => env.DG.prepare('INSERT OR IGNORE INTO winter3 (id, wk, slot, from_date, teacher, cls, subject, room, at, dev) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(r.id, wWeek(r.from_date).mon, r.slot, r.from_date, r.teacher, r.cls, r.subject, r.room, r.at, r.dev)), env.DG.prepare('ALTER TABLE winter2 RENAME TO winter2_moved')]);
+    } catch {}
+  }
 })().catch(e => { wReady = null; throw e; }));
 
 // 교체·대강 반영: 교체 탐색기가 KV 'data' 에 저장한 기록(swHist·dgHist)을 '그 날짜에만' 달라지는 실습실 사용으로 바꾼다.
@@ -360,21 +369,21 @@ async function winterApi(req, env, url) {
   await wInit(env);
   const dev = dgDev(req);
   const admin = !!env.APP_PW && req.headers.get('X-Pw') === env.APP_PW;
-  const wk = wWeek(wToday(env));
+  const wk = wWeek(wToday(env)), nx = wNext(wk);
   await wSweep(env, wk);
 
   if (req.method === 'GET') {
-    const { results } = await env.DG.prepare('SELECT id, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter2 ORDER BY id').bind(dev || '').all();
-    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, block: W_BLOCK, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), moves: await wMoves(env), today: wToday(env), week: wk, admin, reqs: results.map(r => ({ ...r, date: wSlotDate(wk.mon, r.slot), mine: !!r.mine })) }),
+    const { results } = await env.DG.prepare('SELECT id, wk, slot, from_date AS "from", teacher, cls, subject, room, at, (dev IS NOT NULL AND dev = ?) AS mine FROM winter3 ORDER BY wk, id').bind(dev || '').all();
+    return new Response(JSON.stringify({ rooms: W_ROOMS, tt: W_TT, base: W_BASE, shift: W_SHIFT, block: W_BLOCK, never: W_NEVER, pc: W_PC, start: W_START, avail: await wAvail(env), moves: await wMoves(env), today: wToday(env), week: wk, next: nx, admin, reqs: results.map(r => ({ ...r, date: wSlotDate(r.wk, r.slot), mine: !!r.mine })) }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
 
   if (req.method === 'DELETE') {
     const id = Number(url.searchParams.get('id'));
-    const row = Number.isInteger(id) ? await env.DG.prepare('SELECT dev FROM winter2 WHERE id = ?').bind(id).first() : null;
+    const row = Number.isInteger(id) ? await env.DG.prepare('SELECT dev FROM winter3 WHERE id = ?').bind(id).first() : null;
     if (!row) return json({ error: '이미 취소된 신청입니다' }, 404);
     if (!admin && !(dev && row.dev === dev)) return json({ error: '신청한 기기에서만 취소할 수 있습니다. 담당 선생님께 말씀해 주세요' }, 403);
-    await env.DG.prepare('DELETE FROM winter2 WHERE id = ?').bind(id).run();
+    await env.DG.prepare('DELETE FROM winter3 WHERE id = ?').bind(id).run();
     return json({ ok: true });
   }
 
@@ -391,7 +400,9 @@ async function winterApi(req, env, url) {
     if (from < today) return json({ error: '지난 날짜는 고를 수 없습니다' }, 400);
     if (from < W_START) return json({ error: `${Number(W_START.slice(5, 7))}/${Number(W_START.slice(8))}부터 신청할 수 있습니다` }, 400);
     const mdK = d => `${Number(d.slice(5, 7))}/${Number(d.slice(8))}`;
-    if (from < wk.mon || from > wk.fri) return json({ error: `이번 주(${mdK(wk.mon)}~${mdK(wk.fri)}) 수업만 신청할 수 있습니다. 다음 주 수업은 다음 주에 신청해 주세요` }, 400);
+    if (from < wk.mon) return json({ error: '지난 주 수업은 신청할 수 없습니다' }, 400);
+    if ([0, 6].includes(new Date(from + 'T00:00:00Z').getUTCDay())) return json({ error: '시작일은 평일로 골라 주세요' }, 400);
+    const fw = wWeek(from).mon;   // 이 신청이 들어갈 주(시작일이 속한 주)
     const slots = [...new Set(Array.isArray(body.slots) ? body.slots.map(String) : [])];
     if (!slots.length) return json({ error: '시간표에서 옮기고 싶은 수업을 골라 주세요' }, 400);
     // room = 신청하면서 바로 고른 실(수업 한 칸을 눌러 실을 고르는 화면). 한 칸 신청일 때만 받는다
@@ -399,23 +410,23 @@ async function winterApi(req, env, url) {
     if (room) {
       if (slots.length !== 1) return json({ error: '실습실은 수업 한 칸씩 골라 주세요' }, 400);
       const bad = await wRoomBad(env, room, slots[0], from, admin); if (bad) return bad;
-      if (await env.DG.prepare('SELECT 1 FROM winter2 WHERE slot = ? AND room = ?').bind(slots[0], room).first()) return json({ error: `${room}은(는) 그 시간에 방금 다른 수업이 들어왔습니다. 다른 실을 골라 주세요` }, 409);
+      if (await env.DG.prepare('SELECT 1 FROM winter3 WHERE wk = ? AND slot = ? AND room = ?').bind(fw, slots[0], room).first()) return json({ error: `${room}은(는) 그 시간에 방금 다른 수업이 들어왔습니다. 다른 실을 골라 주세요` }, 409);
     }
     const rows = [];
     for (const k of slots) {
       if (!Object.hasOwn(sc, k)) return json({ error: `${teacher} 선생님 시간표에 없는 시간입니다 (${k})` }, 400);
       const [cls, subject, room] = sc[k].split('|');
-      if (wSlotDate(wk.mon, k) < from) return json({ error: `${k[0]}요일 ${k[1]}교시는 이동 시작일(${mdK(from)})보다 앞이라 이번 주에는 신청할 수 없습니다. 다음 주에 신청해 주세요` }, 400);
+      if (wSlotDate(fw, k) < from) return json({ error: `${k[0]}요일 ${k[1]}교시는 이동 시작일(${mdK(from)})보다 앞이라 그 주에는 신청할 수 없습니다${fw === wk.mon ? '. 다음 주 수업으로 신청해 주세요' : ''}` }, 400);
       if (W_BLOCK[k]) return json({ error: `${k[0]}요일 ${k[1]}교시는 ${W_BLOCK[k]} 수업으로 실습실을 쓸 수 없습니다` }, 400);
       if (room) return json({ error: `${k} ${cls} ${subject} 수업은 이미 실습실(${room})에서 하는 수업입니다` }, 400);
       // 겹치는 신청은 먼저 찾아 어느 칸인지 알려 준다 (동시에 들어온 신청은 아래 UNIQUE 가 막음)
-      const dup = await env.DG.prepare('SELECT 1 FROM winter2 WHERE slot = ? AND (cls = ? OR teacher = ?)').bind(k, cls, teacher).first();
+      const dup = await env.DG.prepare('SELECT 1 FROM winter3 WHERE wk = ? AND slot = ? AND (cls = ? OR teacher = ?)').bind(fw, k, cls, teacher).first();
       if (dup) return json({ error: `${k[0]}요일 ${k[1]}교시 ${cls} 수업은 이미 신청되어 있습니다` }, 409);
-      rows.push([k, from, teacher, cls, subject]);
+      rows.push([fw, k, from, teacher, cls, subject]);
     }
     const at = new Date(Date.now() + 9 * 3600e3).toISOString().slice(5, 16).replace('T', ' ');   // 한국 시각 MM-DD hh:mm
     try {   // batch = 한 묶음(전부 저장되거나 전부 안 됨)
-      await env.DG.batch(rows.map(r => env.DG.prepare('INSERT INTO winter2 (slot, from_date, teacher, cls, subject, at, dev, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(...r, at, dev, room || null)));
+      await env.DG.batch(rows.map(r => env.DG.prepare('INSERT INTO winter3 (wk, slot, from_date, teacher, cls, subject, at, dev, room) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(...r, at, dev, room || null)));
     } catch { return json({ error: '방금 같은 수업에 다른 신청이 들어왔습니다. 화면을 확인하고 다시 신청해 주세요' }, 409); }
     return json({ ok: true, count: rows.length });
   }
@@ -434,13 +445,13 @@ async function winterApi(req, env, url) {
   // 배정: 이용가능으로 표시된 실 중, 그 요일교시에 전공 수업도 다른 배정도 없는 실만.
   // 실의 이용 시작일이 신청 시작일보다 늦으면 화면이 실의 시작일부터 배정된 것으로 보여 준다
   const id = Number(body.id), room = String(body.room || '');
-  const row = Number.isInteger(id) ? await env.DG.prepare('SELECT slot, dev, from_date FROM winter2 WHERE id = ?').bind(id).first() : null;
+  const row = Number.isInteger(id) ? await env.DG.prepare('SELECT slot, dev, from_date FROM winter3 WHERE id = ?').bind(id).first() : null;
   if (!row) return json({ error: '취소된 신청입니다' }, 404);
   // 실은 신청한 선생님이 직접 고른다: 신청한 기기(또는 관리자)만 바꿀 수 있다 — 취소와 같은 규칙
   if (!admin && !(dev && row.dev === dev)) return json({ error: '신청한 기기에서만 실을 고를 수 있습니다' }, 403);
   if (room) { const bad = await wRoomBad(env, room, row.slot, row.from_date, admin); if (bad) return bad; }
   try {
-    await env.DG.prepare('UPDATE winter2 SET room = ? WHERE id = ?').bind(room || null, id).run();
+    await env.DG.prepare('UPDATE winter3 SET room = ? WHERE id = ?').bind(room || null, id).run();
   } catch { return json({ error: `${room}은(는) 그 시간에 이미 다른 수업이 배정되어 있습니다` }, 409); }
   return json({ ok: true });
 }
