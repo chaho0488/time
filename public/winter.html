@@ -4,19 +4,37 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes">
 <title>교실 → 실습실 수업 장소 이동 신청</title>
+<meta name="description" content="울산에너지고 교실 수업을 비어 있는 실습실로 옮기는 신청 화면">
 <!-- 글꼴(Pretendard): 불러오지 못하면 기기 기본 글꼴로 보인다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
-  /* 색: 차가운 남색 바탕에, 쓸 수 있는 따뜻한 실만 호박색으로 — 화면에서 '따뜻한 실'이 먼저 눈에 들어오게 */
-  :root { --ink: #14213D; --sub: #5A6478; --paper: #F3F6FA; --card: #FFFFFF; --line: #D9E0EA;
-          --warm: #F2A93B; --warm-bg: #FFF2D9; --warm-ink: #7A4E00; --pine: #1F7A5C; --pine-bg: #DDF1E8;
-          --edge: #8B95A5; --frost: #E4E9F0; --frost-ink: #8B95A5; --red: #C0392B; }
+  /* Hallmark · checked: 2026-11-25 · genre: modern-minimal (inferred) · shape: app screen
+   * floor: fixed 7a, 30a, 34, 39a, 48 · structural: printed (24b 여백 4px 단위, 내 시간표 폭)
+   * built: the project · redesign: polish */
+  /* 색·글자: 아래 목록에서만 값을 정하고, 나머지는 모두 이 이름을 쓴다(색을 바꾸면 범례·칸이 함께 바뀜) */
+  /* 차가운 남색 바탕에, 쓸 수 있는 실만 노란색(호박색)으로 — '쓸 수 있는 실'이 먼저 눈에 들어오게 */
+  :root { --font: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+          --ink: #14213D; --on-ink: #FFFFFF; --on-ink-sub: #C9D3E6; --sub: #5A6478; --paper: #F3F6FA; --card: #FFFFFF; --line: #D9E0EA;
+          --warm: #F2A93B; --warm-bg: #FFF2D9; --warm-ink: #7A4E00; --warm-hover: rgba(242, 169, 59, .22);
+          --pine: #1A6E51; --pine-bg: #DDF1E8;
+          --edge: #8B95A5; --frost: #E4E9F0; --frost-ink: #566173; --red: #C0392B; --err: #B3261E;
+          /* 실 상태: 전공 수업 < 수업 불가 실 < 교실 이용불가(현황표 X) 순으로 진하게 */
+          --busy: #E9EEF5; --shut: #D8DEE7; --shut-line: #CFD6E0;
+          --never: #C5CCD6; --never-line: #B3BAC6; --never-cell: #D3D8E0; --never-code: #5E6878; --never-ink: #3E4756;
+          --plan-blank: #F4F6F9;   /* 배치도의 화장실·계단·복도 칸: 빗금 없이 옅은 바탕 */
+          --dim: rgba(20, 33, 61, .32); --shadow: rgba(20, 33, 61, .22);
+          --print-ink: #0B1220; --print-head: #EEF0F3; --print-mv: #F3F4F6;
+          /* 글자 크기 5단계(+배치도 칸 안 글자 4단계) */
+          --fs-xs: .75rem; --fs-sm: .85rem; --fs-md: .95rem; --fs-lg: 1.1rem; --fs-xl: 1.25rem;
+          --fs-plan-xs: 10px; --fs-plan-sm: 11px; --fs-plan-md: 13px; --fs-plan-lg: 16px; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif; background: var(--paper); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  html, body { overflow-x: clip; }   /* 가로로 밀리지 않게(hidden 은 확대·고정 위치를 깨므로 clip) */
+  button:not(:disabled):active { transform: translateY(1px); }   /* 누르는 순간 살짝 눌린 느낌 */
+  body { margin: 0; font-family: var(--font); background: var(--paper); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
   main { max-width: 1080px; margin: 0 auto; padding: 14px 20px 48px; }
-  h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+  h1 { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
   .top { display: flex; align-items: center; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 10px; }
-  h2 { font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; margin: 28px 0 10px; }
+  h2 { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; margin: 28px 0 10px; text-wrap: balance; }
   button, input, select { font: inherit; color: inherit; }
   :focus-visible { outline: 3px solid var(--warm); outline-offset: 2px; }
   .ok { color: var(--pine); } .err { color: var(--red); }
@@ -30,104 +48,104 @@
   .apply > .step:first-child > .pick { flex: 1 1 12em; }
   .apply > .step:first-child:has(+ #steps[hidden]) { border-bottom: 0; padding-bottom: 0; }   /* 이름을 고르기 전: 교사명 칸만 */
   #msg:empty { display: none; }
-  .step > label { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .95rem; margin-bottom: 8px; }
-  .num { flex: none; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-  #teacher, #from { font-size: .95rem; padding: 7px 10px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; width: 100%; max-width: 17em; }
+  .step > label { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: var(--fs-md); margin-bottom: 8px; }
+  .num { flex: none; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--ink); color: var(--on-ink); font-size: var(--fs-sm); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+  #teacher, #from { font-size: var(--fs-md); padding: 7px 10px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); width: 100%; max-width: 17em; }
   .pick { position: relative; max-width: 17em; }
-  .closeme { padding: 7px 18px; border: 1px solid var(--ink); border-radius: 8px; background: var(--ink); color: #fff; font-size: .9rem; font-weight: 700; cursor: pointer; }
+  .closeme { padding: 7px 18px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); color: var(--ink); font-size: var(--fs-md); font-weight: 700; cursor: pointer; }
+  .closeme:hover { border-color: var(--ink); }
   .closerow { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-  #tlist { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: #fff; border: 1px solid var(--edge); border-radius: 8px; max-height: 15em; overflow-y: auto; }
-  #tlist button { display: block; width: 100%; text-align: left; padding: 9px 10px; font-size: .95rem; border: 0; border-bottom: 1px solid var(--line); background: #fff; cursor: pointer; }
+  #tlist { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; background: var(--card); border: 1px solid var(--edge); border-radius: 8px; max-height: 15em; overflow-y: auto; }
+  #tlist button { display: block; width: 100%; text-align: left; padding: 9px 10px; font-size: var(--fs-md); border: 0; border-bottom: 1px solid var(--line); background: var(--card); cursor: pointer; }
   #tlist button:last-child { border-bottom: 0; }
   #tlist button:hover, #tlist button:focus { background: var(--warm-bg); }
-  .hint { font-size: .82rem; color: var(--sub); }
+  .hint { font-size: var(--fs-sm); color: var(--sub); }
   #from { width: auto; }
   .fromrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  #fromNote { font-size: .9rem; font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 6px; padding: 4px 10px; }
+  #fromNote { font-size: var(--fs-md); font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 6px; padding: 4px 10px; }
   #fromNote:empty { display: none; }
   #msg { margin-top: 10px; font-weight: 700; }
 
   /* 내 시간표: 옮기고 싶은 수업 칸을 눌러 고른다 */
   .wrap { overflow-x: auto; }
   #mytt table { border-collapse: separate; border-spacing: 3px; width: 100%; max-width: 660px; table-layout: fixed; margin: 6px -3px 0; }   /* PC 에서 너무 커지지 않게 폭을 제한 */
-  #mytt th { font-size: .8rem; font-weight: 700; color: var(--sub); padding: 2px 0; }
+  #mytt th { font-size: var(--fs-sm); font-weight: 700; color: var(--sub); padding: 2px 0; }
   #mytt th.p { width: 1.8em; }
-  #mytt th small { display: block; font-size: .7rem; font-weight: 500; }   /* 요일 아래 날짜 */
-  #mytt td { padding: 0; height: 2.2em; border-radius: 6px; text-align: center; font-weight: 700; font-size: .85rem; background: transparent; }
-  #mytt td small, #mytt td button small { display: inline; margin-left: 4px; font-weight: 500; font-size: .75rem; color: var(--sub); }   /* 학급 옆에 과목을 한 줄로: 칸을 낮게 */
-  #mytt td button { width: 100%; height: 100%; min-height: 2.2em; border: 1.5px solid var(--line); border-radius: 6px; background: #fff; font-weight: 700; cursor: pointer; padding: 2px; }
+  #mytt th small { display: block; font-size: var(--fs-xs); font-weight: 500; }   /* 요일 아래 날짜 */
+  #mytt td { padding: 0; height: 2.2em; border-radius: 6px; text-align: center; font-weight: 700; font-size: var(--fs-sm); background: transparent; }
+  #mytt td small, #mytt td button small { display: inline; margin-left: 4px; font-weight: 500; font-size: var(--fs-xs); color: var(--sub); }   /* 학급 옆에 과목을 한 줄로: 칸을 낮게 */
+  #mytt td button { width: 100%; height: 100%; min-height: 2.2em; border: 1.5px solid var(--line); border-radius: 6px; background: var(--card); font-weight: 700; cursor: pointer; padding: 2px; }
   #mytt td button:hover { border-color: var(--ink); }
-  #mytt td button.sel { background: var(--ink); border-color: var(--ink); color: #fff; }
+  #mytt td button.sel { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
   #mytt td button.req { background: var(--pine-bg); border-color: var(--pine); color: var(--pine); }   /* 내가 신청한 수업: 누르면 실을 바꾸거나 취소 */
   #mytt td button.req small { color: var(--pine); }
   #mytt td button.req.sel { box-shadow: 0 0 0 2px var(--ink); }
   /* 실 고르기 창: 화면 위에 떠 있고 제목 줄을 끌어 옮긴다(뒤의 화면은 그대로 쓸 수 있음) */
   .pop { position: fixed; z-index: 20; left: 50%; top: 3vh; transform: translateX(-50%); width: min(560px, 94vw); max-height: 94vh; display: flex; flex-direction: column;
-         background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 12px 40px rgba(20, 33, 61, .28); overflow: hidden; }
+         background: var(--card); border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 20px var(--shadow); overflow: hidden; }
   .pop[hidden] { display: none; }
   .pop.notice { z-index: 30; top: 30vh; left: 50%; right: auto; transform: translateX(-50%); width: min(380px, 90vw); text-align: center; }   /* 안내 창은 언제나 화면 가운데 */
-  .notice p { margin: 8px 0 14px; font-size: 1rem; }
-  .notice #noticeMulti { font-size: .9rem; text-align: left; } .red { color: var(--red); }
-  #noticeNever { margin-left: 8px; padding: 8px 14px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; color: var(--sub); font-weight: 600; cursor: pointer; }
-  #noticeOk, #moreSend { padding: 8px 26px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; cursor: pointer; }
+  .notice p { margin: 8px 0 14px; font-size: var(--fs-lg); }
+  .notice #noticeMulti { font-size: var(--fs-md); text-align: left; } .red { color: var(--red); }
+  #noticeNever { margin-left: 8px; padding: 8px 14px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); color: var(--sub); font-weight: 600; cursor: pointer; }
+  #noticeOk, #moreSend { padding: 8px 26px; border: 0; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; cursor: pointer; }
   .morelist { list-style: none; margin: 0 0 10px; padding: 0; }
-  .morelist label { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: .92rem; cursor: pointer; }
+  .morelist label { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: var(--fs-md); cursor: pointer; }
   .morelist input { width: 1.1em; height: 1.1em; }
   /* 내 수업 장소(실습실에서 하는 수업) 목록과 인쇄·엑셀 단추 */
   .mine { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-  .mine ul { margin: 6px 0 8px; padding-left: 1.2em; font-size: .9rem; }
-  .mine button:disabled { opacity: .45; cursor: default; } .mine button.x { border-color: var(--err, #B3261E); color: var(--err, #B3261E); }
-  .mine button { padding: 6px 12px; margin-right: 6px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
+  .mine ul { margin: 6px 0 8px; padding-left: 1.2em; font-size: var(--fs-md); }
+  .mine button:disabled { background: var(--frost); color: var(--frost-ink); border-color: var(--line); cursor: default; } .mine button.x { border-color: var(--err); color: var(--err); }
+  .mine button { padding: 6px 12px; margin-right: 6px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
   /* 인쇄: 교실에 붙일 안내 한 장만 */
   #printArea { display: none; }
   @media print {
     main, .pop { display: none !important; }
-    body { background: #fff; }
-    #printArea { display: block; padding: 0 4mm; color: #000; }
+    body { background: var(--card); }
+    #printArea { display: block; padding: 0 4mm; color: var(--print-ink); }
     #printArea h1 { font-size: 22pt; margin: 0 0 4mm; } #printArea h2 { font-size: 13pt; margin: 8mm 0 2mm; } #printArea p { font-size: 12pt; margin: 0 0 4mm; }
-    #printArea table { border-collapse: collapse; width: 100%; } #printArea th, #printArea td { border: 1px solid #000; padding: 2.5mm 2mm; text-align: center; font-size: 12pt; }
-    #printArea table.big td { font-size: 15pt; font-weight: 700; padding: 4mm 2mm; } #printArea th { background: #eee; }
+    #printArea table { border-collapse: collapse; width: 100%; } #printArea th, #printArea td { border: 1px solid var(--print-ink); padding: 2.5mm 2mm; text-align: center; font-size: 12pt; }
+    #printArea table.big td { font-size: 15pt; font-weight: 700; padding: 4mm 2mm; } #printArea th { background: var(--print-head); }
     #printArea th small { display: block; font-size: 9pt; font-weight: 400; } #printArea h2 small { font-size: 11pt; font-weight: 400; }
-    #printArea td small { display: block; font-size: 9pt; font-weight: 400; } #printArea td.mv { font-weight: 700; background: #f3f3f3; }
+    #printArea td small { display: block; font-size: 9pt; font-weight: 400; } #printArea td.mv { font-weight: 700; background: var(--print-mv); }
   }
   @media (min-width: 1500px) { .pop { left: auto; right: 3vw; transform: none; } }   /* 넓은 화면: 시간표를 가리지 않게 오른쪽에 */
-  .pophead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 14px; background: var(--ink); color: #fff; cursor: move; touch-action: none; user-select: none; }
-  .pophead b { font-size: .95rem; }
-  #popClose, #rpopClose { border: 0; background: none; color: #fff; font-size: 1rem; width: 2em; height: 2em; cursor: pointer; border-radius: 6px; }
+  .pophead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 14px; background: var(--card); color: var(--ink); border-bottom: 1px solid var(--line); cursor: move; touch-action: none; user-select: none; }
+  .pophead b { font-size: var(--fs-md); }
+  #popClose, #rpopClose { border: 0; background: none; color: var(--sub); font-size: var(--fs-lg); width: 2em; height: 2em; cursor: pointer; border-radius: 6px; }
+  #popClose:hover, #rpopClose:hover { background: var(--frost); color: var(--ink); }
   .popbody { padding: 8px 14px 10px; overflow-y: auto; }
   .popbody .fine { margin: 0 0 8px; }
-  .multi { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 2px; font-size: .88rem; font-weight: 600; }
-  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 1.1rem; font-weight: 700; color: var(--red); }
+  .multi { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin: 8px 0 2px; font-size: var(--fs-sm); font-weight: 600; }
+  .multi label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: var(--fs-lg); font-weight: 700; color: var(--red); }
   .multi label input { width: 1.1em; height: 1.1em; }
-  .multi button { padding: 5px 12px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 700; cursor: pointer; }
-  .multi button:not(:disabled) { padding: 9px 18px; background: var(--red); font-size: 1.05rem; font-weight: 700; box-shadow: 0 2px 8px rgba(192, 57, 43, .35); }
-  .multi button:disabled { background: var(--frost); color: var(--frost-ink); cursor: default; }
+  .multi button { padding: 5px 12px; border: 0; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-size: var(--fs-sm); font-weight: 700; cursor: pointer; }
   .pophint { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .pophint .fine { margin: 0; } .pophint .x { flex: none; }
   .popfoot:has(#popMsg:empty):not(:has(button, .hint)) { display: none; }
   /* '다른 시간에도 비어 있음' 창의 시간표 */
   .moregrid { border-collapse: separate; border-spacing: 3px; width: 100%; table-layout: fixed; }
-  .moregrid th { font-size: .78rem; color: var(--sub); padding: 1px 0; } .moregrid th.p { width: 1.6em; }
-  .moregrid td { height: 2.5em; padding: 0; border-radius: 6px; text-align: center; font-size: .8rem; font-weight: 700; line-height: 1.15; }
-  .moregrid td small { display: block; font-size: .68rem; font-weight: 500; }
+  .moregrid th { font-size: var(--fs-sm); color: var(--sub); padding: 1px 0; } .moregrid th.p { width: 1.6em; }
+  .moregrid td { height: 2.5em; padding: 0; border-radius: 6px; text-align: center; font-size: var(--fs-sm); font-weight: 700; line-height: 1.15; }
+  .moregrid td small { display: block; font-size: var(--fs-xs); font-weight: 500; }
   .moregrid td.no { color: var(--frost-ink); }
   .moregrid td.req { color: var(--pine); background: var(--pine-bg); }
   .moregrid td.out { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }
-  .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 2px dashed var(--frost-ink); border-radius: 6px; background: #fff; color: var(--sub); font: inherit; cursor: pointer; }
+  .moregrid td button { width: 100%; height: 100%; min-height: 2.5em; padding: 1px; border: 2px dashed var(--frost-ink); border-radius: 6px; background: var(--card); color: var(--sub); font: inherit; cursor: pointer; }
   .moregrid td button[aria-pressed=true] { background: var(--pine-bg); border-color: var(--red); color: var(--pine); }
-  .moreask { font-size: 1rem; line-height: 1.6; margin: 4px 0 10px; }
-  #moreYes, #moreSend { padding: 9px 22px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
-  .popbody .pfl { font-size: .78rem; font-weight: 700; margin: 5px 0 2px; }
+  .moreask { font-size: var(--fs-lg); line-height: 1.6; margin: 4px 0 10px; }
+  #moreYes, #moreSend { padding: 9px 22px; border: 0; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-size: var(--fs-lg); font-weight: 700; cursor: pointer; }
+  .popbody .pfl { font-size: var(--fs-sm); font-weight: 700; margin: 5px 0 2px; }
   .popbody .prow { height: 40px; }
-  .popbody .pmid { height: 14px; font-size: 10px; }
+  .popbody .pmid { height: 14px; font-size: var(--fs-plan-xs); }
   .popbody .pc:not(.pr) span { display: none; }
-  .popbody .pr span:not(.pcmark) { font-size: 11.5px; white-space: nowrap; }
-  .popbody .pc b { font-size: 14px; flex-direction: row; }
-  .popbody .pc em { font-size: 10px; }
+  .popbody .pr span:not(.pcmark) { font-size: var(--fs-plan-sm); white-space: nowrap; }
+  .popbody .pc b { font-size: var(--fs-plan-md); flex-direction: row; }
+  .popbody .pc em { font-size: var(--fs-plan-xs); }
   .popfoot { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-  #popMsg { font-size: .85rem; font-weight: 700; }
-  #mytt td button.sel small { color: #C9D3E6; }
-  #mytt .all { margin-top: 6px; padding: 5px 12px; font-size: .85rem; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
+  #popMsg { font-size: var(--fs-sm); font-weight: 700; }
+  #mytt td button.sel small { color: var(--on-ink-sub); }
+  #mytt .all { margin-top: 6px; padding: 5px 12px; font-size: var(--fs-sm); border: 1px solid var(--edge); border-radius: 8px; background: var(--card); font-weight: 700; cursor: pointer; }
   #mytt td.lab { background: var(--frost); color: var(--frost-ink); }            /* 이미 실습실에서 하는 수업 */
   #mytt td.lab small { color: var(--frost-ink); }
   #mytt td.req { background: var(--pine-bg); color: var(--pine); }                /* 이미 신청한 수업 */
@@ -137,50 +155,51 @@
   /* 실습실 시간표: 실 이름을 한 줄 크게 쓰고, 그 아래 1~7교시를 한 줄로 */
   .nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 14px 0 6px; }
   .nav h2 { margin: 0 8px 0 0; }
-  .nav > button { width: 2.2em; height: 2.2em; border: 1px solid var(--edge); border-radius: 8px; background: #fff; cursor: pointer; font-size: .9rem; }
-  .nav input { font-size: .95rem; padding: 5px 8px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; }
-  #vday { font-size: 1.05rem; font-weight: 700; margin: 0 6px 0 4px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8rem; color: var(--sub); margin: 0 0 8px; }
+  .nav > button svg { display: block; margin: auto; }
+  .nav > button { width: 2.2em; height: 2.2em; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); cursor: pointer; font-size: var(--fs-md); }
+  .nav input { font-size: var(--fs-md); padding: 5px 8px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); }
+  #vday { font-size: var(--fs-lg); font-weight: 700; margin: 0 6px 0 4px; font-variant-numeric: tabular-nums; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--fs-sm); color: var(--sub); margin: 0 0 8px; }
   .legend span::before { content: ""; display: inline-block; width: .9em; height: .9em; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); border: 1px solid var(--line); }
-  .fine { font-size: .8rem; color: var(--sub); margin: 8px 0; }
+  .fine { font-size: var(--fs-sm); color: var(--sub); margin: 8px 0; }
   #note { font-weight: 700; margin-bottom: 8px; }
   #grid { display: block; }
   #grid[hidden], #list[hidden], .legend[hidden] { display: none; }
   /* 같은 층의 실은 표 하나로 묶는다: 바깥 테두리 하나, 실 사이는 가는 줄 */
   .ftable { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; overflow: hidden; }
   /* 층별 묶음 제목 */
-  .floor { display: flex; align-items: center; gap: 10px; font-size: 1.05rem; font-weight: 700; margin: 18px 0 8px; }
+  .floor { display: flex; align-items: center; gap: 10px; font-size: var(--fs-lg); font-weight: 700; margin: 18px 0 8px; }
   .floor:first-child { margin-top: 4px; }
-  .floor span { font-size: .82rem; font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 999px; padding: 2px 10px; }
+  .floor span { font-size: var(--fs-sm); font-weight: 700; color: var(--warm-ink); background: var(--warm-bg); border-radius: 999px; padding: 2px 10px; }
   .tabs { display: inline-flex; margin: 0; border: 1px solid var(--edge); border-radius: 8px; overflow: hidden; }
-  .tabs button { padding: 6px 14px; font-size: .9rem; border: 0; background: #fff; font-weight: 700; cursor: pointer; }
-  .tabs button[aria-selected=true] { background: var(--ink); color: #fff; }
+  .tabs button { padding: 6px 14px; font-size: var(--fs-md); border: 0; background: var(--card); font-weight: 700; cursor: pointer; }
+  .tabs button[aria-selected=true] { background: var(--ink); color: var(--on-ink); }
   /* 신청내역 확인: 보기 탭과 따로, 초록색 단추(눌러 둔 동안은 진한 초록) */
-  .nav > #tabList { width: auto; height: auto; padding: 6px 14px; margin-left: 6px; font-size: .9rem; font-weight: 700; border: 1.5px solid var(--pine); border-radius: 8px; background: var(--pine-bg); color: var(--pine); cursor: pointer; }
-  .nav > #tabList[aria-pressed=true] { background: var(--pine); color: #fff; }
+  .nav > #tabList { width: auto; height: auto; padding: 6px 14px; margin-left: 6px; font-size: var(--fs-md); font-weight: 700; border: 1.5px solid var(--pine); border-radius: 8px; background: var(--pine-bg); color: var(--pine); cursor: pointer; }
+  .nav > #tabList[aria-pressed=true] { background: var(--pine); color: var(--on-ink); }
   /* 층별 배치도: 층 이름은 왼쪽, 그림은 오른쪽 — 4층~2층이 PC 한 화면에 들어오도록 칸을 낮게 */
   .frow { display: grid; grid-template-columns: 5.2em 1fr; gap: 0 6px; align-items: start; margin-bottom: 8px; }
   .frow > .floor { margin: 4px 0 0; flex-direction: column; align-items: flex-start; gap: 3px; }
-  .frow > .floor span { padding: 1px 6px; font-size: .7rem; white-space: nowrap; }
+  .frow > .floor span { padding: 1px 6px; font-size: var(--fs-xs); white-space: nowrap; }
   .frow > div { min-width: 0; }
   .frow .ftable { margin-top: 6px; }
-  .plan { container-type: inline-size; display: flex; border: 1px solid var(--edge); border-radius: 8px; overflow: hidden; background: #fff; }
+  .plan { container-type: inline-size; display: flex; border: 1px solid var(--edge); border-radius: 8px; overflow: hidden; background: var(--card); }
   .plan + .plan { margin-top: 6px; }
   .pcol { display: flex; flex-direction: column; min-width: 0; }
   .pside { display: flex; min-width: 0; }
   .pside > .pc { flex: 1 1 auto !important; }
   .prow { display: flex; height: 58px; }
-  .pmid { height: 17px; padding: 0 8px; font-size: 11px; color: var(--sub); background: #fff; display: flex; align-items: center; white-space: nowrap; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .pc { min-width: 0; margin: 0; padding: 2px 1px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: repeating-linear-gradient(135deg, #F6F8FB 0 6px, #EDF1F6 6px 7px); color: var(--frost-ink);
+  .pmid { height: 17px; padding: 0 8px; font-size: var(--fs-plan-sm); color: var(--sub); background: var(--card); display: flex; align-items: center; white-space: nowrap; overflow: hidden; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .pc { min-width: 0; margin: 0; padding: 2px 1px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: var(--plan-blank); color: var(--frost-ink);
         display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; overflow: hidden; font: inherit; line-height: 1.2; }
   .prow > .pc:last-child, .pside:last-child > .pc { border-right: 0; }
-  .pc span { font-size: 11px; overflow-wrap: anywhere; }
+  .pc span { font-size: var(--fs-plan-sm); overflow-wrap: anywhere; }
   .pr { min-width: 50px; }   /* 실습실 칸은 너무 좁아지지 않게(옆의 계단·화장실 칸이 대신 줄어든다) */
-  .pr span:not(.pcmark) { font-size: 13px; font-weight: 600; letter-spacing: -.03em; white-space: nowrap; }
-  .pc b { font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }   /* 실 코드 옆에 PC 표시 */
-  .pc em { font-style: normal; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .pr span:not(.pcmark) { font-size: var(--fs-plan-md); font-weight: 600; letter-spacing: -.03em; white-space: nowrap; }
+  .pc b { font-size: var(--fs-plan-lg); font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }   /* 실 코드 옆에 PC 표시 */
+  .pc em { font-style: normal; font-size: var(--fs-plan-sm); font-weight: 700; white-space: nowrap; }
   .pc em.wait { color: var(--red); }
-  .pcmark { display: inline-block; font-size: 10px; font-weight: 700; line-height: 1.3; padding: 0 3px; border: 1.5px solid currentColor; border-radius: 4px; white-space: nowrap; }
+  .pcmark { display: inline-block; font-size: var(--fs-plan-xs); font-weight: 700; line-height: 1.3; padding: 0 3px; border: 1.5px solid currentColor; border-radius: 4px; white-space: nowrap; }
   /* 폰: 칸이 좁아 이름이 두 줄이 되므로 칸을 높이고 글자는 화면 폭에 비례(cqw) */
   @media (max-width: 600px) {
     .frow { grid-template-columns: 1fr; }
@@ -191,7 +210,7 @@
     .pc b { font-size: clamp(15px, 3.3cqw, 22px); flex-direction: column; gap: 1px; }
     .pc em { font-size: clamp(11px, 2.3cqw, 15px); }
   }
-  .room header .pcmark, .fine .pcmark { font-size: .72rem; }
+  .room header .pcmark, .fine .pcmark { font-size: var(--fs-xs); }
   /* 배치도에서 누른 실의 시간표: 그 실 줄 바로 아래, 흰 바탕에 위아래 회청색 줄 + 누른 실을 가리키는 꼭지, 칸은 낮게 */
   .pst { display: contents; }
   .pc em.fp { display: none; }
@@ -203,76 +222,77 @@
   .pr.on { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 2px var(--warm); }
   .pr.on b { color: var(--ink); }
   .pr.off { background: var(--frost); color: var(--frost-ink); }
-  .pr.never { background: #B4BCC9; color: #4E5766; }
+  .pr.never { background: var(--never); color: var(--never-ink); }
+  .pr.off b, .pr.never b { font-weight: 600; } .pr.off span:not(.pcmark), .pr.never span:not(.pcmark) { font-weight: 500; }
   .pr:disabled { cursor: default; }
   .pr[aria-pressed=true] { box-shadow: inset 0 0 0 3px var(--ink); }   /* 누른 실: 굵은 남색 테두리 */
   .ftable { margin-bottom: 8px; }
   /* 신청 내역: 교사·과목·학반 요약, 정렬, 골라서 한 번에 취소 */
   .bulk { padding: 10px 8px 0; text-align: right; }
-  #bulkDel { padding: 7px 12px; border: 1.5px solid var(--red); border-radius: 8px; background: #fff; color: var(--red); font-weight: 700; cursor: pointer; }
+  #bulkDel { padding: 7px 12px; border: 1.5px solid var(--red); border-radius: 8px; background: var(--card); color: var(--red); font-weight: 700; cursor: pointer; }
   #bulkDel:disabled { border-color: var(--line); color: var(--frost-ink); cursor: default; }
   #list .ck { width: 2em; text-align: center; }
   #list .ck input { width: 1.2em; height: 1.2em; accent-color: var(--ink); }
   #list .sort { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: inherit; cursor: pointer; }
-  #list table.sum > tbody > tr.g > td { font-size: 1rem; }
+  #list table.sum > tbody > tr.g > td { font-size: var(--fs-lg); }
   #list tr.d > td { padding: 0 8px 8px; background: var(--paper); }
-  #list tr.d table { background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  #list tr.d table { background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
   #list .more { text-decoration: underline; color: var(--sub); }
-  .more { margin-left: auto; font-size: .82rem; font-weight: 700; color: var(--frost-ink); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; }
+  .more { margin-left: auto; font-size: var(--fs-sm); font-weight: 700; color: var(--frost-ink); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-decoration: underline; }
   .room { background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 14px 14px; }
   .room:last-child { border-bottom: 0; }
   .room.open { box-shadow: inset 5px 0 0 var(--warm); }   /* 이용가능 실: 왼쪽 호박색 띠 */
   .room header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
   .room header input { width: 1.25em; height: 1.25em; margin: 0; accent-color: var(--ink); }
-  .code { font-size: .95rem; font-weight: 700; background: var(--ink); color: #fff; border-radius: 6px; padding: 2px 8px; }
-  .rname { font-size: 1.1rem; font-weight: 700; letter-spacing: -.01em; }
-  .badge { font-size: .82rem; font-weight: 700; color: var(--ink); background: var(--warm); border-radius: 999px; padding: 2px 10px; }
-  .shutlab { font-size: .82rem; font-weight: 700; color: var(--frost-ink); border: 1.5px solid var(--frost-ink); border-radius: 999px; padding: 1px 9px; }
+  .code { font-size: var(--fs-md); font-weight: 700; background: var(--ink); color: var(--on-ink); border-radius: 6px; padding: 2px 8px; }
+  .rname { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -.01em; }
+  .badge { font-size: var(--fs-sm); font-weight: 700; color: var(--ink); background: var(--warm); border-radius: 999px; padding: 2px 10px; }
+  .shutlab { font-size: var(--fs-sm); font-weight: 700; color: var(--frost-ink); border: 1.5px solid var(--frost-ink); border-radius: 999px; padding: 1px 9px; }
   .strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
   .strip li { position: relative; min-height: 3.6em; border-radius: 6px; padding: 14px 2px 4px; text-align: center; background: var(--paper); overflow-wrap: anywhere; }
-  .strip li i { position: absolute; top: 2px; left: 5px; font-style: normal; font-size: .68rem; font-weight: 700; color: var(--frost-ink); }
-  .strip li b { display: block; font-size: .88rem; line-height: 1.25; }
-  .strip li small { display: block; font-size: .72rem; color: var(--sub); line-height: 1.25; }
-  .strip li.busy { background: #E9EEF5; }                                          /* 전공 수업 */
+  .strip li i { position: absolute; top: 2px; left: 5px; font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--frost-ink); }
+  .strip li b { display: block; font-size: var(--fs-sm); line-height: 1.25; }
+  .strip li small { display: block; font-size: var(--fs-xs); color: var(--sub); line-height: 1.25; }
+  .strip li.busy { background: var(--busy); }                                          /* 전공 수업 */
   .strip li.free { background: var(--warm-bg); color: var(--warm-ink); }           /* 이용가능 실의 빈 시간 */
   .strip li.free i { color: var(--warm-ink); }
   .strip li.done { background: var(--pine-bg); color: var(--pine); box-shadow: inset 0 0 0 2px var(--pine); }   /* 배정된 수업 */
   .strip li.done small { color: var(--pine); }
   .strip li.out { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }       /* 그 요일에 없는 교시 */
   /* 수업 불가 실: 줄 전체를 회색으로 닫고 낮게 */
-  .room.closed { background: var(--frost); border-bottom-color: #CFD6E0; padding: 9px 14px 10px; }
+  .room.closed { background: var(--frost); border-bottom-color: var(--shut-line); padding: 9px 14px 10px; }
   .room.closed header { margin-bottom: 0; }
   .room.closed .strip { margin-top: 8px; }
   .room.closed .code { background: var(--frost-ink); }
-  .room.closed .rname { color: var(--frost-ink); font-size: 1rem; }
-  .room.closed .strip li { background: #D8DEE7; min-height: 2.9em; color: var(--frost-ink); }
+  .room.closed .rname { color: var(--frost-ink); font-size: var(--fs-lg); }
+  .room.closed .strip li { background: var(--shut); min-height: 2.9em; color: var(--frost-ink); }
   .room.closed .strip li small { color: var(--frost-ink); }
   /* 교실 이용불가 실습실(현황표 X): 더 어두운 음영 */
-  .room.never { background: #B4BCC9; border-bottom-color: #A3ACBA; }
-  .room.never .code { background: #5E6878; }
-  .room.never .rname, .room.never .more { color: #4E5766; }
-  .room.never .shutlab { color: #4E5766; border-color: #4E5766; }
-  .room.never .strip li { background: #C9D0DA; color: #4E5766; }
-  .room.never .strip li small, .room.never .strip li i { color: #5E6878; }
+  .room.never { background: var(--never); border-bottom-color: var(--never-line); }
+  .room.never .code { background: var(--never-code); }
+  .room.never .rname, .room.never .more { color: var(--never-ink); }
+  .room.never .shutlab { color: var(--never-ink); border-color: var(--never-ink); }
+  .room.never .strip li { background: var(--never-cell); color: var(--never-ink); }
+  .room.never .strip li small, .room.never .strip li i { color: var(--never-ink); }
 
   /* 신청 내역 */
   #list { background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
   #list table { border-collapse: collapse; width: 100%; }
-  #list th { font-size: .82rem; font-weight: 700; color: var(--sub); text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
-  #list td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: .95rem; white-space: nowrap; }
+  #list th { font-size: var(--fs-sm); font-weight: 700; color: var(--sub); text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
+  #list td { padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: var(--fs-md); white-space: nowrap; }
   #list tr:last-child td { border-bottom: 0; }
   #list td.l { white-space: normal; }
-  #list select { padding: 7px 8px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; max-width: 12em; }
+  #list select { padding: 7px 8px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); max-width: 12em; }
   #list .empty { padding: 18px; color: var(--sub); }
-  .x { font-size: .85rem; font-weight: 700; color: var(--red); background: none; border: 1.5px solid var(--red); border-radius: 6px; cursor: pointer; padding: 3px 9px; }
+  .x { font-size: var(--fs-sm); font-weight: 700; color: var(--red); background: none; border: 1.5px solid var(--red); border-radius: 6px; cursor: pointer; padding: 3px 9px; }
   .wait { color: var(--warm-ink); font-weight: 700; }
-  .admin { font-size: .9rem; margin: 0; }
+  .admin { font-size: var(--fs-md); margin: 0; }
   .admin span { display: inline-flex; align-items: center; gap: 6px; }
   .admin span[hidden] { display: none; }   /* 위 display 가 hidden 을 덮어쓰지 않게 */
-  .admin input { width: 9.5em; padding: 7px 9px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; }
-  .admin button { padding: 7px 12px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; white-space: nowrap; }
-  #login { background: var(--ink); color: #fff; }
-  #adminMsg { font-size: .85rem; font-weight: 700; margin-top: 4px; }
+  .admin input { width: 9.5em; padding: 7px 9px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); }
+  .admin button { padding: 7px 12px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); font-weight: 700; cursor: pointer; white-space: nowrap; }
+  #login { background: var(--ink); color: var(--on-ink); }
+  #adminMsg { font-size: var(--fs-sm); font-weight: 700; margin-top: 4px; }
   #adminMsg:empty { display: none; }
   #adminHint { margin: -8px 0 16px; }
   /* 관리자: 빈 실 칸을 누르면 그 시간에 기다리는 신청을 골라 배정 */
@@ -281,40 +301,38 @@
   .strip li.free:has(button[aria-expanded=true]) { box-shadow: inset 0 0 0 2.5px var(--ink); }
   .strip li.free small { color: var(--warm-ink); font-weight: 700; }
   .putbox { margin-top: 10px; padding: 10px 12px; background: var(--warm-bg); border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1px solid var(--edge); border-radius: 8px; background: #fff; font-weight: 700; cursor: pointer; }
+  .putbox button[data-put]:not(.x) { padding: 8px 12px; border: 1px solid var(--edge); border-radius: 8px; background: var(--card); font-weight: 700; cursor: pointer; }
   .putbox button small { font-weight: 500; color: var(--sub); }
   @media (max-width: 600px) {
     .pc:not(.pr) span { display: none; }   /* 폰: 실습실이 아닌 칸의 이름만 숨김(실습실은 줄인 이름이 나옴) */
     main { padding: 20px 12px 40px; }
-    h1 { font-size: 1.35rem; }
+    h1 { font-size: var(--fs-xl); }
     .apply { padding: 2px 14px 16px; }
     .room { padding: 10px 10px 12px; }
     .strip { gap: 3px; }
-    .strip li b { font-size: .8rem; } .strip li small { font-size: .66rem; }
-    #mytt td { font-size: .82rem; height: 3em; } #mytt td button { min-height: 3em; } #mytt td small, #mytt td button small { display: block; margin: 0; font-size: .7rem; }   /* 폰: 칸이 좁아 두 줄 */
-    #list th, #list td { padding: 8px 3px; font-size: .78rem; white-space: normal; word-break: keep-all; }
+    .strip li b { font-size: var(--fs-sm); } .strip li small { font-size: var(--fs-xs); }
+    #mytt td { font-size: var(--fs-sm); height: 3em; } #mytt td button { min-height: 3em; } #mytt td small, #mytt td button small { display: block; margin: 0; font-size: var(--fs-xs); }   /* 폰: 칸이 좁아 두 줄 */
+    #list th, #list td { padding: 8px 3px; font-size: var(--fs-sm); white-space: normal; word-break: keep-all; }
     #list select { max-width: 8.5em; padding: 5px 4px; }
   }
-  .home { display: inline-block; margin-bottom: 6px; font-size: .85rem; font-weight: 600; color: #5A6478; text-decoration: none; } .home:hover { text-decoration: underline; }
+  .home { display: inline-block; margin-bottom: 6px; font-size: var(--fs-sm); font-weight: 600; color: var(--sub); text-decoration: none; } .home:hover { text-decoration: underline; }
 
   /* ── 다듬기(unslop): 기능은 그대로, 보이는 것만 ── */
   /* 1) 관리자 로그인은 대부분 쓰지 않으므로 조용하게 */
-  #login { background: #fff; color: var(--sub); border-color: var(--line); font-weight: 600; }
+  #login { background: var(--card); color: var(--sub); border-color: var(--line); font-weight: 600; }
   .admin input { border-width: 1px; }
   /* 2) 빨간색은 오류·취소에만 쓰고, 눈에 띄어야 하는 곳은 호박색(빈 실과 같은 색)으로 강조한다 */
-  /* '여러 수업을 한 번에 고르기': 호박색 띠로 감싸 한눈에 보이게 */
-  .multi { padding: 10px 12px; margin: 10px 0 6px; background: var(--warm-bg); border: 1.5px solid var(--warm); border-radius: 8px; }
-  .multi label { color: var(--ink); font-size: 1.1rem; font-weight: 700; }
+  /* '여러 수업을 한 번에 고르기': 띠 없이 크고 빨간 글자로(요청) — 시간표보다 먼저 튀지 않게 */
+  .multi { margin: 12px 0 8px; }
+  .multi label { color: var(--red); font-size: var(--fs-lg); font-weight: 700; }
   .multi label input { width: 1.3em; height: 1.3em; accent-color: var(--ink); }
   /* '실습실 선택하기' 단추: 누를 수 있게 되면 호박색으로 크게 */
-  .multi button:not(:disabled) { padding: 10px 20px; background: var(--warm); color: var(--ink); font-size: 1.1rem; font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--ink); }
-  .multi button:disabled { background: #fff; color: var(--sub); }
-  .notice .red { color: var(--ink); background: var(--warm-bg); padding: 0 4px; border-radius: 4px; }
+  .multi button:not(:disabled) { padding: 10px 20px; background: var(--warm); color: var(--ink); font-size: var(--fs-lg); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .multi button:disabled { background: var(--card); color: var(--frost-ink); border: 1px dashed var(--edge); cursor: default; }
+  .notice .red { color: var(--red); font-weight: 700; }
   /* 3단계 '옮길 수업을 누르고 실습실 고르기': 제목을 키우고 호박색 형광펜으로 */
-  #steps > .step:last-child > label { font-size: 1.1rem; }
-  #steps > .step:last-child > label .num { background: var(--warm); color: var(--ink); }
+  #steps > .step:last-child > label { font-size: var(--fs-lg); }
   /* 4) 이용할 수 없는 실·이미 실습실인 수업도 이름은 읽히게 */
-  .pr.off, #mytt td.lab, #mytt td.lab small { color: var(--sub); }
   /* 배치도: 아직 못 쓰는 실 안의 이용 시작 날짜(예: 12/2~)는 보이지 않게 — 칸을 길게 누르면 뜨는 설명에는 남아 있다 */
   .plan .pr.off em { display: none; }
   /* 교사명 아래 안내문과 '교체·대강으로 바뀐 수업도…' 문장은 보이지 않게 (스크립트가 이 칸을 찾으므로 칸은 남겨 둔다) */
@@ -333,63 +351,63 @@
     #grid .pc b { flex-direction: row; gap: 3px; }   /* 실 코드와 PC 표시를 한 줄에(칸이 낮아도 두 줄이면 됨) */
     /* 첫 화면 위쪽(제목·관리자·교사명·날짜 줄)을 낮게: 배치도 2층까지 한 화면에 들어오게 */
     main { padding-top: 8px; }
-    .home { margin-bottom: 2px; font-size: .75rem; }
-    h1 { font-size: 1.05rem; }
+    .home { margin-bottom: 2px; font-size: var(--fs-xs); }
+    h1 { font-size: var(--fs-lg); }
     .top { gap: 4px 8px; margin-bottom: 6px; }
-    .admin { font-size: .75rem; } .admin input { width: 8em; padding: 4px 7px; } .admin button { padding: 4px 8px; }
+    .admin { font-size: var(--fs-xs); } .admin input { width: 8em; padding: 4px 7px; } .admin button { padding: 4px 8px; }
     .apply { padding: 0 10px 8px; } .apply > .step:first-child { padding-top: 8px; }
     #teacher { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
     .nav { gap: 4px; margin: 8px 0 4px; }
-    .nav h2 { font-size: .95rem; margin-right: 2px; }
-    .nav > button { width: 1.9em; height: 1.9em; font-size: .8rem; }
-    .nav input { font-size: .8rem; padding: 3px 4px; }
-    #vday { font-size: .9rem; margin: 0 2px; }
-    .tabs button { padding: 4px 9px; font-size: .78rem; }
-    .nav > #tabList { padding: 4px 9px; margin-left: 0; font-size: .78rem; }
-    .legend { gap: 2px 8px; font-size: .66rem; margin-bottom: 4px; }
+    .nav h2 { font-size: var(--fs-md); margin-right: 2px; }
+    .nav > button { width: 1.9em; height: 1.9em; font-size: var(--fs-sm); }
+    .nav input { font-size: var(--fs-sm); padding: 3px 4px; }
+    #vday { font-size: var(--fs-md); margin: 0 2px; }
+    .tabs button { padding: 4px 9px; font-size: var(--fs-sm); }
+    .nav > #tabList { padding: 4px 9px; margin-left: 0; font-size: var(--fs-sm); }
+    .legend { gap: 2px 8px; font-size: var(--fs-xs); margin-bottom: 4px; }
     #grid .frow { margin-bottom: 3px; }
-    #grid .frow > .floor span { font-size: .62rem; }
-    #grid .pmid { height: 12px; font-size: 9px; }
-    #grid .frow > .floor { margin: 3px 0 2px; font-size: .8rem; }
+    #grid .frow > .floor span { font-size: var(--fs-xs); }
+    #grid .pmid { height: 13px; font-size: var(--fs-plan-xs); }
+    #grid .frow > .floor { margin: 3px 0 2px; font-size: var(--fs-sm); }
     #grid .frow > .floor:first-child, #grid .frow:first-child > .floor { margin-top: 0; }
     #grid .plan + .plan { margin-top: 4px; }
     #grid .pc b { font-size: clamp(12px, 3.1cqw, 17px); line-height: 1.1; }
     #grid .pr span:not(.pcmark) { font-size: clamp(10px, 2.4cqw, 13px); line-height: 1.1; }
-    #grid .pcmark { font-size: 9px; line-height: 1.2; }
+    #mytt td.lab .sj { display: none; }
+    #grid .pcmark { font-size: var(--fs-plan-xs); line-height: 1.2; }
   }
 
   /* ── 실 시간표 창: 배치도에서 실을 누르면 화면 위에 뜬다(뒤는 어둡게). 빈 실·신청 수업만 색으로, 원래 수업은 작게 ── */
-  #rdim { position: fixed; inset: 0; z-index: 18; background: rgba(20, 33, 61, .32); }
+  #rdim { position: fixed; inset: 0; z-index: 18; background: var(--dim); }
   #rdim[hidden] { display: none; }
-  .pop.rpop { z-index: 19; top: 12vh; left: 50%; right: auto; transform: translateX(-50%); width: min(420px, 94vw); max-height: 84vh; box-shadow: 0 18px 48px rgba(20, 33, 61, .38); }
-  .rpop .pophead b { display: flex; align-items: center; gap: 8px; font-size: 1rem; }
-  .rpop .pophead small { font-weight: 500; opacity: .85; }
-  .rpop .pophead .code { background: #fff; color: var(--ink); }
+  .pop.rpop { z-index: 19; top: 12vh; left: 50%; right: auto; transform: translateX(-50%); width: min(420px, 94vw); max-height: 84vh; box-shadow: 0 8px 20px var(--shadow); }
+  .rpop .pophead b { display: flex; align-items: center; gap: 8px; font-size: var(--fs-lg); }
+  .rpop .pophead small { font-weight: 500; color: var(--sub); }
   .rpop .room, .rpop .room.closed, .rpop .room.never { background: none; box-shadow: none; border: 0; padding: 0; }
   .rpop .room header { margin: 0 0 8px; }
   .rpop .room header:empty { display: none; }
   .rpop .room .strip { display: flex; flex-direction: column; gap: 4px; margin: 0 !important; }
   .rpop .room .strip li, .rpop .room .strip li > button { display: flex; align-items: center; gap: 8px; min-height: 0; text-align: left; }
-  .rpop .room .strip li { padding: 3px 12px; background: none; font-size: .85rem; color: var(--sub); }   /* 원래 수업·쓸 수 없는 교시: 작고 조용하게 */
+  .rpop .room .strip li { padding: 3px 12px; background: none; font-size: var(--fs-sm); color: var(--sub); }   /* 원래 수업·쓸 수 없는 교시: 작고 조용하게 */
   .rpop .room .strip li.out { display: none; }
-  .rpop .room .strip li i { position: static; flex: none; width: 3.2em; font-size: .85rem; font-weight: 600; color: inherit; }
+  .rpop .room .strip li i { position: static; flex: none; width: 3.2em; font-size: var(--fs-sm); font-weight: 600; color: inherit; }
   .rpop .room .strip li i::after { content: "교시"; }
   .rpop .room .strip li b { font-size: inherit; font-weight: 600; }
   .rpop .room .strip li small { font-size: inherit; color: inherit; }
-  .rpop .room .strip li.free, .rpop .room .strip li.done { padding: 10px 12px; border-radius: 8px; font-size: .9rem; }
+  .rpop .room .strip li.free, .rpop .room .strip li.done { padding: 10px 12px; border-radius: 8px; font-size: var(--fs-md); }
   .rpop .room .strip li.free { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 1.5px var(--warm); }
   .rpop .room .strip li.done { background: var(--pine-bg); color: var(--pine); box-shadow: inset 0 0 0 1.5px var(--pine); }
-  .rpop .room .strip li.free b, .rpop .room .strip li.done b { font-size: 1.05rem; font-weight: 700; }
-  .rpop .room .strip li.done::after { content: "신청 수업"; margin-left: auto; font-size: .78rem; font-weight: 700; border: 1px solid var(--pine); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
+  .rpop .room .strip li.free b, .rpop .room .strip li.done b { font-size: var(--fs-lg); font-weight: 700; }
+  .rpop .room .strip li.done::after { content: "신청 수업"; margin-left: auto; font-size: var(--fs-sm); font-weight: 700; border: 1px solid var(--pine); border-radius: 4px; padding: 0 6px; white-space: nowrap; }
   .rpop .room .strip li.free:has(button) { padding: 0; }
   .rpop .room .strip li.free button { padding: 10px 12px; min-height: 44px; font: inherit; }
-  .rpop .room .strip li.free button::after { content: "눌러서 신청 ›"; margin-left: auto; font-size: .82rem; font-weight: 700; white-space: nowrap; }
-  .rpop .room .strip li.free button:hover { background: rgba(242, 169, 59, .22); border-radius: 8px; }
+  .rpop .room .strip li.free button::after { content: "눌러서 신청 ›"; margin-left: auto; font-size: var(--fs-sm); font-weight: 700; white-space: nowrap; }
+  .rpop .room .strip li.free button:hover { background: var(--warm-hover); border-radius: 8px; }
   .rpop .room .strip li.putli { display: block; padding: 0; }
   .rpop .putbox { margin: 0 0 4px; }
-  .rpop .putbox button[data-new] { padding: 9px 14px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; cursor: pointer; }
-  .rpop .putbox button[data-new] small { color: #fff; opacity: .85; }
-  #rpopMsg { margin: 8px 2px 0; font-size: .88rem; font-weight: 700; }
+  .rpop .putbox button[data-new] { padding: 9px 14px; border: 0; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; cursor: pointer; }
+  .rpop .putbox button[data-new] small { color: var(--on-ink); opacity: .85; }
+  #rpopMsg { margin: 8px 2px 0; font-size: var(--fs-sm); font-weight: 700; }
   #rpopMsg:empty { display: none; }
   @media print { #rdim { display: none !important; } }
 </style>
@@ -432,14 +450,14 @@
 
   <div class="nav">
     <h2>실습실 시간표</h2>
-    <button id="prev" aria-label="전날">◀</button>
+    <button id="prev" aria-label="전날"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <input id="vdate" type="date" aria-label="볼 날짜">
-    <button id="next" aria-label="다음날">▶</button>
+    <button id="next" aria-label="다음날"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <b id="vday"></b>
     <div class="tabs" role="tablist" aria-label="실습실 시간표 보기"><button type="button" role="tab" id="tabPlan">배치도형</button><button type="button" role="tab" id="tabTable">목록형</button></div>
     <button type="button" id="tabList" aria-pressed="false">신청내역 확인</button>
   </div>
-  <div class="legend"><span style="--c:#FFF2D9">빈 실(이용가능)</span><span style="--c:#DDF1E8">배정된 수업</span><span style="--c:#E9EEF5">전공 수업</span><span style="--c:#D8DEE7">수업 불가 실</span><span style="--c:#B4BCC9">교실 이용불가</span></div>
+  <div class="legend"><span style="--c:var(--warm-bg)">빈 실(이용가능)</span><span style="--c:var(--pine-bg)">배정된 수업</span><span style="--c:var(--busy)">전공 수업</span><span style="--c:var(--shut)">수업 불가 실</span><span style="--c:var(--never)">교실 이용불가</span></div>
   <p class="fine" id="swapNote">교체·대강으로 바뀐 수업도 날짜별 실습실 시간표에 표시됩니다. 화·목 7교시는 창체 수업으로 실습실을 쓸 수 없습니다.</p>
   <div id="note" class="err"></div>
   <div id="grid"></div>
@@ -572,6 +590,8 @@ $('teacher').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preve
 $('tlist').addEventListener('click', e => { const b = e.target.closest('button[data-name]'); if (b) choose(b.dataset.name); });
 document.addEventListener('click', e => { if (!e.target.closest('.pick')) $('tlist').hidden = true; });
 
+// 창 위 안내: 비어 있는 조각은 빼고 문장으로 잇는다(끝에 '·'만 남지 않게)
+const hintText = parts => parts.filter(Boolean).join(' ');
 // ── 내 시간표: 수업 칸을 누르면 그 시간에 비어 있는 실습실 창이 뜨고, 실을 고르면 바로 신청된다 ──
 function renderMine() {
   $('steps').hidden = !me; $('nameHint').hidden = !!me; $('closeMe').hidden = !me;   // 이름을 고른 뒤에만 시작일·시간표가 나온다
@@ -589,7 +609,7 @@ function renderMine() {
       if (!v) { h += '<td></td>'; continue; }
       const [c, s, room] = v.split('|'), r = data.reqs.find(x => x.teacher === me && x.slot === k);
       if (!room && !r && data.block[k]) { h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${data.block[k]}</small></td>`; continue; }   // 창체 시간(화7·목7): 실습실을 쓸 수 없어 고를 수 없음
-      if (!room && !r && wk[d] < fromV) { h += `<td class="lab">${esc(c)}<small>${esc(s)} · 다음 주에</small></td>`; continue; }   // 시작일보다 앞 요일: 이번 주에는 신청 불가
+      if (!room && !r && wk[d] < fromV) { h += `<td class="lab">${esc(c)}<small><span class="sj">${esc(s)} · </span>다음 주</small></td>`; continue; }   // 시작일보다 앞 요일: 이번 주에는 신청 불가
       if (multi && !room && !r) { h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}" class="${picked.has(k) ? 'sel' : ''}">${esc(c)}<small>${esc(s)}</small></button></td>`; continue; }   // 여러 칸 고르기: 아직 신청하지 않은 수업만
       if (multi && r) { h += `<td class="req">${esc(c)}<small>${r.room ? esc(r.room) : '신청됨'}</small></td>`; continue; }
       if (room) h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${esc(room)}</small></td>`;
@@ -675,7 +695,31 @@ function xlsMine() {
   document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 1000);
 }
 // 실 고르기 창: 누른 수업 시간에 비어 있는 실 목록 + 그 실이 있는 층의 배치도(둘 다 눌러 고를 수 있다)
+// 실 고르기 창 위치: 새 칸을 누를 때마다 그 칸 가까이(넓은 화면은 내 시간표 오른쪽 옆) — 제목·관리자 로그인을 가리지 않게.
+// 선생님이 창을 끌어 옮겼으면(moved) 그 자리를 그대로 둔다.
+let placedFor = '';
 function renderPop() {
+  renderPopBody();
+  const el = $('pop'), key = el.hidden ? '' : (more ? 'more:' : '') + pop;
+  if (!key || key === placedFor || el.dataset.moved || (key.startsWith('more:') && placedFor)) { placedFor = key; fitPop(el); return; }   // '다른 시간에도…' 단계는 열려 있던 자리 그대로
+  placedFor = key;
+  const a = (document.querySelector(`#mytt [data-slot="${pop}"]`) || $('multiGo') || $('mytt')).getBoundingClientRect();
+  const t = $('mytt').querySelector('table'), tr = t && t.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, M = 8;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  let left, top;
+  if (tr && tr.right + 16 + w <= innerWidth - M) { left = tr.right + 16; top = clamp(a.top - 48, M, innerHeight - h - M); }   // 시간표 오른쪽 빈자리
+  else {   // 좁은 화면: 누른 칸 바로 아래, 자리가 없으면 위, 그래도 없으면 화면 맨 위
+    left = clamp(a.left + a.width / 2 - w / 2, M, innerWidth - w - M);
+    top = a.bottom + M + h <= innerHeight ? a.bottom + M : a.top - M - h >= M ? a.top - M - h : M;
+  }
+  Object.assign(el.style, { transform: 'none', right: 'auto', left: Math.max(M, left) + 'px', top: Math.max(M, top) + 'px' });
+}
+// 창 내용이 길어져(다른 시간 시간표 등) 아래가 화면 밖으로 나가면 위로 올린다
+function fitPop(el) {
+  if (el.hidden || !el.style.top) return;
+  if (el.getBoundingClientRect().bottom > innerHeight - 8) el.style.top = Math.max(8, innerHeight - el.offsetHeight - 8) + 'px';
+}
+function renderPopBody() {
   const el = $('pop');
   if (more && data && me) {   // 방금 고른 실이 내 다른 수업 시간에도 비어 있으면 같이 신청할지 묻는다
     const ks = moreSlots();
@@ -710,7 +754,7 @@ function renderPop() {
     const ks = [...picked].sort((a, b) => slotOrder(a) - slotOrder(b)), from = $('from').value;
     const free = data.rooms.map(r => r[0]).filter(c => canUse(c, from) && ks.every(k => freeRooms(k).includes(c)));
     $('popTitle').textContent = `고른 수업 ${ks.length}칸 — 모두 비어 있는 실습실`;
-    let h = `<div class="pophint"><p class="fine">${ks.map(k => k[0] + k[1]).join(', ')} · ${from ? md(from) + '부터 · ' : ''}${free.length ? '배치도에서 실습실(노란색)을 누르면 고른 수업이 모두 그 실로 신청됩니다.' : ''}</p></div>`;
+    let h = `<div class="pophint"><p class="fine">${hintText([ks.map(k => k[0] + k[1]).join(', ') + ' 수업을 골랐습니다.', from && md(from) + '부터 옮깁니다.', free.length && '배치도에서 실습실(노란색)을 누르면 고른 수업이 모두 그 실로 신청됩니다.'])}</p></div>`;
     if (!free.length) h += '<p class="err" style="font-weight:700;margin:0 0 8px">고른 시간에 모두 비어 있는 실습실이 없습니다. 수업을 나눠서 골라 주세요.</p>';
     for (const f of ['4', '3', '2', '1']) {
       if (!free.some(x => x[0] === f)) continue;
@@ -726,7 +770,7 @@ function renderPop() {
   const can = !r || r.mine || data.admin, from = r ? r.from : $('from').value, cur = (r && r.room) || '';
   const free = freeRooms(pop).filter(c => canUse(c, from)), pick = { free, cur, from, can };
   $('popTitle').textContent = `${pop[0]}요일 ${pop[1]}교시 · ${c} ${s}`;
-  let h = `<div class="pophint"><p class="fine">${from ? md(from) + '부터 · ' : ''}${cur ? `지금 고른 실: <b>${cur}</b>. 다른 실을 누르면 바뀝니다.` : free.length ? '배치도에서 수업할 실습실(노란색)을 누르면 바로 신청됩니다.' : ''}</p>${r && can ? `<button type="button" class="x" data-cancel="${r.id}">이 수업 신청 취소</button>` : ''}</div>`;
+  let h = `<div class="pophint"><p class="fine">${hintText([from && md(from) + '부터 옮깁니다.', cur ? `지금 고른 실: <b>${cur}</b>. 다른 실을 누르면 바뀝니다.` : free.length && '배치도에서 수업할 실습실(노란색)을 누르면 바로 신청됩니다.'])}</p>${r && can ? `<button type="button" class="x" data-cancel="${r.id}">이 수업 신청 취소</button>` : ''}</div>`;
   if (!cur && !free.length) h += '<p class="err" style="font-weight:700;margin:0 0 8px">이 시간에는 비어 있는 실습실이 없습니다.</p>';
   for (const f of ['4', '3', '2', '1']) {   // 고를 수 있는 실이 있는 층만 그린다
     if (![cur, ...free].some(x => x && x[0] === f)) continue;
@@ -812,6 +856,7 @@ function dragPop(el, head) {
   });
   head.addEventListener('pointermove', e => {
     if (!d) return;
+    el.dataset.moved = '1';   // 직접 옮긴 창은 다음에도 그 자리에
     el.style.left = Math.max(0, Math.min(innerWidth - el.offsetWidth, e.clientX - d.x)) + 'px';
     el.style.top = Math.max(0, Math.min(innerHeight - 40, e.clientY - d.y)) + 'px';
   });
