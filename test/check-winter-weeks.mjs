@@ -70,6 +70,21 @@ ok('신청 내역: 이번 주 → 다음 주 → 12/7 주 순, 뒤 주에는 주
   ok('교사 줄 칸은 그 교사 신청 전체(4건)를 고르고 풀기', s1 === '선택한 신청 취소 (4건)' && s0 === '선택한 신청 취소', { s1, s0 });
   await page.check('#list tr.d tbody tr:nth-child(2) input[data-one]'); await page.click('#bulkDel'); await page.waitForFunction(() => document.querySelectorAll('#list tr.d tbody tr').length === 3);
   ok('고른 한 건(다음 주 월1)만 취소되고 나머지 3건은 남음', (await reqs()).join() === '2026-11-23 수4 2D,2026-11-30 수4 2D,2026-12-07 수4 3B', await reqs()); }
+// 교시가 옮겨진 날(11/26 목: 7교시 창체 → 1교시, 1~6교시는 한 교시씩 뒤로): 내 시간표도 그날의 실제 교시 자리에 나온다
+{ await page.click('#tabPlan'); await page.fill('#teacher', '김학선'); await page.click('#tlist button');
+  const col = d => page.evaluate(d => [...document.querySelectorAll('#mytt tbody tr')].map(tr => tr.cells[d].textContent.trim()), d);
+  let thu = await col(4), wed = await col(3), hint = await page.textContent('#mytt .hint');
+  ok('이번 주 목요일(11/26) 열: 1교시 창체(CA), 5교시 2전1 진로(원래 4교시), 7교시 1신2 국A(원래 6교시). 수요일은 그대로', thu[0].startsWith('2신1') && thu[0].includes('창체') && thu[3] === '' && thu[4].startsWith('2전1') && thu[5] === '' && thu[6].startsWith('1신2') && wed[2].startsWith('1전2') && hint.includes('11/26(목)은 교시가 옮겨진 날'), { thu, wed });
+  await page.click('#mytt tbody tr:nth-child(5) td:nth-child(5) button'); const title = await page.textContent('#popTitle');
+  await page.click('#pop .pr[data-room="2D"]'); await page.waitForFunction(() => /신청되었습니다/.test(document.getElementById('msg').textContent));
+  const msg = await page.textContent('#msg'); await page.evaluate(() => { if (document.getElementById('moreNo')) document.getElementById('moreNo').click(); });
+  thu = await col(4); const saved = (await reqs()).filter(x => x.includes('목'));
+  await page.fill('#vdate', '2026-11-26'); await page.dispatchEvent('#vdate', 'change'); await page.click('#grid .pr[data-plan="2D"]');
+  const strip = await page.evaluate(() => [...document.querySelectorAll('#rpop .strip li')].map(l => l.className.split(' ')[0] + ':' + l.textContent)); await page.click('#rpopClose');
+  ok('그 칸을 눌러 신청: 창 제목·안내는 "목요일 5교시", 저장은 원래 칸(목4), 내 시간표 5교시가 초록색, 실습실 시간표(11/26 2D)도 5교시에 2전1', title.startsWith('목요일 5교시 · 2전1 진로') && msg.startsWith('목요일 5교시 2전1 → 2D') && saved.join() === '2026-11-23 목4 2D' && thu[4].includes('2D 송변전') && strip[4].startsWith('done:52전1'), { title, msg, saved, thu, strip });
+  await page.click('#weekBtns [data-week="next"]'); thu = await col(4); hint = await page.textContent('#mytt .hint');
+  ok('다음 주 목요일(12/3)은 옮겨지지 않은 원래 교시(4교시 2전1, 6교시 1신2, 7교시 창체), 안내도 없음', thu[3].startsWith('2전1') && thu[5].startsWith('1신2') && thu[6].includes('창체') && !hint.includes('옮겨진 날'), { thu });
+  await page.click('#weekBtns [data-week="this"]'); }
 if (process.env.SHOT) { await page.screenshot({ path: process.env.SHOT + '-list.png' }); await page.click('#tabPlan'); await week('next'); await page.screenshot({ path: process.env.SHOT + '-next.png' }); await page.setViewportSize({ width: 390, height: 844 }); await page.screenshot({ path: process.env.SHOT + '-next-ph.png' }); }
 await browser.close();
 console.log(fail ? `\n❌ ${fail}건 실패` : '\n✅ 모두 통과');
