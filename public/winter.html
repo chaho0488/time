@@ -192,6 +192,25 @@
     .pc em { font-size: clamp(11px, 2.3cqw, 15px); }
   }
   .room header .pcmark, .fine .pcmark { font-size: .72rem; }
+  /* 배치도에서 누른 실의 시간표: 그 실 줄 바로 아래, 배치도와 헷갈리지 않게 남색 바탕 + 누른 실을 가리키는 꼭지 */
+  .pst { display: contents; }
+  .pc em.fp { display: none; }
+  @container (min-width: 900px) {   /* 큰 화면에서만 빈 교시를 한 줄로(자리가 모자라면 빈 교시 쪽이 숨는다) */
+    .pst { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 6px; height: 13px; overflow: hidden; }
+    .pc em.fp { display: inline; font-weight: 600; }
+  }
+  .plan .pdet { position: relative; z-index: 1; flex: none; width: 100cqw; margin: 0 0 0 calc(-100cqw * var(--l)) !important; border: 0; border-radius: 0; overflow: visible; background: var(--ink); }
+  .plan .pdet::before { content: ""; position: absolute; top: -7px; left: calc(100cqw * var(--x) - 8px); border: 8px solid transparent; border-top: 0; border-bottom-color: var(--ink); }
+  .plan .pdet .room, .plan .pdet .room.closed, .plan .pdet .room.never { background: var(--ink); color: #fff; box-shadow: none; padding: 8px 10px 10px; }
+  .plan .pdet .room header { margin-bottom: 6px; }
+  .plan .pdet .code { background: #fff; color: var(--ink); }
+  .plan .pdet .rname, .plan .pdet .room.closed .rname { color: #fff; font-size: 1rem; }
+  .plan .pdet .more { color: #fff; }
+  .plan .pdet .shutlab { color: #C9D1DD; border-color: #C9D1DD; }
+  .plan .pdet .strip li { min-height: 3.9em; padding-top: 16px; color: var(--ink); }
+  .plan .pdet .strip li.free { color: var(--warm-ink); } .plan .pdet .strip li.done { color: var(--pine); }
+  .plan .pdet .strip li i::after { content: "교시"; }
+  .plan.hasdet .pside > .pc { justify-content: flex-start; padding-top: 4px; }   /* 시간표가 끼어 통칸이 길어져도 이름은 위쪽에 */
   .pr { cursor: pointer; }
   .pr.on { background: var(--warm-bg); color: var(--warm-ink); box-shadow: inset 0 0 0 2px var(--warm); }
   .pr.on b { color: var(--ink); }
@@ -820,12 +839,11 @@ function renderInner() {
   $('grid').hidden = isList; $('list').hidden = !isList; document.querySelector('.legend').hidden = isList; $('note').hidden = isList; $('swapNote').hidden = isList;
   let h = '';
   if (!n) h = '<div class="hint">수업이 없는 날입니다.</div>';
-  else if (gridView === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 배치도 아래에 나온다
+  else if (gridView === 'plan') {   // 배치도: 이용가능 실만 누를 수 있고(관리자는 모든 실), 누른 실의 시간표가 그 실 줄 바로 아래에 나온다
     for (const f of ['4', '3', '2', '1']) {   // 건물처럼 위층부터
       const cnt = data.rooms.filter(r => r[0][0] === f && availOn(r[0], iso)).length;
       h += `<div class="frow"><h3 class="floor">${f}층${cnt ? `<span>이용가능 ${cnt}곳</span>` : ''}</h3><div>`;
       for (const pl of PLAN[f]) h += planHtml(pl, iso, n, admin);
-      if (sel && sel[0] === f) h += `<div class="ftable">${roomHtml(sel, iso, n, admin, true)}</div>`;
       h += '</div></div>';
     }
   } else {   // 목록형
@@ -884,6 +902,24 @@ function renderInner() {
   $('list').innerHTML = h + '</tbody></table>';
 }
 
+// 그 날짜에 이 실이 비는 교시(실 시간표의 '빈 실' 칸과 같은 기준: 전공 수업·교체로 들어온 수업·배정된 수업·창체 시간이 아닌 교시)
+function freePs(code, iso, n) {
+  const out = [], mvs = (data.moves.room[iso] || {})[code] || {};
+  for (let p = 1; p <= n; p++) {
+    const slot = slotAt(iso, p), dk = dayOf(iso) + p;
+    if (!slot || dk in mvs || (data.base[code] && data.base[code][slot]) || data.block[slot]) continue;   // 교체로 그날만 비는 칸은 신청할 수 없으므로 세지 않는다
+    if (!data.reqs.some(r => r.room === code && r.slot === slot && iso >= startOf(r) && iso <= data.week.fri)) out.push(p);
+  }
+  return out;
+}
+// [1,2,3,5] → '1~3·5교시 가능' (셋 이상 이어지면 ~ 로 묶음)
+function freeText(ps) {
+  if (!ps.length) return '빈 교시 없음';
+  const runs = [];
+  for (const p of ps) { const r = runs[runs.length - 1]; if (r && r[1] === p - 1) r[1] = p; else runs.push([p, p]); }
+  return runs.map(([a, b]) => (b - a >= 2 ? `${a}~${b}` : b > a ? `${a}·${b}` : a)).join('·') + '교시 가능';
+}
+
 // 배치도 한 장: 위 줄 · 복도 · 아래 줄(+ 양옆 통칸). 실습실 칸만 단추이고 그 날짜에 이용가능한 실만 눌린다(관리자는 모두)
 function planHtml(pl, iso, n, admin, pick) {
   const cell = ([name, w, code]) => {
@@ -896,12 +932,17 @@ function planHtml(pl, iso, n, admin, pick) {
     let wait = 0;   // 이 실이 비는 교시에 아직 실을 고르지 않은 내 신청 수(관리자는 모든 신청) — 누르면 고를 수 있다는 표시
     if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !data.reqs.some(r => r.room === code && r.slot === sl && iso >= startOf(r) && iso <= data.week.fri)) wait += data.reqs.filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from)).length; }
     const st = ok ? (wait ? `${admin ? '대기' : '내 신청'} ${wait}` : '') : from ? md(from).split('(')[0] + '~' : '';
+    const fp = ok ? `<em class="fp">${freeText(freePs(code, iso, n))}</em>` : '';   // 빈 교시(큰 화면에서만 보임)
     const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
-    return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}${data.pc.includes(code) ? ' · PC 사용가능' : ''}"><b>${code}${data.pc.includes(code) ? PCMARK : ''}</b><span>${SHORT[code] || esc(roomName(code))}</span>${st ? `<em${ok ? ' class="wait"' : ''}>${st}</em>` : ''}</button>`;
+    return `<button type="button" class="pc pr ${ok ? 'on' : never ? 'never' : 'off'}" style="flex:${w} 1 0" data-plan="${code}" aria-pressed="${sel === code}"${ok || admin ? '' : ' disabled'} title="${esc(roomName(code))}실습실 — ${why}${data.pc.includes(code) ? ' · PC 사용가능' : ''}"><b>${code}${data.pc.includes(code) ? PCMARK : ''}</b><span>${SHORT[code] || esc(roomName(code))}</span><span class="pst">${st ? `<em${ok ? ' class="wait"' : ''}>${st}</em>` : ''}${fp}</span></button>`;
   };
   const row = cells => `<div class="prow">${cells.map(cell).join('')}</div>`;
   const cw = (pl.top || pl.bottom).reduce((t, c) => t + c[1], 0), side = c => (c ? `<div class="pside" style="flex:${c[1]} 1 0">${cell(c)}</div>` : '');
-  return `<div class="plan">${side(pl.left)}<div class="pcol" style="flex:${cw} 1 0">${pl.top ? row(pl.top) : ''}<div class="pmid">${pl.name ? esc(pl.name) + ' · ' : ''}${esc(pl.mid)}</div>${row(pl.bottom)}</div>${side(pl.right)}</div>`;
+  // 누른 실의 시간표: 그 실이 있는 줄 바로 아래에 배치도 폭 전체로 끼우고(--l = 왼쪽 통칸만큼 당김), 꼭지(--x)가 누른 실을 가리킨다
+  const L = pl.left ? pl.left[1] : 0, tot = L + cw + (pl.right ? pl.right[1] : 0), mid = (cells, x0) => { let x = x0; for (const c of cells || []) { if (c[2] === sel) return x + c[1] / 2; x += c[1]; } return -1; };
+  const xt = pick || !sel ? -1 : mid(pl.top, L), xb = pick || !sel ? -1 : Math.max(mid(pl.bottom, L), mid(pl.left && [pl.left], 0), mid(pl.right && [pl.right], L + cw));
+  const det = x => (x < 0 ? '' : `<div class="ftable pdet" style="--l:${(L / tot).toFixed(4)};--x:${(x / tot).toFixed(4)}">${roomHtml(sel, iso, n, admin, true)}</div>`);
+  return `<div class="plan${xt >= 0 || xb >= 0 ? ' hasdet' : ''}">${side(pl.left)}<div class="pcol" style="flex:${cw} 1 0">${pl.top ? row(pl.top) : ''}${det(xt)}<div class="pmid">${pl.name ? esc(pl.name) + ' · ' : ''}${esc(pl.mid)}</div>${row(pl.bottom)}${det(xb)}</div>${side(pl.right)}</div>`;
 }
 
 // 실 하나의 이름 줄 + 1~7교시 줄. inPlan = 배치도에서 누른 실('닫기' 단추), 아니면 층별 표의 한 줄(수업 불가 실은 접혀 있고 '보기'로 펼침)

@@ -92,8 +92,8 @@ ok('수업 불가 20곳은 회색 한 줄로 접혀 있음', s.closed === 20 && 
     ok('PC 화면(1920×910) 첫 화면에 4층~2층 배치도가 스크롤 없이 모두 보임', c.bottom2 <= c.vh, c); }
   await showGrid(); await page.click('#grid .pr[data-plan="2D"]');
   t = await page.evaluate(() => ({ rooms: [...document.querySelectorAll('#grid .room')].map(r => r.dataset.room).join(), cells: [...document.querySelectorAll('#grid .room .strip li')].map(li => li.className).join(), name: document.querySelector('#grid .room .rname').textContent,
-    pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: document.querySelector('#grid .ftable').previousElementSibling.classList.contains('plan') && !!document.querySelector('#grid .ftable').closest('.frow').querySelector('[data-plan="2D"]') }));
-  ok('배치도에서 2D 를 누르면 그 층 배치도 아래에 2D 시간표만 나옴', t.rooms === '2D' && t.cells === 'busy,busy,busy,free,free,free,free' && t.name === '송변전배전설비운영실습실' && t.pressed === 'true' && t.after, t);
+    pressed: document.querySelector('#grid .pr[data-plan="2D"]').getAttribute('aria-pressed'), after: !!document.querySelector('#grid .ftable').previousElementSibling.querySelector('[data-plan="2D"]') && Math.abs(document.querySelector('#grid .ftable').getBoundingClientRect().top - document.querySelector('#grid .pr[data-plan="2D"]').getBoundingClientRect().bottom) < 2 }));
+  ok('배치도에서 2D 를 누르면 2D 가 있는 줄 바로 아래에 2D 시간표만 나옴', t.rooms === '2D' && t.cells === 'busy,busy,busy,free,free,free,free' && t.name === '송변전배전설비운영실습실' && t.pressed === 'true' && t.after, t);
   await showGrid(); await page.click('#grid .room .more');
   ok('"닫기"를 누르면 시간표가 닫힘', (await page.locator('#grid .room').count()) === 0);
   await page.click('#tabTable'); await showGrid(); await page.waitForSelector('#grid .ftable .room');
