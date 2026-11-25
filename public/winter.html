@@ -89,11 +89,8 @@
   .pop { position: fixed; z-index: 20; left: 50%; top: 3vh; transform: translateX(-50%); width: min(560px, 94vw); max-height: 94vh; display: flex; flex-direction: column;
          background: var(--card); border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 20px var(--shadow); overflow: hidden; }
   .pop[hidden] { display: none; }
-  .pop.notice { z-index: 30; top: 30vh; left: 50%; right: auto; transform: translateX(-50%); width: min(380px, 90vw); text-align: center; }   /* 안내 창은 언제나 화면 가운데 */
-  .notice p { margin: 8px 0 14px; font-size: var(--fs-lg); }
-  .notice #noticeMulti { font-size: var(--fs-md); text-align: left; } .red { color: var(--red); }
-  #noticeNever { margin-left: 8px; padding: 8px 14px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); color: var(--sub); font-weight: 600; cursor: pointer; }
-  #noticeOk, #moreSend { padding: 8px 26px; border: 0; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; cursor: pointer; }
+  .red { color: var(--red); }
+  #moreSend { padding: 8px 26px; border: 0; border-radius: 8px; background: var(--ink); color: var(--on-ink); font-weight: 700; cursor: pointer; }
   .morelist { list-style: none; margin: 0 0 10px; padding: 0; }
   .morelist label { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: var(--fs-md); cursor: pointer; }
   .morelist input { width: 1.1em; height: 1.1em; }
@@ -333,7 +330,6 @@
   /* '실습실 선택하기' 단추: 누를 수 있게 되면 호박색으로 크게 */
   .multi button:not(:disabled) { padding: 10px 20px; background: var(--warm); color: var(--ink); font-size: var(--fs-lg); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--ink); }
   .multi button:disabled { background: var(--card); color: var(--frost-ink); border: 1px dashed var(--edge); cursor: default; }
-  .notice .red { color: var(--red); font-weight: 700; }
   /* 3단계 '옮길 수업을 누르고 실습실 고르기': 제목을 키우고 호박색 형광펜으로 */
   #steps > .step:last-child > label { font-size: var(--fs-lg); }
   /* 4) 이용할 수 없는 실·이미 실습실인 수업도 이름은 읽히게 */
@@ -471,9 +467,6 @@
 </main>
 <!-- 수업 칸을 누르면 뜨는 창: 그 시간에 비어 있는 실습실과 위치(배치도). 제목 줄을 끌어 옮길 수 있다 -->
 <!-- 이름을 고르면 뜨는 안내(화면 안의 창이라 팝업 차단과 상관없이 나온다) -->
-<div id="notice" class="pop notice" role="alertdialog" aria-labelledby="noticeText" hidden>
-  <div class="popbody"><p id="noticeText"><b>수업 장소 이동은 1주 단위로 신청할 수 있습니다.</b> 다음 주나 그 뒤 주 수업도 미리 신청할 수 있습니다. 시작일 옆 <b>다음 주</b>를 눌러 주를 바꾼 뒤 주마다 신청해 주세요.</p><p id="noticeMulti"><b class="red">여러 수업을 한 번에 고르기</b>를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.</p><button type="button" id="noticeOk">확인</button> <button type="button" id="noticeNever">이번 주 더 이상 안 보기</button></div>
-</div>
 <div id="printArea"></div>
 <div id="pop" class="pop" role="dialog" aria-labelledby="popTitle" hidden>
   <div class="pophead" id="popHead"><b id="popTitle"></b><button type="button" id="popClose" aria-label="닫기">✕</button></div>
@@ -583,19 +576,15 @@ function showNames() {
   $('tlist').innerHTML = names.map(n => `<button type="button" data-name="${esc(n)}">${esc(n)}</button>`).join('');
 }
 // 이번 주를 가리키는 값: 서버가 알려 준 오늘(한국 날짜)이 속한 주의 월요일
-function weekKey() { const d = new Date((data ? data.today : new Date().toISOString().slice(0, 10)) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }
 function choose(name) {
   me = name; pop = ''; more = null; picked.clear();
-  // 이름을 고를 때마다 '1주 단위' 안내 창('이번 주 더 이상 안 보기'를 누른 기기는 그 주에만 빼고, 다음 주 월요일부터 다시 뜬다). 단추에 바로 초점을 주면 이름을 고른 Enter 가 '확인'까지 눌러 창이 곧바로 닫히므로 조금 뒤에 준다
-  let off = false; try { off = localStorage.getItem('winterNoNotice') === weekKey(); } catch {}
-  $('notice').hidden = off; if (!off) setTimeout(() => { if (!$('notice').hidden) $('noticeOk').focus(); }, 200);
   $('teacher').value = name; $('tlist').hidden = true;
   renderMine();
 }
 // 닫기: 고른 교사를 지워 첫 화면(교사명 칸만)으로 돌아간다. 신청한 내용은 그대로 남는다
-function closeMe() { me = ''; pop = ''; more = null; picked.clear(); mineSel.clear(); multi = false; $('teacher').value = ''; $('tlist').hidden = true; $('notice').hidden = true; renderMine(); scrollTo({ top: 0 }); }
+function closeMe() { me = ''; pop = ''; more = null; picked.clear(); mineSel.clear(); multi = false; $('teacher').value = ''; $('tlist').hidden = true; renderMine(); scrollTo({ top: 0 }); }
 $('closeMe').addEventListener('click', closeMe);
-$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; more = null; picked.clear(); $('notice').hidden = true; renderMine(); } showNames(); });
+$('teacher').addEventListener('input', () => { if ($('teacher').value.trim() !== me) { me = ''; pop = ''; more = null; picked.clear(); renderMine(); } showNames(); });
 $('teacher').addEventListener('focus', showNames);
 $('teacher').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const b = $('tlist').querySelector('button'); if (b && !$('tlist').hidden) choose(b.dataset.name); } });
 $('tlist').addEventListener('click', e => { const b = e.target.closest('button[data-name]'); if (b) choose(b.dataset.name); });
@@ -827,9 +816,7 @@ $('weekBtns').addEventListener('click', e => { const b = e.target.closest('butto
 $('mytt').addEventListener('change', e => { const m = e.target.closest('input[data-mine]'); if (m) { const id = Number(m.dataset.mine); if (m.checked) mineSel.add(id); else mineSel.delete(id); return renderMine(); }
   if (e.target.id === 'multiOn') { multi = e.target.checked; picked.clear(); pop = ''; more = null; renderMine(); } });
 $('popClose').addEventListener('click', () => { pop = ''; more = null; renderMine(); });
-$('noticeOk').addEventListener('click', () => { $('notice').hidden = true; });
-$('noticeNever').addEventListener('click', () => { try { localStorage.setItem('winterNoNotice', weekKey()); } catch {} $('notice').hidden = true; });   // 이 기기에서 이번 주에는 다시 띄우지 않음
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('notice').hidden) { $('notice').hidden = true; return; } if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); return; } if (e.key === 'Escape' && !$('rpop').hidden) closeRoom(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && (pop || more)) { pop = ''; more = null; renderMine(); return; } if (e.key === 'Escape' && !$('rpop').hidden) closeRoom(); });
 $('popBody').addEventListener('click', async e => {
   const b = e.target.closest('button[data-room]'), x = e.target.closest('button[data-cancel]');
   if (e.target.closest('#moreYes')) { more.yes = true; moreSel.clear(); moreSlots().forEach(k => moreSel.add(k)); popErr = ''; return renderPop(); }   // 2단계: 가능한 칸을 모두 고른 채로 시간표를 보여 준다

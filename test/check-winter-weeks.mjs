@@ -31,7 +31,7 @@ const apply = async (slot, room) => { await page.click(`#mytt button[data-slot="
   await page.evaluate(() => { if (document.getElementById('moreNo')) document.getElementById('moreNo').click(); document.getElementById('msg').textContent = ''; }); };
 
 await page.goto('https://fake.test/winter'); await page.waitForSelector('#grid .plan');
-await page.fill('#teacher', '성준혁'); await page.click('#tlist button'); await page.click('#noticeOk');
+await page.fill('#teacher', '성준혁'); await page.click('#tlist button');
 let v = await st();
 ok('처음은 이번 주(11/23~11/27): 시작일 11/25, 월·화 8칸은 막힘, "앞 주"는 꺼짐', v.from === '2026-11-25' && v.head.includes('수11/25') && v.blocked === 8 && v.prevOff && v.thisOn === 'true' && v.hint.includes('이번 주(11/23(월)~11/27(금)) 수업을 신청합니다'), v);
 await apply('수4', '2D');

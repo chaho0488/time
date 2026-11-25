@@ -127,28 +127,16 @@ ok('이름을 고르기 전에는 시작일·시간표가 나오지 않고 신�
 await page.fill('#teacher', 'ㅅㅈㅇ'); s = await names();
 ok('초성 ㅅㅈㅇ → 신지은 포함', s.includes('신지은'), s);
 await page.click('#tlist button[data-name="신지은"]');
-ok('이름을 고르면 화면 안 안내 창: "수업 장소 이동은 1주 단위로 신청할 수 있습니다." (새 창이 아니라 팝업 차단과 무관)', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('noticeText').textContent.startsWith('수업 장소 이동은 1주 단위로 신청할 수 있습니다.') && document.getElementById('noticeText').textContent.includes('다음 주나 그 뒤 주 수업도 미리 신청')));
-ok('안내 창에 "여러 수업을 한 번에 고르기 … 한 실습실에서 계속 할 수 있는지 확인" 문구', (await page.textContent('#noticeMulti')) === '여러 수업을 한 번에 고르기를 체크하면, 고른 수업을 한 실습실에서 계속 할 수 있는지 확인할 수 있습니다.');
+ok('이름을 골라도 안내 창(팝업)은 뜨지 않고 바로 내 시간표가 나옴', await page.evaluate(() => !document.getElementById('notice') && !!document.getElementById('mytt').offsetParent && ![...document.querySelectorAll('.pop')].some(p => !p.hidden)));
 { const m = await page.evaluate(() => { const l = document.querySelector('#mytt .multi label'), c = getComputedStyle(l); return { color: c.color, size: parseFloat(c.fontSize), base: parseFloat(getComputedStyle(document.querySelector('#mytt .hint')).fontSize) }; });
   ok('"여러 수업을 한 번에 고르기"는 큰 글자(호박색 띠 안)', m.size > m.base + 3, m); }
-await page.click('#noticeOk'); ok('확인을 누르면 안내 창이 닫힘', await page.evaluate(() => document.getElementById('notice').hidden));
 s = await page.evaluate(() => ({ btn: document.querySelectorAll('#mytt button[data-slot]').length, lab: [...document.querySelectorAll('#mytt td.lab')].map(td => td.textContent) }));
 ok('신지은: 음악 18칸은 "음악 · 음악실" 회색, 화7 HR 은 "HR · 창체" 회색(창체 시간은 실습실 불가)이라 고를 수 있는 칸이 없음', s.btn === 0 && s.lab.length === 19 && s.lab.filter(t => t.endsWith('음악 · 음악실')).length === 18 && s.lab.filter(t => t.endsWith('HR · 창체')).length === 1, s);
 
 // 성준혁 선택 → 내 시간표(과학 18칸), 칸을 눌러 고름
-// 안내 창은 이름을 고를 때마다(키보드 Enter 로 골라도) 뜨고, '더 이상 안 보기'를 누른 뒤에만 안 뜸
-await page.fill('#teacher', '김동후'); await page.press('#teacher', 'Enter'); await page.waitForTimeout(400);
-ok('Enter 로 이름을 골라도 안내 창이 닫히지 않고 떠 있음', await page.evaluate(() => !document.getElementById('notice').hidden && document.getElementById('teacher').value === '김동후'));
-await page.click('#noticeOk'); await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
-ok('"확인"으로 닫은 뒤 다른 이름을 고르면 다시 뜸', await page.evaluate(() => !document.getElementById('notice').hidden));
-await page.click('#noticeNever'); await page.fill('#teacher', '김동후'); await page.press('#teacher', 'Enter'); await page.waitForTimeout(300);
-ok('"이번 주 더 이상 안 보기"를 누르면 이번 주(11/23 월요일 주)에는 이름을 골라도 안 뜸', await page.evaluate(() => document.getElementById('noticeNever').textContent === '이번 주 더 이상 안 보기' && document.getElementById('notice').hidden && localStorage.getItem('winterNoNotice') === '2026-11-23' && !!document.getElementById('mytt').offsetParent));
-// 다음 주(12/1 화)가 되면 다시 뜸
-await page.evaluate(() => { data.today = '2026-12-01'; }); await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
-ok('다음 주가 되면 안내 창이 다시 뜸', await page.evaluate(() => !document.getElementById('notice').hidden));
-await page.click('#noticeOk'); await page.evaluate(() => { data.today = '2026-11-24'; });
-await page.evaluate(() => localStorage.removeItem('winterNoNotice'));   // 아래 점검은 안내 창이 뜨는 기본 상태로
-await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]'); await page.click('#noticeOk');
+await page.fill('#teacher', '김동후'); await page.press('#teacher', 'Enter'); await page.waitForTimeout(300);
+ok('Enter 로 이름을 골라도 안내 창 없이 바로 시간표', await page.evaluate(() => document.getElementById('teacher').value === '김동후' && !!document.getElementById('mytt').offsetParent && ![...document.querySelectorAll('.pop')].some(p => !p.hidden)));
+await page.fill('#teacher', 'ㅅㅈㅎ'); await page.click('#tlist button[data-name="성준혁"]');
 s = await page.evaluate(() => ({ v: document.getElementById('teacher').value, btn: document.querySelectorAll('#mytt button[data-slot]').length, hidden: document.getElementById('tlist').hidden,
   w3: document.querySelector('#mytt button[data-slot="수3"]').textContent }));
 { const w = await page.evaluate(() => ({ head: [...document.querySelectorAll('#mytt thead th')].map(t => t.textContent).join(' '), next: [...document.querySelectorAll('#mytt td.lab')].filter(t => t.textContent.includes('다음 주')).length, monBtn: document.querySelectorAll('#mytt button[data-slot^="월"], #mytt button[data-slot^="화"]').length, max: document.getElementById('from').max, hint: document.querySelector('#mytt .hint').textContent }));
@@ -248,7 +236,7 @@ ok('폰 폭(390px)에서 내 시간표·실습실 시간표가 옆으로 넘치�
     const c = await page.evaluate(() => ({ name: document.getElementById('teacher').value, steps: document.getElementById('steps').hidden, tt: document.getElementById('mytt').innerHTML, btn: document.getElementById('closeMe').hidden, pop: document.getElementById('pop').hidden }));
     const n1 = (await (await worker.fetch(new Request('https://x/api/winter'), env)).json()).reqs.length;
     ok('"닫기"를 누르면 교사명 칸만 남고(시간표·신청 목록 사라짐) 신청은 그대로', c.name === '' && c.steps && c.tt === '' && c.btn && c.pop && n0 === n1 && n0 >= 2, { c, n0, n1 });
-    await page.evaluate(() => { choose('성준혁'); document.getElementById('notice').hidden = true; document.getElementById('multiOn').click(); });
+    await page.evaluate(() => { choose('성준혁'); document.getElementById('multiOn').click(); });
     ok('이름 옆에도 "닫기" 단추가 있음', await page.evaluate(() => !document.getElementById('closeMe').hidden && !!document.getElementById('closeMe').offsetParent)); }
   // 교사 본인 일괄 취소: 목록에서 한 건을 골라 취소하면 그 건만 지워지고, 관리자가 아니어도 된다
   { const b = await page.evaluate(() => ({ n: document.querySelectorAll('#mytt input[data-mine]').length, dis: document.getElementById('mineDel').disabled, admin: !!data.admin }));
