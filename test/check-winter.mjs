@@ -124,6 +124,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     x = await call('POST', { teacher: tb, from: D, slots: [kb], room: '2D' }, PW);
     assert.ok(x.status >= 400, '관리자도 창체 시간에는 배정할 수 없음'); assert.match(x.error, /창체/); }
 
+  // 원래 실습실 수업을 다른 실습실로 옮기기: 옮길 실을 함께 골라야 하고, 그 주에는 원래 실이 비어 다른 선생님이 쓸 수 있다
+  { const c3 = call;
+    assert.equal((await c3('PUT', { avail: { '2D': D, '3B': D, '3C': D, '4C': D } }, PW)).status, 200);
+    const mv = { teacher: '김동후', from: D, slots: ['목4'] };   // 목4 = 1신1 자동, 원래 4C
+    assert.match((await c3('POST', mv, A)).error, /옮겨 갈 실습실을 골라/, '실 없이 신청하면 안내');
+    assert.equal((await c3('POST', { ...mv, room: '4C' }, A)).status, 409, '원래 실로는 옮길 수 없음(그 시간에 자기 수업)');
+    assert.equal((await c3('POST', { ...mv, room: '2D' }, A)).status, 200, '4C 수업을 2D 로 옮김');
+    const idM = (await c3('GET')).reqs.find(x => x.teacher === '김동후').id;
+    assert.equal((await c3('POST', { teacher: '노현주', from: D, slots: ['목4'], room: '4C' }, B)).status, 200, '그 주 목4 에는 비게 된 4C 를 다른 선생님이 씀');
+    assert.equal((await c3('POST', { teacher: '노현주', from: '2026-12-07', slots: ['목4'], room: '4C' }, B)).status, 409, '옮기지 않은 다음 주에는 4C 에 전공 수업');
+    const idN = (await c3('GET')).reqs.find(x => x.teacher === '노현주' && x.wk === D).id;
+    assert.equal((await c3('DELETE', null, A, '?id=' + idM)).status, 409, '4C 에 다른 수업이 들어와 원래 실로 되돌릴 수 없음');
+    assert.equal((await c3('PATCH', { id: idM, room: '' }, A)).status, 400, '실 선택만 지울 수 없음(취소로)');
+    assert.equal((await c3('PATCH', { id: idM, room: '4C' }, A)).status, 400, '원래 실로 바꾸기는 취소로');
+    assert.equal((await c3('PATCH', { id: idM, room: '3B' }, A)).status, 200, '다른 실로는 바꿀 수 있음(4C 는 계속 빔)');
+    assert.equal((await c3('DELETE', null, B, '?id=' + idN)).status, 200);
+    assert.equal((await c3('DELETE', null, A, '?id=' + idM)).status, 200, '4C 가 다시 비면 취소(원래 실로) 가능');
+    assert.equal((await c3('POST', { teacher: '신지은', from: D, slots: ['목1'], room: '2D' }, A)).status, 400, '음악실 수업은 옮길 수 없음');
+    assert.equal((await c3('PUT', { avail: { '2D': D, '3B': D, '3C': D } }, PW)).status, 200, '점검용 값으로 되돌림'); }
+
   // 신청하면서 바로 실 고르기: 한 칸만, 쓸 수 있는 실만, 이미 누가 고른 실은 안 됨
   { const t2 = others[1], C = { 'X-Dev': 'c'.repeat(20) }, k2 = Object.keys(r.tt[t2]).find(k => k !== '수4' && r.tt[t2][k].endsWith('|'));
     assert.equal((await call('POST', { teacher: t2, from: D, slots: ['수4', k2], room: '3C' }, C)).status, 400, '실을 고를 때는 한 칸씩');

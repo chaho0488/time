@@ -571,7 +571,11 @@ function actP(mon, k) { for (let p = 1; p <= 7; p++) if (baseP(mon, k[0], p) ===
 const pLab = (k, mon = curMon()) => `${k[0]}요일 ${actP(mon, k)}교시`, pShort = (k, mon = curMon()) => k[0] + actP(mon, k);
 const shiftDays = mon => DAYS.filter(d => data.shift[dateIn(mon, d)]).map(d => md(dateIn(mon, d)));
 // 배정할 수 있는 실: 이용가능 표시가 있고, 그 요일교시에 전공 수업도 다른 배정도 없는 실 (서버와 같은 규칙)
-const freeRooms = (slot, mon = curMon()) => (data.block[slot] ? [] : data.rooms.map(r => r[0])).filter(c => typeof data.avail[c] === 'string' && !(data.base[c] && data.base[c][slot]) && !data.reqs.some(r => r.wk === mon && r.room === c && r.slot === slot));
+// 그 주 이 실의 전공 수업: 원래 실습실 수업을 그 주에 다른 실로 옮겼으면 빈 칸('')으로 본다 (두 반이 같이 쓰는 칸은 모두 옮겼을 때만, 서버와 같은 규칙)
+const baseAt = (c, slot, mon) => { const b = data.base[c] && data.base[c][slot]; return b && b.split(' ')[2].split('·').every(t => data.reqs.some(r => r.wk === mon && r.slot === slot && r.teacher === t && r.room && r.room !== c)) ? '' : (b || ''); };
+// 옮길 수 없는 칸: 실습실 목록에 없는 곳(음악실)에서 하는 수업. 원래 실습실 수업은 다른 실습실로 옮길 수 있다
+const fixedOf = v => { const rm = v.split('|')[2]; return !!rm && !data.rooms.some(x => x[0] === rm); };
+const freeRooms = (slot, mon = curMon()) => (data.block[slot] ? [] : data.rooms.map(r => r[0])).filter(c => typeof data.avail[c] === 'string' && !baseAt(c, slot, mon) && !data.reqs.some(r => r.wk === mon && r.room === c && r.slot === slot));
 // 선생님이 고를 수 있는 실: 이동 시작일(from)에 이미 열려 있는 실만. 관리자는 아직 안 열린 실에도 미리 배정할 수 있다
 const canUse = (c, from) => data.admin || data.avail[c] <= from;
 const roomLabel = (r, c) => `${c} ${esc(roomName(c))}` + (data.avail[c] && data.avail[c] > r.from ? ` (${md(data.avail[c])}부터)` : '');
@@ -617,7 +621,7 @@ function renderMine() {
   for (const b of $('weekBtns').children) { if (b.dataset.week === 'this') b.setAttribute('aria-pressed', !isNext()); if (b.dataset.week === 'prev') b.disabled = !isNext(); }
   const sc = data.tt[me], wk = weekDates(), fromV = $('from').value || minDate();   // 머리줄 날짜 = 이번 주. 시작일보다 앞 요일은 고를 수 없다
   const sd = shiftDays(curMon());
-  let h = `<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 회색은 이미 실습실에서 하는 수업, 초록색은 신청한 수업(칸에 실습실 이름)입니다. 취소하려면 초록색 칸의 체크 칸을 고르고 아래 <b>선택한 신청 취소</b>를 누르세요. <b>${weekName(curMon())}(${md(wk['월'])}~${md(wk['금'])}) 수업을 신청합니다. 다른 주 수업은 위의 \'앞 주\'·\'다음 주\' 단추로 주를 바꿔 신청합니다.</b>${sd.length ? ` <b class="red">⚠ ${sd.join(', ')}은 교시가 옮겨진 날이라, 그날 수업은 옮겨진 교시 자리에 표시했습니다.</b>` : ''}</div>`
+  let h = `<div class="hint">수업 칸을 누르면 그 시간에 비어 있는 실습실과 위치가 창으로 뜹니다. 실을 고르면 바로 신청됩니다. 원래 실습실에서 하는 수업(칸에 실 코드)도 눌러서 다른 실습실로 옮길 수 있습니다. 회색은 고를 수 없는 칸, 초록색은 신청한 수업(칸에 실습실 이름)입니다. 취소하려면 초록색 칸의 체크 칸을 고르고 아래 <b>선택한 신청 취소</b>를 누르세요. <b>${weekName(curMon())}(${md(wk['월'])}~${md(wk['금'])}) 수업을 신청합니다. 다른 주 수업은 위의 \'앞 주\'·\'다음 주\' 단추로 주를 바꿔 신청합니다.</b>${sd.length ? ` <b class="red">⚠ ${sd.join(', ')}은 교시가 옮겨진 날이라, 그날 수업은 옮겨진 교시 자리에 표시했습니다.</b>` : ''}</div>`
     + `<div class="multi"><label><input type="checkbox" id="multiOn"${multi ? ' checked' : ''}> 여러 수업을 한 번에 고르기</label>${multi ? `<button type="button" id="multiGo"${picked.size ? '' : ' disabled'}>${picked.size ? `실습실 선택하기 (고른 ${picked.size}칸)` : '수업 칸을 여러 개 누르세요'}</button>` : ''}</div>`
     + '<div class="wrap"><table><thead><tr><th class="p"></th>' + DAYS.map(d => `<th>${d}${wk[d] ? `<small>${mdOnly(wk[d])}</small>` : ''}</th>`).join('') + '</tr></thead><tbody>';
   // 신청한 칸: 실 이름(코드 + 줄인 이름), 마우스를 올리면 전체 이름·층·시작일, 취소할 수 있는 신청에는 체크 칸
@@ -630,15 +634,15 @@ function renderMine() {
       const k = d + baseP(curMon(), d, p), v = sc[k];   // 교시가 옮겨진 날은 그날의 실제 교시 자리에
       if (p > NP[d]) { h += '<td class="out"></td>'; continue; }
       if (!v) { h += '<td></td>'; continue; }
-      const [c, s0, room] = v.split('|'), r = wr().find(x => x.teacher === me && x.slot === k);
+      const [c, s0, room0] = v.split('|'), room = fixedOf(v) ? room0 : '', lab = room ? '' : room0, r = wr().find(x => x.teacher === me && x.slot === k);   // room = 옮길 수 없는 곳(음악실), lab = 원래 수업하는 실습실(옮길 수 있음)
       const gone = (data.moves.out[wk[d]] || {})[me + '|' + d + p], s = s0 + (gone === '' ? ' · 교체' : gone ? ` · ${gone}(대강)` : '');   // 교체·대강이 걸린 날은 과목 옆에 표시
       if (!room && !r && data.block[k]) { h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${data.block[k]}</small></td>`; continue; }   // 창체 시간(화7·목7): 실습실을 쓸 수 없어 고를 수 없음
       if (!room && !r && wk[d] < fromV) { h += `<td class="lab">${esc(c)}<small><span class="sj">${esc(s)} · </span>${isNext() ? '시작일 전' : '다음 주'}</small></td>`; continue; }   // 시작일보다 앞 요일: 이 주에는 신청 불가(이번 주라면 다음 주에 신청)
-      if (multi && !room && !r) { h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}" class="${picked.has(k) ? 'sel' : ''}">${esc(c)}<small>${esc(s)}</small></button></td>`; continue; }   // 여러 칸 고르기: 아직 신청하지 않은 수업만
+      if (multi && !room && !r) { h += `<td><button type="button" data-slot="${k}" aria-pressed="${picked.has(k)}" class="${picked.has(k) ? 'sel' : ''}">${esc(c)}<small>${esc(s)}${lab ? ' · ' + lab : ''}</small></button></td>`; continue; }   // 여러 칸 고르기: 아직 신청하지 않은 수업만
       if (multi && r) { h += `<td class="req${ck(r) ? ' ckc' : ''}"${tipOf(r)}>${ck(r)}${esc(c)}<small>${r.room ? rn(r.room) : '신청됨'}</small></td>`; continue; }
       if (room) h += `<td class="lab">${esc(c)}<small>${esc(s)} · ${esc(room)}</small></td>`;
       else if (r && !(r.mine || data.admin)) h += `<td class="req"${tipOf(r)}>${esc(c)}<small>${r.room ? rn(r.room) : '신청됨'}</small></td>`;   // 다른 기기에서 한 신청: 보기만
-      else h += `<td${r ? ' class="ckc"' + tipOf(r) : ''}>${r ? ck(r) : ''}<button type="button" data-slot="${k}" aria-pressed="${pop === k}" class="${r ? 'req' : ''}${pop === k ? ' sel' : ''}">${esc(c)}<small>${r ? (r.room ? rn(r.room) : '실 선택 전') : esc(s)}</small></button></td>`;
+      else h += `<td${r ? ' class="ckc"' + tipOf(r) : ''}>${r ? ck(r) : ''}<button type="button" data-slot="${k}" aria-pressed="${pop === k}" class="${r ? 'req' : ''}${pop === k ? ' sel' : ''}">${esc(c)}<small>${r ? (r.room ? (lab ? lab + '→' : '') + rn(r.room) : '실 선택 전') : esc(s) + (lab ? ' · ' + lab : '')}</small></button></td>`;
     }
     h += '</tr>';
   }
@@ -657,7 +661,7 @@ const myReqs = () => wr().filter(r => r.teacher === me);   // 지금 보는 주�
 const myMoves = () => wr().filter(r => r.teacher === me && r.room).sort((a, b) => slotOrder(a.slot) - slotOrder(b.slot));
 const fullRoom = c => (data.rooms.find(r => r[0] === c) || ['', c])[1];
 // 방금 고른 실이 비어 있는 내 다른 수업(아직 신청하지 않은 교실 수업)
-const moreSlots = () => Object.keys(data.tt[me]).filter(k => !data.tt[me][k].split('|')[2] && !wr().some(x => x.teacher === me && x.slot === k)
+const moreSlots = () => Object.keys(data.tt[me]).filter(k => !fixedOf(data.tt[me][k]) && !wr().some(x => x.teacher === me && x.slot === k)
   && weekDates()[k[0]] >= more.from && canUse(more.room, more.from) && freeRooms(k).includes(more.room)).sort((a, b) => slotOrder(a) - slotOrder(b));
 // 교실 안내용 인쇄: 옮긴 수업 표(크게) + 주간 시간표. 화면 안에서 인쇄 창만 부르므로 팝업 차단과 상관없다
 function printMine() {
@@ -1031,7 +1035,7 @@ function freePs(code, iso, n) {
   const out = [], mvs = (data.moves.room[iso] || {})[code] || {};
   for (let p = 1; p <= n; p++) {
     const slot = slotAt(iso, p), dk = dayOf(iso) + p;
-    if (!slot || dk in mvs || (data.base[code] && data.base[code][slot]) || data.block[slot]) continue;   // 교체로 그날만 비는 칸은 신청할 수 없으므로 세지 않는다
+    if (!slot || dk in mvs || baseAt(code, slot, monOf(iso)) || data.block[slot]) continue;   // 교체로 그날만 비는 칸은 신청할 수 없으므로 세지 않는다
     if (!wrOn(iso).some(r => r.room === code && r.slot === slot && iso >= startOf(r))) out.push(p);
   }
   return out;
@@ -1054,7 +1058,7 @@ function planHtml(pl, iso, n, admin, pick) {
     }
     const ok = availOn(code, iso), never = !ok && data.never.includes(code), from = data.avail[code];
     let wait = 0;   // 이 실이 비는 교시에 아직 실을 고르지 않은 내 신청 수(관리자는 모든 신청) — 누르면 고를 수 있다는 표시
-    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !(data.base[code] && data.base[code][sl]) && !wrOn(iso).some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += wrOn(iso).filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from)).length; }
+    if (ok) for (let p = 1; p <= n; p++) { const sl = slotAt(iso, p); if (sl && !baseAt(code, sl, monOf(iso)) && !wrOn(iso).some(r => r.room === code && r.slot === sl && iso >= startOf(r))) wait += wrOn(iso).filter(r => !r.room && r.slot === sl && (admin || r.mine) && canUse(code, r.from)).length; }
     const st = ok ? (wait ? `${admin ? '대기' : '내 신청'} ${wait}` : '') : from ? md(from).split('(')[0] + '~' : '';
     const fp = ok ? `<em class="fp">${freeText(freePs(code, iso, n))}</em>` : '';   // 빈 교시(큰 화면에서만 보임)
     const why = ok ? '이용가능' : never ? '교실 이용불가' : from ? md(from) + '부터' : '수업 불가';
@@ -1078,7 +1082,7 @@ function roomHtml(code, iso, n, admin, inPlan) {
     const slot = p <= n && slotAt(iso, p), no = `<i>${p}</i>`;
     // 교체·대강 반영(그 날짜에만): mv = 이 실 이 교시의 변화(null = 그날은 빔, 글자 = 그날 들어온 수업·대강), gone = 신청한 수업이 그날 교체로 없음('')·대강 교사 이름
     const dk = dayOf(iso) + p, mvs = (data.moves.room[iso] || {})[code] || {}, mv = dk in mvs ? mvs[dk] : undefined;
-    const b = slot && (mv !== undefined ? mv : data.base[code] && data.base[code][slot]);
+    const b = slot && (mv !== undefined ? mv : baseAt(code, slot, monOf(iso)));
     let a = slot && wrOn(iso).find(r => r.room === code && r.slot === slot && iso >= startOf(r));
     const gone = a ? (data.moves.out[iso] || {})[a.teacher + '|' + dk] : undefined;
     const swapFree = slot && !b && (mv === null || gone === '');   // 교체로 그날만 비는 칸(매주 쓰는 신청은 받을 수 없으므로 눌리지 않는다)
@@ -1109,7 +1113,8 @@ function putHtml(code, sl, admin, inPlan, iso) {
     const v = me && data.tt[me][sl], mr = me && wrOn(iso).find(r => r.teacher === me && r.slot === sl), from = $('from').value, late = () => `${code}은(는) ${md(data.avail[code])}부터 쓸 수 있습니다.`;
     if (!me) { if (!admin) tip = '위쪽 교사명 칸에 이름을 먼저 입력하면 이곳에서 해당 교시 수업을 바로 선택할 수 있습니다.'; }
     else if (!v) tip = cands.length ? '' : `${me} 선생님은 이 시간에 수업이 없습니다.`;
-    else if (v.split('|')[2]) tip = '이 시간 수업은 이미 실습실에서 합니다.';
+    else if (fixedOf(v)) tip = `이 시간 수업은 ${v.split('|')[2]}에서 합니다.`;
+    else if (v.split('|')[2] === code) tip = mr ? '원래 이 실습실에서 하는 수업입니다. 돌아오려면 신청을 취소해 주세요.' : '원래 이 실습실에서 하는 수업입니다.';
     else if (mr && !(mr.mine || admin)) tip = '다른 기기에서 신청한 수업입니다. 신청한 기기에서만 바꿀 수 있습니다.';
     else if (mr) { if (!canUse(code, mr.from)) tip = late(); else { tip = ''; btn += `<button type="button" data-put="${mr.id}|${code}">${esc(mr.cls)} ${esc(mr.subject)} <small>${mr.room ? `지금 ${mr.room} → ` : ''}${code}(으)로 ${mr.room ? '바꾸기' : '정하기'}</small></button>`; } }
     else if (!from) tip = '언제부터 이동할지 날짜를 먼저 골라 주세요.';

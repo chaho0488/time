@@ -15,7 +15,7 @@
 
 `node test/check-dg.mjs` — 점검용 칸 목록을 끼운 사본으로(실제 `DG`를 바꿔도 고칠 필요 없음) 대강 신청 API(선착순·같은 교시 중복·수업 없는 칸·취소 비밀번호·동시 신청)를 node:sqlite로 확인한다.
 
-`node test/check-winter.mjs` — 한파 신청 API(목록에 없는 교사·시간표에 없는 칸·이미 실습실에서 하는 수업·겹치는 신청·관리자만 배정·전공 수업이 있는 실·같은 실 중복 배정·취소 권한·동시 신청)를 node:sqlite로 확인한다. `node test/check-winter-page.mjs` — 화면에서 초성으로 교사 찾기 → 내 시간표에서 수업 고르기 → 신청 → 관리자 배정 → 실습실 시간표 반영까지와 폰 폭을 확인한다(playwright 필요).
+`node test/check-winter.mjs` — 한파 신청 API(목록에 없는 교사·시간표에 없는 칸·이미 실습실에서 하는 수업·겹치는 신청·관리자만 배정·전공 수업이 있는 실·같은 실 중복 배정·취소 권한·동시 신청)를 node:sqlite로 확인한다. `node test/check-winter-page.mjs` — 화면에서 초성으로 교사 찾기 → 내 시간표에서 수업 고르기 → 신청 → 관리자 배정 → 실습실 시간표 반영까지와 폰 폭을 확인한다(playwright 필요). `node test/check-winter-labmove.mjs` — 원래 실습실에서 하는 수업을 다른 실습실로 옮기면(내 시간표의 실습실 칸도 눌림) 그 주에만 원래 실이 빈 실이 되는지 확인한다(playwright 필요).
 
 `node test/check-dg-phone.mjs` — 대강 신청 화면이 날짜별 표로 나뉘어 폰 폭(360·390px)에서도 옆으로 넘기지 않고 다 보이는지 확인한다(playwright 필요).
 
