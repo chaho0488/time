@@ -8,7 +8,7 @@
 <!-- 카톡·문자로 주소를 보낼 때 나오는 미리보기(카톡은 한 번 읽은 미리보기를 한동안 기억하므로, 바꾼 뒤에는 주소 끝에 ?v=숫자 를 붙여 보낸다) -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://time.uehs.workers.dev/lunch">
-<meta property="og:title" content="점심식사 메뉴 선택 (12시 10분까지)">
+<meta property="og:title" content="점심식사 메뉴 선택 (신청 마감)">
 <meta property="og:description" content="점심식사 참여 여부와 메뉴를 선택해주세요. 고래온 · 2시~2시10분">
 <meta property="og:image" content="https://time.uehs.workers.dev/lunch-og.png">
 <meta property="og:image:width" content="1200">
@@ -33,6 +33,7 @@
   .info { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: -12px 0 28px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
   .info dt { color: var(--muted); }
   .info dd { margin: 0; }
+  .closed { margin: 0; padding: 16px; border-radius: var(--radius); background: var(--accent-soft); color: var(--accent); font-size: 18px; font-weight: 700; text-align: center; }
   .due { margin: -20px 0 28px; font-weight: 700; color: var(--accent); }   /* 마감 시간: 안내문과 줄을 나눠 눈에 띄게 */
   label.lbl { display: block; font-weight: 600; margin-bottom: 8px; }
   input[type=text] { width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 18px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); }
@@ -74,6 +75,7 @@
     <p class="sub">점심식사 참여 여부와 메뉴를 선택해주세요.</p>
     <p class="due">12시 10분까지 선택해주세요.</p>
     <dl class="info"><dt>장소</dt><dd>울산 북구 곡리8길 7 1층 고래온 (인근 주차 가능)</dd><dt>시간</dt><dd>2시~2시10분</dd></dl>
+    <p class="closed" id="closed" hidden>신청이 마감되었습니다.</p>
     <form id="f" novalidate>
       <label class="lbl" for="name">이름</label>
       <input id="name" type="text" autocomplete="name" maxlength="20" placeholder="예: 홍길동" required>
@@ -107,6 +109,9 @@ if (!ADMIN) {
   $('order').hidden = false;
   $('name').value = get('lunchName');
   fetch('/api/lunch', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    if (d.closed) {   // 마감: 신청 칸을 닫고 안내만
+      $('f').hidden = true; $('closed').hidden = false; document.querySelector('.due').hidden = true; return;
+    }
     const last = get('lunchMenu');   // 이 기기에서 지난번에 낸 메뉴를 미리 골라 둠
     $('opts').innerHTML = d.menus.map((m, i) =>
       `<label class="opt${i === d.menus.length - 1 ? ' skip' : ''}"><input type="radio" name="menu" value="${esc(m)}"${m === last ? ' checked' : ''}>${esc(m)}</label>`).join('');

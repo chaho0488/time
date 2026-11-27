@@ -485,17 +485,19 @@ async function winterApi(req, env, url) {
 //   /lunch                → public/lunch.html (주문만), /lunch/admin → 같은 화면의 결과 보기
 // 주문은 D1(DG)의 lunch 표(처음 부를 때 자동 생성). 다음에 다시 쓸 때는 LUNCH 를 바꾸고 DELETE FROM lunch 로 비운다.
 const LUNCH = ['전복솥밥', '곤드레솥밥', '식사 불참'];   // 갈비솥밥은 11/27 메뉴에서 뺌
+const LUNCH_CLOSED = true;   // 신청 마감(11/27 12시 넘어). 다시 받으려면 false
 async function lunchApi(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (!env.DG) return json({ error: 'D1(DG)이 연결되지 않았습니다' }, 503);
   await env.DG.prepare('CREATE TABLE IF NOT EXISTS lunch (name TEXT PRIMARY KEY, menu TEXT NOT NULL, at TEXT NOT NULL)').run();
   if (req.method === 'GET') {
-    if (new URL(req.url).searchParams.get('all') !== '1') return json({ menus: LUNCH });   // 주문 화면에는 메뉴만 (누가 무엇을 골랐는지는 내보내지 않음)
+    if (new URL(req.url).searchParams.get('all') !== '1') return json({ menus: LUNCH, closed: LUNCH_CLOSED });   // 주문 화면에는 메뉴만 (누가 무엇을 골랐는지는 내보내지 않음)
     const { results } = await env.DG.prepare('SELECT name, menu, at FROM lunch ORDER BY at').all();
     return new Response(JSON.stringify({ menus: LUNCH, list: results }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   }
   if (req.method === 'POST') {
+    if (LUNCH_CLOSED) return json({ error: '신청이 마감되었습니다.' }, 403);
     let b; try { b = await req.json(); } catch { return json({ error: '잘못된 요청입니다' }, 400); }
     const name = String((b && b.name) || '').replace(/\s+/g, '');   // 띄어쓰기 차이로 같은 사람이 두 번 세지지 않게
     const menu = String((b && b.menu) || '');

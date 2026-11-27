@@ -4,7 +4,14 @@ import { DatabaseSync } from 'node:sqlite';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
-import worker from '../src/worker.js';
+import { readFileSync, writeFileSync, rmSync } from 'node:fs';
+import realWorker from '../src/worker.js';
+// 신청 규칙은 받는 중인 사본(LUNCH_CLOSED=false)으로 본다
+const src = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8');
+assert.match(src, /const LUNCH_CLOSED = (true|false);/);
+const tmp = new URL('./.worker-lunch-open.mjs', import.meta.url);
+writeFileSync(tmp, src.replace(/const LUNCH_CLOSED = (true|false);/, 'const LUNCH_CLOSED = false;'));
+const worker = (await import(tmp)).default; rmSync(tmp);
 
 const db = new DatabaseSync(':memory:');
 const D1 = { prepare(sql) { let a = []; const st = {
@@ -32,6 +39,14 @@ assert.equal((await api('POST', { name: '   ', menu: '곤드레솥밥' })).statu
 assert.equal((await api('POST', { name: '가'.repeat(21), menu: '곤드레솥밥' })).status, 400, '너무 긴 이름 거절');
 assert.equal((await api('PUT', {})).status, 405);
 assert.equal(await (await worker.fetch(new Request('https://x/lunch/admin'), env)).text(), 'asset /lunch', '/lunch/admin 은 같은 화면');
+// 실제 설정이 마감이면: 신청 거절, 결과는 그대로
+if (/const LUNCH_CLOSED = true;/.test(src)) {
+  const rr = await realWorker.fetch(new Request('https://x/api/lunch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: '늦은이', menu: '전복솥밥' }) }), env);
+  assert.equal(rr.status, 403, '마감 뒤 신청 거절');
+  assert.equal((await (await realWorker.fetch(new Request('https://x/api/lunch'), env)).json()).closed, true);
+  assert.equal((await (await realWorker.fetch(new Request('https://x/api/lunch?all=1'), env)).json()).list.length, 1, '마감 뒤에도 결과는 보임');
+  console.log('✅ 마감: 신청 거절 · 결과 보임');
+}
 console.log('✅ API 규칙');
 
 // 화면: 실제 worker + 위 가짜 D1 로 응답
