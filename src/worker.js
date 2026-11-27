@@ -484,7 +484,7 @@ async function winterApi(req, env, url) {
 //   POST /api/lunch       → 주문 {name, menu}. 같은 이름으로 다시 내면 메뉴를 바꾼다
 //   /lunch                → public/lunch.html (주문만), /lunch/admin → 같은 화면의 결과 보기
 // 주문은 D1(DG)의 lunch 표(처음 부를 때 자동 생성). 다음에 다시 쓸 때는 LUNCH 를 바꾸고 DELETE FROM lunch 로 비운다.
-const LUNCH = ['전복솥밥', '갈비솥밥', '곤드레솥밥', '식사 불참'];
+const LUNCH = ['전복솥밥', '곤드레솥밥', '식사 불참'];   // 갈비솥밥은 11/27 메뉴에서 뺌
 async function lunchApi(req, env) {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (!env.DG) return json({ error: 'D1(DG)이 연결되지 않았습니다' }, 503);

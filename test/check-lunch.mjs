@@ -17,8 +17,8 @@ const api = (method, body, q = '') => worker.fetch(new Request('https://x/api/lu
   .then(async r => ({ status: r.status, ...(await r.json()) }));
 
 let r = await api('GET');
-assert.deepEqual(r.menus, ['전복솥밥', '갈비솥밥', '곤드레솥밥', '식사 불참']); assert.equal(r.list, undefined, '주문 화면용 조회에는 내역 없음');
-r = await api('POST', { name: ' 홍 길동 ', menu: '갈비솥밥' });
+assert.deepEqual(r.menus, ['전복솥밥', '곤드레솥밥', '식사 불참']); assert.equal(r.list, undefined, '주문 화면용 조회에는 내역 없음');
+r = await api('POST', { name: ' 홍 길동 ', menu: '곤드레솥밥' });
 assert.ok(r.ok); assert.equal(r.name, '홍길동', '띄어쓰기는 지움');
 r = await api('POST', { name: '홍길동', menu: '전복솥밥' });
 assert.ok(r.ok);
@@ -27,8 +27,9 @@ assert.ok(!JSON.stringify(r).includes('홍길동'), '주문 화면용 조회에 
 r = await api('GET', null, '?all=1');
 assert.equal(r.list.length, 1, '같은 이름은 한 사람'); assert.equal(r.list[0].menu, '전복솥밥', '다시 내면 메뉴가 바뀜');
 assert.equal((await api('POST', { name: '이몽룡', menu: '짜장면' })).status, 400, '목록에 없는 메뉴 거절');
-assert.equal((await api('POST', { name: '   ', menu: '갈비솥밥' })).status, 400, '빈 이름 거절');
-assert.equal((await api('POST', { name: '가'.repeat(21), menu: '갈비솥밥' })).status, 400, '너무 긴 이름 거절');
+assert.equal((await api('POST', { name: '이몽룡', menu: '갈비솥밥' })).status, 400, '뺀 메뉴(갈비솥밥) 거절');
+assert.equal((await api('POST', { name: '   ', menu: '곤드레솥밥' })).status, 400, '빈 이름 거절');
+assert.equal((await api('POST', { name: '가'.repeat(21), menu: '곤드레솥밥' })).status, 400, '너무 긴 이름 거절');
 assert.equal((await api('PUT', {})).status, 405);
 assert.equal(await (await worker.fetch(new Request('https://x/lunch/admin'), env)).text(), 'asset /lunch', '/lunch/admin 은 같은 화면');
 console.log('✅ API 규칙');
