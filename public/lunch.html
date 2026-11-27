@@ -22,7 +22,7 @@
   h1 { font-size: 26px; line-height: 1.3; margin: 0 0 4px; letter-spacing: -0.02em; }
   .sub { color: var(--muted); margin: 0 0 28px; }
   label.lbl { display: block; font-weight: 600; margin-bottom: 8px; }
-  input[type=text], input[type=password] { width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 18px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+  input[type=text] { width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 18px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); }
   input:focus { outline: none; border-color: var(--accent); }
   fieldset { border: 0; padding: 0; margin: 24px 0 0; }
   legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
@@ -50,8 +50,7 @@
   .row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
   .row b { font-size: 20px; font-variant-numeric: tabular-nums; }
   .names { color: var(--muted); font-size: 15px; margin-top: 2px; }
-  .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: var(--muted); font-size: 15px; }
-  .link { width: auto; height: 44px; margin: 0; padding: 0 4px; background: none; color: var(--muted); font-size: 15px; font-weight: 500; text-decoration: underline; }
+  .foot { margin: 12px 0 0; color: var(--muted); font-size: 15px; }
 </style>
 </head>
 <body>
@@ -72,21 +71,13 @@
     </form>
   </div>
 
-  <!-- 결과 보기(/lunch/admin): 관리자 비밀번호를 넣어야 보인다 -->
+  <!-- 결과 보기(/lunch/admin): 비밀번호 없이 바로 보인다. 주소는 단톡방에 올리지 않는다 -->
   <div id="admin" hidden>
     <h1>솥밥 주문 결과</h1>
-    <p class="sub">관리자만 보는 화면입니다.</p>
-    <form id="lf" novalidate>
-      <label class="lbl" for="pw">관리자 비밀번호</label>
-      <input id="pw" type="password" autocomplete="current-password">
-      <button id="login" type="submit">결과 보기</button>
-      <p class="msg err" id="lmsg" role="status" aria-live="polite"></p>
-    </form>
-    <div id="res" hidden>
-      <div class="big"><div><span>식사</span><b id="eat">0</b></div><div><span>불참</span><b id="skip">0</b></div></div>
-      <ul class="tally" id="tally"></ul>
-      <div class="foot"><span id="when"></span><button class="link" id="logout" type="button">잠그기</button></div>
-    </div>
+    <p class="sub">이 주소는 담당 선생님만 봐 주세요.</p>
+    <div class="big"><div><span>식사</span><b id="eat">0</b></div><div><span>불참</span><b id="skip">0</b></div></div>
+    <ul class="tally" id="tally"></ul>
+    <p class="foot" id="when">불러오는 중…</p>
   </div>
 </main>
 <script>
@@ -124,39 +115,24 @@ if (!ADMIN) {
     $('go').disabled = false;
   });
 } else {
-  // ── 결과 보기 ── 비밀번호는 이 탭에서만 기억(sessionStorage)
+  // ── 결과 보기 ──
   document.title = '솥밥 주문 결과';
   $('admin').hidden = false;
-  let PW = get('lunchPw', sessionStorage), timer = 0;
   async function load() {
-    if (!PW) return;
-    let r;
-    try { r = await fetch('/api/lunch', { cache: 'no-store', headers: { 'X-Pw': PW } }); }
-    catch { $('when').textContent = '새로 불러오지 못했습니다(인터넷 연결 확인)'; return; }
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok) { lock(r.status === 401 ? '비밀번호가 맞지 않습니다.' : (d.error || '불러오지 못했습니다.')); return; }
-    put('lunchPw', PW, sessionStorage);
-    $('lf').hidden = true; $('res').hidden = false;
-    const by = Object.fromEntries(d.menus.map(m => [m, []]));
-    for (const x of d.list) (by[x.menu] || (by[x.menu] = [])).push(x.name);
-    const skip = by[d.menus[d.menus.length - 1]].length;
-    $('eat').textContent = d.list.length - skip; $('skip').textContent = skip;
-    $('tally').innerHTML = Object.keys(by).map(m =>
-      `<li><div class="row"><span>${esc(m)}</span><b>${by[m].length}</b></div>${by[m].length ? `<div class="names">${by[m].map(esc).join(', ')}</div>` : ''}</li>`).join('');
-    $('when').textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' 기준 · 15초마다 새로 고침';
-    clearTimeout(timer); timer = setTimeout(load, 15000);
+    try {
+      const r = await fetch('/api/lunch?all=1', { cache: 'no-store' });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      const by = Object.fromEntries(d.menus.map(m => [m, []]));
+      for (const x of d.list) (by[x.menu] || (by[x.menu] = [])).push(x.name);
+      const skip = by[d.menus[d.menus.length - 1]].length;
+      $('eat').textContent = d.list.length - skip; $('skip').textContent = skip;
+      $('tally').innerHTML = Object.keys(by).map(m =>
+        `<li><div class="row"><span>${esc(m)}</span><b>${by[m].length}</b></div>${by[m].length ? `<div class="names">${by[m].map(esc).join(', ')}</div>` : ''}</li>`).join('');
+      $('when').textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' 기준 · 15초마다 새로 고침';
+    } catch { $('when').textContent = '새로 불러오지 못했습니다(인터넷 연결 확인)'; }
+    setTimeout(load, 15000);
   }
-  function lock(text) {
-    PW = ''; put('lunchPw', '', sessionStorage); clearTimeout(timer);
-    $('res').hidden = true; $('lf').hidden = false; $('lmsg').textContent = text || ''; $('pw').value = '';
-  }
-  $('lf').addEventListener('submit', e => {
-    e.preventDefault();
-    PW = $('pw').value; $('lmsg').textContent = '';
-    if (!PW) { $('lmsg').textContent = '비밀번호를 넣어 주세요.'; return; }
-    load();
-  });
-  $('logout').addEventListener('click', () => lock(''));
   load();
 }
 </script>
