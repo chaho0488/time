@@ -479,9 +479,9 @@ async function winterApi(req, env, url) {
 }
 
 // ───────── 솥밥 메뉴 주문(/lunch) ─────────
-//   GET  /api/lunch → 메뉴 목록·주문 내역 [{name, menu, at}]                    — 비밀번호 없음
+//   GET  /api/lunch → 메뉴 목록. 비밀번호(X-Pw)가 맞으면 주문 내역 [{name, menu, at}]도 — 결과는 관리자만 본다
 //   POST /api/lunch → 주문 {name, menu}. 같은 이름으로 다시 내면 메뉴를 바꾼다     — 비밀번호 없음
-//   /lunch          → public/lunch.html
+//   /lunch          → public/lunch.html (주문만), /lunch/admin → 같은 화면의 결과 보기(비밀번호)
 // 주문은 D1(DG)의 lunch 표(처음 부를 때 자동 생성). 다음에 다시 쓸 때는 LUNCH 를 바꾸고 DELETE FROM lunch 로 비운다.
 const LUNCH = ['전복솥밥', '갈비솥밥', '곤드레솥밥', '식사 불참'];
 async function lunchApi(req, env) {
@@ -489,6 +489,9 @@ async function lunchApi(req, env) {
   if (!env.DG) return json({ error: 'D1(DG)이 연결되지 않았습니다' }, 503);
   await env.DG.prepare('CREATE TABLE IF NOT EXISTS lunch (name TEXT PRIMARY KEY, menu TEXT NOT NULL, at TEXT NOT NULL)').run();
   if (req.method === 'GET') {
+    const pw = req.headers.get('X-Pw');
+    if (pw === null) return json({ menus: LUNCH });   // 주문하는 사람에게는 메뉴만 (누가 무엇을 골랐는지는 내보내지 않음)
+    if (!env.APP_PW || pw !== env.APP_PW) return json({ error: '비밀번호가 맞지 않습니다' }, 401);
     const { results } = await env.DG.prepare('SELECT name, menu, at FROM lunch ORDER BY at').all();
     return new Response(JSON.stringify({ menus: LUNCH, list: results }),
       { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
@@ -513,6 +516,11 @@ export default {
     if (url.pathname === '/api/dg') return dgApi(req, env, url);
     if (url.pathname === '/api/winter') return winterApi(req, env, url);
     if (url.pathname === '/api/lunch') return lunchApi(req, env);
+    // 솥밥 주문 결과 보기: 같은 lunch.html 을 내려준다 (화면이 주소를 보고 결과 보기로 켜짐, 내용은 비밀번호로만)
+    if (/^\/lunch\/admin\/?$/.test(url.pathname)) {
+      url.pathname = '/lunch';
+      return env.ASSETS.fetch(new Request(url.toString(), req));
+    }
 
     // 보기 전용 화면: 같은 index.html 을 내려준다 (주소는 /view 로 유지되어야 앱이 보기 전용으로 켜진다)
     if (/^\/view\/?$/.test(url.pathname)) {

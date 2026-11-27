@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
 <title>솥밥 메뉴 선택</title>
 <!-- 글꼴(Pretendard): 불러오지 못하면 기기 기본 글꼴로 보인다 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -15,13 +16,14 @@
     --radius: 10px;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; font-family: var(--font); font-size: 16px; line-height: 1.5; color: var(--text); background: var(--bg); word-break: keep-all; -webkit-text-size-adjust: 100%; }
   main { max-width: 480px; margin: 0 auto; padding: 28px 20px calc(40px + env(safe-area-inset-bottom)); }
   h1 { font-size: 26px; line-height: 1.3; margin: 0 0 4px; letter-spacing: -0.02em; }
   .sub { color: var(--muted); margin: 0 0 28px; }
   label.lbl { display: block; font-weight: 600; margin-bottom: 8px; }
-  input[type=text] { width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 18px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); }
-  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  input[type=text], input[type=password] { width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 18px; border: 1.5px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+  input:focus { outline: none; border-color: var(--accent); }
   fieldset { border: 0; padding: 0; margin: 24px 0 0; }
   legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
   .opts { display: grid; gap: 8px; }
@@ -37,96 +39,126 @@
   .msg { min-height: 24px; margin: 12px 0 0; font-weight: 600; }
   .msg.ok { color: #1f6b3a; } .msg.err { color: #b3261e; }
 
-  section { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
-  h2 { font-size: 18px; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: baseline; }
-  h2 small { font-size: 15px; font-weight: 500; color: var(--muted); }
+  /* 결과 보기(/lunch/admin) */
+  .big { display: flex; gap: 12px; margin-bottom: 16px; }
+  .big div { flex: 1; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+  .big span { display: block; color: var(--muted); font-size: 15px; }
+  .big b { font-size: 28px; font-variant-numeric: tabular-nums; }
   .tally { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
   .tally li { padding: 12px 16px; border-top: 1px solid var(--line); }
   .tally li:first-child { border-top: 0; }
   .row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; }
   .row b { font-size: 20px; font-variant-numeric: tabular-nums; }
   .names { color: var(--muted); font-size: 15px; margin-top: 2px; }
-  .muted { color: var(--muted); }
+  .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: var(--muted); font-size: 15px; }
+  .link { width: auto; height: 44px; margin: 0; padding: 0 4px; background: none; color: var(--muted); font-size: 15px; font-weight: 500; text-decoration: underline; }
 </style>
 </head>
 <body>
 <main>
-  <h1>솥밥 메뉴 선택</h1>
-  <p class="sub">이름을 쓰고 메뉴 하나를 골라 주세요. 바꾸려면 같은 이름으로 다시 내면 됩니다.</p>
+  <!-- 주문하는 화면(/lunch): 결과는 보이지 않는다 -->
+  <div id="order" hidden>
+    <h1>솥밥 메뉴 선택</h1>
+    <p class="sub">점심식사 참여 여부와 메뉴를 선택해주세요.</p>
+    <form id="f" novalidate>
+      <label class="lbl" for="name">이름</label>
+      <input id="name" type="text" autocomplete="name" maxlength="20" placeholder="예: 홍길동" required>
+      <fieldset>
+        <legend>메뉴</legend>
+        <div class="opts" id="opts"><p class="muted">불러오는 중…</p></div>
+      </fieldset>
+      <button id="go" type="submit" disabled>제출</button>
+      <p class="msg" id="msg" role="status" aria-live="polite"></p>
+    </form>
+  </div>
 
-  <form id="f" novalidate>
-    <label class="lbl" for="name">이름</label>
-    <input id="name" type="text" autocomplete="name" maxlength="20" placeholder="예: 홍길동" required>
-    <fieldset>
-      <legend>메뉴</legend>
-      <div class="opts" id="opts"><p class="muted">불러오는 중…</p></div>
-    </fieldset>
-    <button id="go" type="submit" disabled>제출</button>
-    <p class="msg" id="msg" role="status" aria-live="polite"></p>
-  </form>
-
-  <section aria-labelledby="t">
-    <h2 id="t">지금까지 <small id="total"></small></h2>
-    <ul class="tally" id="tally"></ul>
-  </section>
+  <!-- 결과 보기(/lunch/admin): 관리자 비밀번호를 넣어야 보인다 -->
+  <div id="admin" hidden>
+    <h1>솥밥 주문 결과</h1>
+    <p class="sub">관리자만 보는 화면입니다.</p>
+    <form id="lf" novalidate>
+      <label class="lbl" for="pw">관리자 비밀번호</label>
+      <input id="pw" type="password" autocomplete="current-password">
+      <button id="login" type="submit">결과 보기</button>
+      <p class="msg err" id="lmsg" role="status" aria-live="polite"></p>
+    </form>
+    <div id="res" hidden>
+      <div class="big"><div><span>식사</span><b id="eat">0</b></div><div><span>불참</span><b id="skip">0</b></div></div>
+      <ul class="tally" id="tally"></ul>
+      <div class="foot"><span id="when"></span><button class="link" id="logout" type="button">잠그기</button></div>
+    </div>
+  </div>
 </main>
 <script>
-// 화면: 이름 + 메뉴 하나 → /api/lunch 로 제출, 아래에 메뉴별 수량·이름
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-let menus = [];
-// 이 기기에서 쓴 이름 기억 (저장소가 막힌 브라우저면 그냥 넘어감)
-try { $('name').value = localStorage.getItem('lunchName') || ''; } catch {}
+const ADMIN = /\/admin\/?$/.test(location.pathname);
+const get = (k, store = localStorage) => { try { return store.getItem(k) || ''; } catch { return ''; } };
+const put = (k, v, store = localStorage) => { try { v ? store.setItem(k, v) : store.removeItem(k); } catch {} };
 
-function draw(list) {
-  if (!$('opts').querySelector('input')) {
-    $('opts').innerHTML = menus.map((m, i) =>
-      `<label class="opt${i === menus.length - 1 ? ' skip' : ''}"><input type="radio" name="menu" value="${esc(m)}">${esc(m)}</label>`).join('');
+if (!ADMIN) {
+  // ── 주문 ──
+  $('order').hidden = false;
+  $('name').value = get('lunchName');
+  fetch('/api/lunch', { cache: 'no-store' }).then(r => r.json()).then(d => {
+    const last = get('lunchMenu');   // 이 기기에서 지난번에 낸 메뉴를 미리 골라 둠
+    $('opts').innerHTML = d.menus.map((m, i) =>
+      `<label class="opt${i === d.menus.length - 1 ? ' skip' : ''}"><input type="radio" name="menu" value="${esc(m)}"${m === last ? ' checked' : ''}>${esc(m)}</label>`).join('');
     $('go').disabled = false;
+  }).catch(() => { $('opts').innerHTML = '<p class="msg err">불러오지 못했습니다. 새로고침해 주세요.</p>'; });
+
+  $('f').addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = $('name').value.trim(), sel = document.querySelector('input[name=menu]:checked'), msg = $('msg');
+    msg.className = 'msg err';
+    if (!name) { msg.textContent = '이름을 써 주세요.'; $('name').focus(); return; }
+    if (!sel) { msg.textContent = '메뉴를 골라 주세요.'; return; }
+    $('go').disabled = true; msg.className = 'msg'; msg.textContent = '보내는 중…';
+    try {
+      const r = await fetch('/api/lunch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, menu: sel.value }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || '제출하지 못했습니다.');
+      put('lunchName', name); put('lunchMenu', d.menu);
+      msg.className = 'msg ok'; msg.textContent = `${d.name} 님 · ${d.menu}으로 접수됐습니다.`;
+    } catch (err) { msg.className = 'msg err'; msg.textContent = err.message + ' 다시 눌러 주세요.'; }
+    $('go').disabled = false;
+  });
+} else {
+  // ── 결과 보기 ── 비밀번호는 이 탭에서만 기억(sessionStorage)
+  document.title = '솥밥 주문 결과';
+  $('admin').hidden = false;
+  let PW = get('lunchPw', sessionStorage), timer = 0;
+  async function load() {
+    if (!PW) return;
+    let r;
+    try { r = await fetch('/api/lunch', { cache: 'no-store', headers: { 'X-Pw': PW } }); }
+    catch { $('when').textContent = '새로 불러오지 못했습니다(인터넷 연결 확인)'; return; }
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { lock(r.status === 401 ? '비밀번호가 맞지 않습니다.' : (d.error || '불러오지 못했습니다.')); return; }
+    put('lunchPw', PW, sessionStorage);
+    $('lf').hidden = true; $('res').hidden = false;
+    const by = Object.fromEntries(d.menus.map(m => [m, []]));
+    for (const x of d.list) (by[x.menu] || (by[x.menu] = [])).push(x.name);
+    const skip = by[d.menus[d.menus.length - 1]].length;
+    $('eat').textContent = d.list.length - skip; $('skip').textContent = skip;
+    $('tally').innerHTML = Object.keys(by).map(m =>
+      `<li><div class="row"><span>${esc(m)}</span><b>${by[m].length}</b></div>${by[m].length ? `<div class="names">${by[m].map(esc).join(', ')}</div>` : ''}</li>`).join('');
+    $('when').textContent = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' 기준 · 15초마다 새로 고침';
+    clearTimeout(timer); timer = setTimeout(load, 15000);
   }
-  const by = Object.fromEntries(menus.map(m => [m, []]));
-  for (const r of list) (by[r.menu] || (by[r.menu] = [])).push(r.name);
-  const eat = list.filter(r => r.menu !== menus[menus.length - 1]).length;
-  $('total').textContent = `식사 ${eat}명 · 불참 ${list.length - eat}명`;
-  $('tally').innerHTML = menus.map(m =>
-    `<li><div class="row"><span>${esc(m)}</span><b>${by[m].length}</b></div>${by[m].length ? `<div class="names">${by[m].map(esc).join(', ')}</div>` : ''}</li>`).join('');
-  // 내 이름으로 낸 게 있으면 그 메뉴를 미리 골라 둔다
-  const me = $('name').value.replace(/\s+/g, ''), mine = list.find(r => r.name === me);
-  if (mine && !document.querySelector('input[name=menu]:checked')) {
-    const el = [...document.querySelectorAll('input[name=menu]')].find(x => x.value === mine.menu);
-    if (el) el.checked = true;
+  function lock(text) {
+    PW = ''; put('lunchPw', '', sessionStorage); clearTimeout(timer);
+    $('res').hidden = true; $('lf').hidden = false; $('lmsg').textContent = text || ''; $('pw').value = '';
   }
+  $('lf').addEventListener('submit', e => {
+    e.preventDefault();
+    PW = $('pw').value; $('lmsg').textContent = '';
+    if (!PW) { $('lmsg').textContent = '비밀번호를 넣어 주세요.'; return; }
+    load();
+  });
+  $('logout').addEventListener('click', () => lock(''));
+  load();
 }
-
-async function load() {
-  try {
-    const r = await fetch('/api/lunch', { cache: 'no-store' });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || '불러오지 못했습니다');
-    menus = d.menus; draw(d.list);
-  } catch (e) { $('opts').innerHTML = `<p class="msg err">불러오지 못했습니다. 새로고침해 주세요.</p>`; }
-}
-
-$('f').addEventListener('submit', async e => {
-  e.preventDefault();
-  const name = $('name').value.trim(), sel = document.querySelector('input[name=menu]:checked');
-  const msg = $('msg'); msg.className = 'msg err';
-  if (!name) { msg.textContent = '이름을 써 주세요.'; $('name').focus(); return; }
-  if (!sel) { msg.textContent = '메뉴를 골라 주세요.'; return; }
-  $('go').disabled = true; msg.className = 'msg'; msg.textContent = '보내는 중…';
-  try {
-    const r = await fetch('/api/lunch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, menu: sel.value }) });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || '제출하지 못했습니다');
-    try { localStorage.setItem('lunchName', name); } catch {}
-    msg.className = 'msg ok'; msg.textContent = `${d.name} 님 · ${d.menu}으로 접수됐습니다.`;
-    await load();
-  } catch (err) { msg.className = 'msg err'; msg.textContent = err.message + ' 다시 눌러 주세요.'; }
-  $('go').disabled = false;
-});
-
-load();
-setInterval(load, 15000);   // 다른 사람 주문이 들어오면 수량이 따라 바뀌게
 </script>
 </body>
 </html>
