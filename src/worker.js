@@ -12,6 +12,7 @@
 //   DELETE /api/dg?all=1 → 지난 내용 초기화(표·신청 모두 비움)            — 비밀번호(X-Pw)
 //   /dg             → public/dg.html (대강 신청 화면, 정적 파일)
 //   /api/winter, /winter → 한파 수업 장소 이동 신청·실습실 배정 (아래 '한파' 부분 참고)
+//   /api/lunch, /lunch   → 솥밥 메뉴 주문 (아래 '솥밥' 부분 참고)
 // 그 밖의 경로는 public/ 의 정적 파일(앱 화면).
 // 비밀번호는 X-Pw 헤더로 받고, Secret APP_PW 와 비교한다. 컴퓨터에서 file:// 로 연 앱도 부르므로 CORS 를 연다.
 
@@ -477,12 +478,41 @@ async function winterApi(req, env, url) {
   return json({ ok: true });
 }
 
+// ───────── 솥밥 메뉴 주문(/lunch) ─────────
+//   GET  /api/lunch → 메뉴 목록·주문 내역 [{name, menu, at}]                    — 비밀번호 없음
+//   POST /api/lunch → 주문 {name, menu}. 같은 이름으로 다시 내면 메뉴를 바꾼다     — 비밀번호 없음
+//   /lunch          → public/lunch.html
+// 주문은 D1(DG)의 lunch 표(처음 부를 때 자동 생성). 다음에 다시 쓸 때는 LUNCH 를 바꾸고 DELETE FROM lunch 로 비운다.
+const LUNCH = ['전복솥밥', '갈비솥밥', '곤드레솥밥', '식사 불참'];
+async function lunchApi(req, env) {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  if (!env.DG) return json({ error: 'D1(DG)이 연결되지 않았습니다' }, 503);
+  await env.DG.prepare('CREATE TABLE IF NOT EXISTS lunch (name TEXT PRIMARY KEY, menu TEXT NOT NULL, at TEXT NOT NULL)').run();
+  if (req.method === 'GET') {
+    const { results } = await env.DG.prepare('SELECT name, menu, at FROM lunch ORDER BY at').all();
+    return new Response(JSON.stringify({ menus: LUNCH, list: results }),
+      { headers: { ...CORS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+  }
+  if (req.method === 'POST') {
+    let b; try { b = await req.json(); } catch { return json({ error: '잘못된 요청입니다' }, 400); }
+    const name = String((b && b.name) || '').replace(/\s+/g, '');   // 띄어쓰기 차이로 같은 사람이 두 번 세지지 않게
+    const menu = String((b && b.menu) || '');
+    if (!name || name.length > 20) return json({ error: '이름을 확인해 주세요' }, 400);
+    if (!LUNCH.includes(menu)) return json({ error: '메뉴를 골라 주세요' }, 400);
+    await env.DG.prepare('INSERT INTO lunch (name, menu, at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET menu = excluded.menu, at = excluded.at')
+      .bind(name, menu, new Date().toISOString()).run();
+    return json({ ok: true, name, menu });
+  }
+  return json({ error: 'method' }, 405);
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
 
     if (url.pathname === '/api/dg') return dgApi(req, env, url);
     if (url.pathname === '/api/winter') return winterApi(req, env, url);
+    if (url.pathname === '/api/lunch') return lunchApi(req, env);
 
     // 보기 전용 화면: 같은 index.html 을 내려준다 (주소는 /view 로 유지되어야 앱이 보기 전용으로 켜진다)
     if (/^\/view\/?$/.test(url.pathname)) {
